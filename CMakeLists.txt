@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 3.24)
-project(FLOWDAW VERSION 0.1.0 LANGUAGES CXX)
+project(FLOWDAW VERSION 0.6.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(FLOWDAW_BUILD_APP "Build the X11 prototype shell" ON)
+option(FLOWDAW_BUILD_APP "Build the desktop Studio shell" ON)
 option(FLOWDAW_BUILD_TESTS "Build tests" ON)
+option(FLOWDAW_ENABLE_JUCE_RUNTIME "Enable the future JUCE production runtime contract when JUCE is supplied by the toolchain" OFF)
 
 add_library(flowdaw_core
     src/MusicalTime.cpp
@@ -27,10 +28,19 @@ add_library(flowdaw_core
     src/PluginHost.cpp
     src/ProductionAssistant.cpp
     src/Workflow.cpp
+    src/AppSettings.cpp
+    src/SessionRecovery.cpp
+    src/PluginSafety.cpp
+    src/RuntimeCapabilities.cpp
     src/AudioEngine.cpp
 )
 target_include_directories(flowdaw_core PUBLIC include)
 target_compile_options(flowdaw_core PRIVATE -Wall -Wextra -Wpedantic)
+
+if(FLOWDAW_ENABLE_JUCE_RUNTIME)
+    find_package(JUCE 9 CONFIG REQUIRED)
+    target_compile_definitions(flowdaw_core PUBLIC FLOWDAW_JUCE_RUNTIME=1)
+endif()
 
 find_library(PORTAUDIO_RUNTIME NAMES portaudio libportaudio.so.2)
 if(PORTAUDIO_RUNTIME)
@@ -47,6 +57,7 @@ if(FLOWDAW_BUILD_APP)
     add_executable(flowdaw app/main_phase5.cpp)
     target_link_libraries(flowdaw PRIVATE flowdaw_core X11::X11)
     target_compile_options(flowdaw PRIVATE -Wall -Wextra -Wpedantic)
+    install(TARGETS flowdaw RUNTIME DESTINATION bin)
 endif()
 
 if(FLOWDAW_BUILD_TESTS)
@@ -86,4 +97,15 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase5_tests tests/test_phase5.cpp)
     target_link_libraries(flowdaw_phase5_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase5_tests COMMAND flowdaw_phase5_tests)
+
+    add_executable(flowdaw_phase6_tests tests/test_phase6.cpp)
+    target_link_libraries(flowdaw_phase6_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase6_tests COMMAND flowdaw_phase6_tests)
 endif()
+
+set(CPACK_PACKAGE_NAME "FLOWDAW")
+set(CPACK_PACKAGE_VENDOR "FLOWDAW")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_FILE_NAME "FLOWDAW-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_GENERATOR "TGZ")
+include(CPack)
