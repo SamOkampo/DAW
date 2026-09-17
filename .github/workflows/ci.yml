@@ -37,3 +37,18 @@ jobs:
         run: cmake --install build-studio --prefix "$RUNNER_TEMP/flowdaw-install" && test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw" && test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw-doctor" && "$RUNNER_TEMP/flowdaw-install/bin/flowdaw-doctor" status
       - name: Package smoke test
         run: cd build-studio && cpack -G TGZ && test -n "$(find . -maxdepth 1 -name 'FLOWDAW-*.tar.gz' -print -quit)"
+
+  juce-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install JUCE Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libfreetype6-dev libfontconfig1-dev libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev libxcomposite-dev libxrender-dev libgl1-mesa-dev
+      - name: Configure JUCE 9.0.2 runtime
+        run: cmake -S . -B build-juce -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=OFF -DFLOWDAW_BUILD_TESTS=ON -DFLOWDAW_ENABLE_JUCE_RUNTIME=ON -DFLOWDAW_FETCH_JUCE=ON -DFLOWDAW_BUILD_JUCE_APP=ON -DFLOWDAW_BUILD_JUCE_TEST_PLUGIN=ON
+      - name: Build JUCE desktop and real VST3 fixture
+        run: cmake --build build-juce --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests
+      - name: Execute real VST3 host integration test
+        run: ctest --test-dir build-juce -R flowdaw_phase7_juce_tests --output-on-failure
+      - name: Install JUCE desktop smoke test
+        run: cmake --install build-juce --prefix "$RUNNER_TEMP/flowdaw-juce-install" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-juce"
