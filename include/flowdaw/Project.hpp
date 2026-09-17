@@ -82,24 +82,64 @@ struct Pattern {
     Tick chopQuantizeGridTicks=kPPQ/4;
     float chopQuantizeStrength=0.0f;
     float chopHumanize=0.0f;
-
-    // Phase 3 MIDI/Piano Roll state. MIDI remains musical data; the native
-    // instrument is rendered from these notes on publish and never baked into the project.
     std::vector<MidiNote> midiNotes;
     InstrumentState instrument;
-    int scaleRoot=0;                    // pitch class, C=0
-    std::string scaleType="minor";     // minor/major/minor_pentatonic/major_pentatonic
-    Tick midiGridTicks=kPPQ/4;          // default 1/16 grid
-    Tick midiDefaultLengthTicks=kPPQ/2; // default 1/8 note
-
+    int scaleRoot=0;
+    std::string scaleType="minor";
+    Tick midiGridTicks=kPPQ/4;
+    Tick midiDefaultLengthTicks=kPPQ/2;
     Tick lengthTicks() const { return static_cast<Tick>(stepCount)*kPPQ/stepsPerBeat; }
 };
 struct PatternPlacement { Id id=nextId(); Id patternId=0; Tick startTick=0; int repeats=1; };
-struct Track { Id id=nextId(); std::string name="Audio 1"; MixerChannel mixer; std::vector<Clip> clips; std::vector<PatternPlacement> patternClips; };
+
+// Phase 4 recording / mixer / automation model.
+struct RecordingTake {
+    Id id=nextId();
+    std::string name="Take";
+    Id sampleId=0;
+    Tick startTick=0;
+    Tick lengthTicks=0;
+};
+struct MixerSend {
+    Id id=nextId();
+    Id busId=0;
+    float gain=0.0f;
+    bool enabled=true;
+    bool preFader=false;
+};
+struct Bus {
+    Id id=nextId();
+    std::string name="Bus";
+    MixerChannel mixer;
+};
+struct AutomationPoint {
+    Tick tick=0;
+    float value=1.0f;
+};
+struct AutomationLane {
+    Id id=nextId();
+    std::string target="track.volume";
+    Id targetId=0;
+    Id subTargetId=0;
+    std::vector<AutomationPoint> points;
+};
+struct Track {
+    Id id=nextId();
+    std::string name="Audio 1";
+    MixerChannel mixer;
+    std::vector<Clip> clips;
+    std::vector<PatternPlacement> patternClips;
+    bool armed=false;
+    bool inputMonitor=false;
+    Id outputBusId=0; // 0 = master
+    std::vector<MixerSend> sends;
+    std::vector<RecordingTake> takes;
+    Id activeTakeId=0;
+};
 struct TransportState { double bpm=90.0; Tick playheadTick=0; bool playing=false; };
 struct MasterMixer { float volume=1.0f; std::vector<Effect> effects; };
 struct Project {
-    int formatVersion=8;
+    int formatVersion=9;
     std::string name="Untitled";
     int sampleRate=48000;
     TransportState transport;
@@ -107,8 +147,11 @@ struct Project {
     std::vector<SampleAsset> samples;
     std::vector<Track> tracks;
     std::vector<Pattern> patterns;
+    std::vector<Bus> buses;
+    std::vector<AutomationLane> automation;
 
     SampleAsset* findSample(Id id); const SampleAsset* findSample(Id id) const;
     Track* findTrack(Id id); Pattern* findPattern(Id id); const Pattern* findPattern(Id id) const;
+    Bus* findBus(Id id); const Bus* findBus(Id id) const;
 };
 }

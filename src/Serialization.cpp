@@ -1,4 +1,5 @@
 #include "flowdaw/Serialization.hpp"
+#include "flowdaw/Automation.hpp"
 #include "flowdaw/NativeDrums.hpp"
 #include "flowdaw/TimeStretch.hpp"
 #include "flowdaw/Wav.hpp"
@@ -17,7 +18,7 @@ Effect loadEffect(std::ifstream&f,std::string&tag,const char*expected){Effect e;
 
 void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
     std::ofstream f(path);if(!f)throw std::runtime_error("Cannot save project");
-    f<<"FLOWDAW_PROJECT 8\n";
+    f<<"FLOWDAW_PROJECT 9\n";
     f<<"NAME "<<q(p.name)<<"\nSAMPLE_RATE "<<p.sampleRate<<"\nBPM "<<std::setprecision(12)<<p.transport.bpm<<"\nPLAYHEAD "<<p.transport.playheadTick<<"\n";
     f<<"MASTER "<<p.master.volume<<" "<<p.master.effects.size()<<"\n";for(auto const&e:p.master.effects)saveEffect(f,"MASTER_EFFECT",e);
     f<<"SAMPLES "<<p.samples.size()<<"\n";
@@ -27,10 +28,13 @@ void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
     }
     f<<"TRACKS "<<p.tracks.size()<<"\n";
     for(auto const&t:p.tracks){
-        f<<"TRACK "<<t.id<<" "<<q(t.name)<<" "<<t.mixer.volume<<" "<<t.mixer.pan<<" "<<t.mixer.mute<<" "<<t.mixer.solo<<" "<<t.clips.size()<<" "<<t.patternClips.size()<<" "<<t.mixer.effects.size()<<"\n";
+        f<<"TRACK "<<t.id<<" "<<q(t.name)<<" "<<t.mixer.volume<<" "<<t.mixer.pan<<" "<<t.mixer.mute<<" "<<t.mixer.solo<<" "<<t.clips.size()<<" "<<t.patternClips.size()<<" "<<t.mixer.effects.size()
+         <<" "<<t.armed<<" "<<t.inputMonitor<<" "<<t.outputBusId<<" "<<t.sends.size()<<" "<<t.takes.size()<<" "<<t.activeTakeId<<"\n";
         for(auto const&c:t.clips)f<<"CLIP "<<c.id<<" "<<c.sampleId<<" "<<c.startTick<<" "<<c.lengthTicks<<" "<<c.sourceStart<<" "<<c.sourceLength<<" "<<c.gain<<" "<<c.loop<<"\n";
         for(auto const&pc:t.patternClips)f<<"PATCLIP "<<pc.id<<" "<<pc.patternId<<" "<<pc.startTick<<" "<<pc.repeats<<"\n";
         for(auto const&e:t.mixer.effects)saveEffect(f,"TRACK_EFFECT",e);
+        for(auto const&s:t.sends)f<<"SEND "<<s.id<<" "<<s.busId<<" "<<s.gain<<" "<<s.enabled<<" "<<s.preFader<<"\n";
+        for(auto const&take:t.takes)f<<"TAKE "<<take.id<<" "<<q(take.name)<<" "<<take.sampleId<<" "<<take.startTick<<" "<<take.lengthTicks<<"\n";
     }
     f<<"PATTERNS "<<p.patterns.size()<<"\n";
     for(auto const&pat:p.patterns){
@@ -49,11 +53,15 @@ void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
         }
         for(auto const&n:pat.midiNotes)f<<"MIDI "<<n.id<<" "<<n.startTick<<" "<<n.lengthTicks<<" "<<n.pitch<<" "<<n.velocity<<"\n";
     }
+    f<<"BUSES "<<p.buses.size()<<"\n";
+    for(auto const&b:p.buses){f<<"BUS "<<b.id<<" "<<q(b.name)<<" "<<b.mixer.volume<<" "<<b.mixer.pan<<" "<<b.mixer.mute<<" "<<b.mixer.solo<<" "<<b.mixer.effects.size()<<"\n";for(auto const&e:b.mixer.effects)saveEffect(f,"BUS_EFFECT",e);}
+    f<<"AUTOMATION "<<p.automation.size()<<"\n";
+    for(auto lane:p.automation){normalizeAutomationLane(lane);f<<"AUTO "<<lane.id<<" "<<q(lane.target)<<" "<<lane.targetId<<" "<<lane.subTargetId<<" "<<lane.points.size()<<"\n";for(auto const&pt:lane.points)f<<"POINT "<<pt.tick<<" "<<pt.value<<"\n";}
     f<<"END\n";
 }
 
 Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio){
-    std::ifstream f(path);if(!f)throw std::runtime_error("Cannot open project");Project p;std::string tag;f>>tag;if(tag!="FLOWDAW_PROJECT")throw std::runtime_error("Not a FLOWDAW project");int version=0;f>>version;if(version<1||version>8)throw std::runtime_error("Unsupported project version");
+    std::ifstream f(path);if(!f)throw std::runtime_error("Cannot open project");Project p;std::string tag;f>>tag;if(tag!="FLOWDAW_PROJECT")throw std::runtime_error("Not a FLOWDAW project");int version=0;f>>version;if(version<1||version>9)throw std::runtime_error("Unsupported project version");
     while(f>>tag){
         if(tag=="NAME")f>>std::quoted(p.name);
         else if(tag=="SAMPLE_RATE")f>>p.sampleRate;
@@ -70,8 +78,13 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
             if(loadAudio&&version>=4){for(auto&derived:p.samples){if(derived.sourceSampleId==0||derived.audio)continue;auto*source=p.findSample(derived.sourceSampleId);if(source&&source->audio&&derived.timeRatio>=0.5&&derived.timeRatio<=2.0)derived.audio=std::make_shared<AudioBuffer>(timeStretchWsola(*source->audio,derived.timeRatio));}}
         }
         else if(tag=="TRACKS"){
-            std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){Track t;std::size_t nc=0,np=0,nfx=0;f>>tag;if(tag!="TRACK")throw std::runtime_error("Expected TRACK");f>>t.id>>std::quoted(t.name)>>t.mixer.volume>>t.mixer.pan>>t.mixer.mute>>t.mixer.solo>>nc;if(version>=2)f>>np;if(version>=3)f>>nfx;
-                for(std::size_t j=0;j<nc;++j){Clip c;f>>tag;if(tag!="CLIP")throw std::runtime_error("Expected CLIP");f>>c.id>>c.sampleId>>c.startTick>>c.lengthTicks>>c.sourceStart>>c.sourceLength>>c.gain>>c.loop;t.clips.push_back(c);}for(std::size_t j=0;j<np;++j){PatternPlacement pc;f>>tag;if(tag!="PATCLIP")throw std::runtime_error("Expected PATCLIP");f>>pc.id>>pc.patternId>>pc.startTick>>pc.repeats;t.patternClips.push_back(pc);}for(std::size_t j=0;j<nfx;++j)t.mixer.effects.push_back(loadEffect(f,tag,"TRACK_EFFECT"));p.tracks.push_back(std::move(t));
+            std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){Track t;std::size_t nc=0,np=0,nfx=0,nsend=0,ntake=0;f>>tag;if(tag!="TRACK")throw std::runtime_error("Expected TRACK");f>>t.id>>std::quoted(t.name)>>t.mixer.volume>>t.mixer.pan>>t.mixer.mute>>t.mixer.solo>>nc;if(version>=2)f>>np;if(version>=3)f>>nfx;if(version>=9)f>>t.armed>>t.inputMonitor>>t.outputBusId>>nsend>>ntake>>t.activeTakeId;
+                for(std::size_t j=0;j<nc;++j){Clip c;f>>tag;if(tag!="CLIP")throw std::runtime_error("Expected CLIP");f>>c.id>>c.sampleId>>c.startTick>>c.lengthTicks>>c.sourceStart>>c.sourceLength>>c.gain>>c.loop;t.clips.push_back(c);}
+                for(std::size_t j=0;j<np;++j){PatternPlacement pc;f>>tag;if(tag!="PATCLIP")throw std::runtime_error("Expected PATCLIP");f>>pc.id>>pc.patternId>>pc.startTick>>pc.repeats;t.patternClips.push_back(pc);}
+                for(std::size_t j=0;j<nfx;++j)t.mixer.effects.push_back(loadEffect(f,tag,"TRACK_EFFECT"));
+                for(std::size_t j=0;j<nsend;++j){MixerSend s;f>>tag;if(tag!="SEND")throw std::runtime_error("Expected SEND");f>>s.id>>s.busId>>s.gain>>s.enabled>>s.preFader;t.sends.push_back(s);}
+                for(std::size_t j=0;j<ntake;++j){RecordingTake take;f>>tag;if(tag!="TAKE")throw std::runtime_error("Expected TAKE");f>>take.id>>std::quoted(take.name)>>take.sampleId>>take.startTick>>take.lengthTicks;t.takes.push_back(take);}
+                p.tracks.push_back(std::move(t));
             }
         }
         else if(tag=="PATTERNS"){
@@ -86,8 +99,14 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
                 p.patterns.push_back(std::move(pat));
             }
         }
+        else if(tag=="BUSES"){
+            if(version<9)throw std::runtime_error("BUSES token in legacy project");std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){Bus b;std::size_t nfx=0;f>>tag;if(tag!="BUS")throw std::runtime_error("Expected BUS");f>>b.id>>std::quoted(b.name)>>b.mixer.volume>>b.mixer.pan>>b.mixer.mute>>b.mixer.solo>>nfx;for(std::size_t j=0;j<nfx;++j)b.mixer.effects.push_back(loadEffect(f,tag,"BUS_EFFECT"));p.buses.push_back(std::move(b));}
+        }
+        else if(tag=="AUTOMATION"){
+            if(version<9)throw std::runtime_error("AUTOMATION token in legacy project");std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){AutomationLane lane;std::size_t np=0;f>>tag;if(tag!="AUTO")throw std::runtime_error("Expected AUTO");f>>lane.id>>std::quoted(lane.target)>>lane.targetId>>lane.subTargetId>>np;for(std::size_t j=0;j<np;++j){AutomationPoint pt;f>>tag;if(tag!="POINT")throw std::runtime_error("Expected POINT");f>>pt.tick>>pt.value;lane.points.push_back(pt);}normalizeAutomationLane(lane);p.automation.push_back(std::move(lane));}
+        }
         else if(tag=="END")break;else throw std::runtime_error("Unknown project token: "+tag);
     }
-    p.formatVersion=8;return p;
+    p.formatVersion=9;return p;
 }
 }

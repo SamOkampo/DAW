@@ -22,14 +22,13 @@ add_library(flowdaw_core
     src/Serialization.cpp
     src/Undo.cpp
     src/ChopEditing.cpp
+    src/Automation.cpp
+    src/Export.cpp
     src/AudioEngine.cpp
 )
 target_include_directories(flowdaw_core PUBLIC include)
 target_compile_options(flowdaw_core PRIVATE -Wall -Wextra -Wpedantic)
 
-# The product backend is JUCE 9.x. This bootstrap backend links directly to the
-# PortAudio runtime available in the execution environment, without adding a
-# source-level dependency to the core.
 find_library(PORTAUDIO_RUNTIME NAMES portaudio libportaudio.so.2)
 if(PORTAUDIO_RUNTIME)
     target_compile_definitions(flowdaw_core PRIVATE FLOWDAW_HAS_PORTAUDIO=1)
@@ -42,7 +41,7 @@ target_compile_options(flowdaw_stretch_benchmark PRIVATE -Wall -Wextra -Wpedanti
 
 if(FLOWDAW_BUILD_APP)
     find_package(X11 REQUIRED)
-    add_executable(flowdaw app/main_phase3.cpp)
+    add_executable(flowdaw app/main_phase4.cpp)
     target_link_libraries(flowdaw PRIVATE flowdaw_core X11::X11)
     target_compile_options(flowdaw PRIVATE -Wall -Wextra -Wpedantic)
 endif()
@@ -76,4 +75,8 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase3_midi_tests tests/test_phase3_midi.cpp)
     target_link_libraries(flowdaw_phase3_midi_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase3_midi_tests COMMAND flowdaw_phase3_midi_tests)
+
+    add_executable(flowdaw_phase4_tests tests/test_phase4.cpp)
+    target_link_libraries(flowdaw_phase4_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase4_tests COMMAND flowdaw_phase4_tests)
 endif()

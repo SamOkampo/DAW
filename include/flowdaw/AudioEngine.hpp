@@ -26,22 +26,46 @@ public:
     std::string lastError() const;
     AudioBuffer renderOffline(SampleIndex frames) const;
 
-    // One-shot preview used by Chop Mode. The original buffer is never modified.
-    // chokeGroup=0 allows overlap; positive groups stop any previous voice in that group.
     bool triggerPreview(std::shared_ptr<AudioBuffer> audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain=1.0f,float pan=0.0f,int chokeGroup=0);
     void stopPreviews();
-    // Test/diagnostic hook: runs the exact device callback mixer without a sound device.
+
+    // Phase 4 recording. Allocation happens before the callback starts writing.
+    // The callback only performs bounded writes and atomics.
+    bool beginRecording(SampleIndex maxFrames);
+    AudioBuffer finishRecording();
+    bool isRecording() const { return recording_.load(std::memory_order_acquire); }
+    SampleIndex recordedFrames() const { return recordingWrite_.load(std::memory_order_acquire); }
+    bool inputAvailable() const { return inputAvailable_.load(std::memory_order_relaxed); }
+    void setInputMonitoring(bool enabled) { inputMonitoring_.store(enabled,std::memory_order_relaxed); }
+    bool inputMonitoring() const { return inputMonitoring_.load(std::memory_order_relaxed); }
+
+    // Test/diagnostic hooks use the exact callback mixer without a device.
     AudioBuffer renderDeviceBlockForTest(SampleIndex frames);
+    AudioBuffer processInputBlockForTest(const AudioBuffer& monoInput);
 private:
-    struct RenderClip { SampleIndex start=0,sourceStart=0,length=0; float gain=1; float pan=0; int chokeGroup=0; std::shared_ptr<AudioBuffer> audio; };
-    struct Graph { float master=1; std::vector<RenderClip> clips; };
+    struct RenderClip {
+        SampleIndex start=0,sourceStart=0,length=0;
+        float gain=1,pan=0;
+        int chokeGroup=0;
+        std::shared_ptr<AudioBuffer> audio;
+        float trackVolume=1.0f,trackPan=0.0f,busVolume=1.0f,busPan=0.0f,sendGain=1.0f;
+        int trackVolumeAutomation=-1,trackPanAutomation=-1,busVolumeAutomation=-1,busPanAutomation=-1,sendAutomation=-1;
+    };
+    struct Graph {
+        float master=1;
+        float masterEffectGain=1;
+        double bpm=90.0;
+        int masterVolumeAutomation=-1;
+        std::vector<AutomationLane> automation;
+        std::vector<RenderClip> clips;
+    };
     struct PreviewCommand { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0; float gain=1,pan=0; int chokeGroup=0; bool stopAll=false; };
     struct PreviewVoice { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0,position=0; float gain=1,pan=0; int chokeGroup=0; bool active=false; };
     static constexpr std::size_t kPreviewQueueSize=64;
     static constexpr std::size_t kPreviewVoices=16;
 
     std::atomic<Graph*> current_{nullptr};
-    std::vector<std::unique_ptr<Graph>> retired_; // kept alive while callback may observe them
+    std::vector<std::unique_ptr<Graph>> retired_;
     mutable std::mutex publishMutex_;
     std::atomic<bool> playing_{false};
     std::atomic<SampleIndex> playhead_{0};
@@ -49,6 +73,7 @@ private:
     unsigned long framesPerBuffer_=256;
     void* stream_=nullptr;
     std::string error_;
+    std::atomic<bool> inputAvailable_{false};
 
     std::array<PreviewCommand,kPreviewQueueSize> previewQueue_{};
     std::atomic<std::uint32_t> previewWrite_{0},previewRead_{0};
@@ -56,9 +81,16 @@ private:
     std::vector<std::shared_ptr<AudioBuffer>> previewKeepAlive_;
     std::mutex previewLifetimeMutex_;
 
+    std::vector<float> recordingBuffer_;
+    std::atomic<SampleIndex> recordingWrite_{0};
+    std::atomic<bool> recording_{false};
+    std::atomic<int> recordingWriters_{0};
+    std::atomic<bool> inputMonitoring_{false};
+
     static int paCallback(const void*,void*,unsigned long,const void*,unsigned long,void*);
-    int process(float* out,unsigned long frames);
+    int process(const float* in,float* out,unsigned long frames);
     void consumePreviewCommands();
     void mixPreviewVoices(float* out,unsigned long frames);
+    void captureInput(const float* in,unsigned long frames);
 };
 }

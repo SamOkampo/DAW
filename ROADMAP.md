@@ -44,8 +44,26 @@ Completed:
 13. Automated MIDI, scale, tuning, delay, persistence, migration and Arrangement render tests.
 14. Complete Studio executable and all seven test suites validated by GitHub Actions.
 
-## Phase 4 — Recording / Automation / Advanced Mixer [NEXT]
-Vocal/audio recording, takes and comping, automation curves, buses/sends, routing, advanced mixer UX and export workflow.
+## Phase 4 — Recording / Automation / Advanced Mixer [DONE]
 
-## Phase 5 — Assist / Plugins / Advanced Workflow
-Context-aware production copilot, VST3/AU host layer and workflow polish.
+Completed:
+1. Realtime-safe mono audio input capture with all recording storage preallocated before the callback writes.
+2. PortAudio input/output open with automatic output-only fallback when no default microphone is available.
+3. Input monitoring and deterministic callback-path recording tests.
+4. Persistent non-destructive `RecordingTake` model with musical start/length and active-take comp selection.
+5. Recorded takes stored as ordinary WAV-backed SampleAssets instead of destructive track audio.
+6. Project format v9 with backward loading for v1–v8.
+7. Persistent linear automation curves with normalized control points.
+8. Track Volume/Pan, Bus Volume/Pan, Send Gain and Master Volume automation targets.
+9. Persistent mixer buses with Volume/Pan/Mute/Solo and gain insert support.
+10. Track output routing to Master or Bus.
+11. Pre/post-fader-capable sends with independent send gain.
+12. Mixer Studio view with track selection, fader/pan, Mute/Solo, Arm, Monitor, recording, take switching, routing, sends and bus controls.
+13. Automation point writing at the playhead plus visible automation curve feedback.
+14. Offline master WAV export with tail allowance.
+15. Per-track WAV stem export.
+16. Dedicated Phase 4 tests for recording, monitoring, takes, comp selection, automation, routing, buses, sends, migration and export.
+17. CI validation of all eight test suites, stretch benchmark and complete Studio executable.
+
+## Phase 5 — Assist / Plugins / Advanced Workflow [NEXT]
+Context-aware production copilot, VST3/AU host layer, workflow polish and production-platform hardening.
