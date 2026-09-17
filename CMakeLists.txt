@@ -54,4 +54,8 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_sample_editing_tests tests/test_sample_editing.cpp)
     target_link_libraries(flowdaw_sample_editing_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_sample_editing_tests COMMAND flowdaw_sample_editing_tests)
+
+    add_executable(flowdaw_beat_grid_tests tests/test_beat_grid.cpp)
+    target_link_libraries(flowdaw_beat_grid_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_beat_grid_tests COMMAND flowdaw_beat_grid_tests)
 endif()
