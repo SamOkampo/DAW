@@ -38,7 +38,11 @@ void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
             f<<"LANE "<<q(lane.name)<<" "<<lane.sampleId<<" "<<lane.volume<<" "<<lane.pan<<" "<<lane.mute<<" "<<lane.solo<<" "<<lane.steps.size()<<"\n";
             for(auto const&st:lane.steps)f<<"STEP "<<st.active<<" "<<st.velocity<<" "<<st.probability<<" "<<st.microTicks<<"\n";
         }
-        for(auto const&ev:pat.chopEvents)f<<"CHOP "<<ev.id<<" "<<ev.recordedTick<<" "<<ev.tick<<" "<<ev.sampleId<<" "<<ev.sliceId<<" "<<ev.recordedVelocity<<" "<<ev.velocity<<" "<<ev.pan<<"\n";
+        for(auto const&ev:pat.chopEvents){
+            Tick recordedTick=ev.recordedTick;float recordedVelocity=ev.recordedVelocity;
+            if(pat.chopQuantizeStrength==0.0f&&pat.chopHumanize==0.0f&&recordedTick==0&&ev.tick!=0){recordedTick=ev.tick;recordedVelocity=ev.velocity;}
+            f<<"CHOP "<<ev.id<<" "<<recordedTick<<" "<<ev.tick<<" "<<ev.sampleId<<" "<<ev.sliceId<<" "<<recordedVelocity<<" "<<ev.velocity<<" "<<ev.pan<<"\n";
+        }
     }
     f<<"END\n";
 }
