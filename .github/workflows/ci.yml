@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Studio build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev
       - name: Configure Studio
         run: cmake -S . -B build-studio -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=ON -DFLOWDAW_BUILD_TESTS=OFF
       - name: Build Studio executable
