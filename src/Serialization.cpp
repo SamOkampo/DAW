@@ -16,13 +16,13 @@ Effect loadEffect(std::ifstream&f,std::string&tag,const char*expected){Effect e;
 
 void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
     std::ofstream f(path);if(!f)throw std::runtime_error("Cannot save project");
-    f<<"FLOWDAW_PROJECT 6\n";
+    f<<"FLOWDAW_PROJECT 7\n";
     f<<"NAME "<<q(p.name)<<"\nSAMPLE_RATE "<<p.sampleRate<<"\nBPM "<<std::setprecision(12)<<p.transport.bpm<<"\nPLAYHEAD "<<p.transport.playheadTick<<"\n";
     f<<"MASTER "<<p.master.volume<<" "<<p.master.effects.size()<<"\n";for(auto const&e:p.master.effects)saveEffect(f,"MASTER_EFFECT",e);
     f<<"SAMPLES "<<p.samples.size()<<"\n";
     for(auto const&s:p.samples){
         f<<"SAMPLE "<<s.id<<" "<<q(s.name)<<" "<<q(s.path.generic_string())<<" "<<q(s.nativeKey)<<" "<<s.detectedBpm<<" "<<s.bpmConfidence<<" "<<s.sourceSampleId<<" "<<s.timeRatio<<" "<<s.slices.size()<<"\n";
-        for(auto const&sl:s.slices)f<<"SLICE "<<sl.id<<" "<<q(sl.name)<<" "<<sl.startFrame<<" "<<sl.endFrame<<"\n";
+        for(auto const&sl:s.slices)f<<"SLICE "<<sl.id<<" "<<q(sl.name)<<" "<<sl.startFrame<<" "<<sl.endFrame<<" "<<sl.gain<<" "<<sl.pan<<" "<<sl.chokeGroup<<"\n";
     }
     f<<"TRACKS "<<p.tracks.size()<<"\n";
     for(auto const&t:p.tracks){
@@ -48,7 +48,7 @@ void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
 }
 
 Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio){
-    std::ifstream f(path);if(!f)throw std::runtime_error("Cannot open project");Project p;std::string tag;f>>tag;if(tag!="FLOWDAW_PROJECT")throw std::runtime_error("Not a FLOWDAW project");int version=0;f>>version;if(version<1||version>6)throw std::runtime_error("Unsupported project version");
+    std::ifstream f(path);if(!f)throw std::runtime_error("Cannot open project");Project p;std::string tag;f>>tag;if(tag!="FLOWDAW_PROJECT")throw std::runtime_error("Not a FLOWDAW project");int version=0;f>>version;if(version<1||version>7)throw std::runtime_error("Unsupported project version");
     while(f>>tag){
         if(tag=="NAME")f>>std::quoted(p.name);
         else if(tag=="SAMPLE_RATE")f>>p.sampleRate;
@@ -58,7 +58,7 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
         else if(tag=="SAMPLES"){
             std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){SampleAsset s;f>>tag;if(tag!="SAMPLE")throw std::runtime_error("Expected SAMPLE");f>>s.id>>std::quoted(s.name);std::string sp;f>>std::quoted(sp);s.path=sp;if(version>=2)f>>std::quoted(s.nativeKey);
                 std::size_t nslices=0;if(version>=4)f>>s.detectedBpm>>s.bpmConfidence>>s.sourceSampleId>>s.timeRatio>>nslices;
-                for(std::size_t j=0;j<nslices;++j){SampleSlice sl;f>>tag;if(tag!="SLICE")throw std::runtime_error("Expected SLICE");f>>sl.id>>std::quoted(sl.name)>>sl.startFrame>>sl.endFrame;s.slices.push_back(std::move(sl));}
+                for(std::size_t j=0;j<nslices;++j){SampleSlice sl;f>>tag;if(tag!="SLICE")throw std::runtime_error("Expected SLICE");f>>sl.id>>std::quoted(sl.name)>>sl.startFrame>>sl.endFrame;if(version>=7)f>>sl.gain>>sl.pan>>sl.chokeGroup;s.slices.push_back(std::move(sl));}
                 if(loadAudio&&s.sourceSampleId==0){if(!s.nativeKey.empty())s.audio=std::make_shared<AudioBuffer>(makeNativeDrum(s.nativeKey,p.sampleRate));else if(!s.path.empty()&&std::filesystem::exists(s.path))s.audio=std::make_shared<AudioBuffer>(WavFile::read(s.path));}
                 p.samples.push_back(std::move(s));
             }
@@ -78,6 +78,6 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
         }
         else if(tag=="END")break;else throw std::runtime_error("Unknown project token: "+tag);
     }
-    p.formatVersion=6;return p;
+    p.formatVersion=7;return p;
 }
 }
