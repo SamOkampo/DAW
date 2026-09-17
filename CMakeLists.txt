@@ -45,4 +45,8 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_tests tests/test_main.cpp)
     target_link_libraries(flowdaw_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_tests COMMAND flowdaw_tests)
+
+    add_executable(flowdaw_chop_editing_tests tests/test_chop_editing.cpp)
+    target_link_libraries(flowdaw_chop_editing_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_chop_editing_tests COMMAND flowdaw_chop_editing_tests)
 endif()
