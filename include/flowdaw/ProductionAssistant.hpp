@@ -5,7 +5,7 @@
 
 namespace flowdaw {
 enum class AssistantAction {
-    None,
+    Informational,
     SetMasterHeadroom,
     CreateMixBus,
     TrimTrack,
@@ -18,7 +18,7 @@ struct AssistantSuggestion {
     std::string title;
     std::string detail;
     std::string actionLabel;
-    AssistantAction action=AssistantAction::None;
+    AssistantAction action=AssistantAction::Informational;
     Id targetId=0;
     float value=0.0f;
     int priority=0;
