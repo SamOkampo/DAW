@@ -41,6 +41,7 @@ AudioBuffer renderNativeInstrumentNote(const InstrumentState& instrument,int mid
     }
     const float mix=std::clamp(instrument.delayMix,0.0f,0.85f);
     if(delay>0&&mix>0){const auto dry=out.interleaved;for(int tap=1;tap<=2;++tap){const SampleIndex off=delay*tap;const float g=mix*std::pow(0.58f,static_cast<float>(tap-1));for(SampleIndex i=0;i<static_cast<SampleIndex>(dry.size())&&i+off<static_cast<SampleIndex>(out.interleaved.size());++i)out.interleaved[static_cast<std::size_t>(i+off)]+=dry[static_cast<std::size_t>(i)]*g;}}
-    for(auto&x:out.interleaved)x=std::clamp(x,-1.2f,1.2f);return out;
+    for(auto&x:out.interleaved)x=std::clamp(x,-1.2f,1.2f);
+    return out;
 }
 }
