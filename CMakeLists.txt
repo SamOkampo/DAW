@@ -1,13 +1,16 @@
 cmake_minimum_required(VERSION 3.24)
-project(FLOWDAW VERSION 0.6.0 LANGUAGES CXX)
+project(FLOWDAW VERSION 0.7.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(FLOWDAW_BUILD_APP "Build the desktop Studio shell" ON)
-option(FLOWDAW_BUILD_TESTS "Build tests" ON)
-option(FLOWDAW_ENABLE_JUCE_RUNTIME "Enable the future JUCE production runtime contract when JUCE is supplied by the toolchain" OFF)
+option(FLOWDAW_BUILD_APP "Build the X11 bootstrap Studio shell" ON)
+option(FLOWDAW_BUILD_TESTS "Build toolkit-independent tests" ON)
+option(FLOWDAW_ENABLE_JUCE_RUNTIME "Build the JUCE production runtime" OFF)
+option(FLOWDAW_FETCH_JUCE "Fetch pinned JUCE 9.0.2 when the JUCE runtime is enabled" OFF)
+option(FLOWDAW_BUILD_JUCE_APP "Build flowdaw-juce production desktop shell" ON)
+option(FLOWDAW_BUILD_JUCE_TEST_PLUGIN "Build a real VST3 fixture and end-to-end host test" ON)
 
 add_library(flowdaw_core
     src/MusicalTime.cpp
@@ -37,15 +40,70 @@ add_library(flowdaw_core
 target_include_directories(flowdaw_core PUBLIC include)
 target_compile_options(flowdaw_core PRIVATE -Wall -Wextra -Wpedantic)
 
-if(FLOWDAW_ENABLE_JUCE_RUNTIME)
-    find_package(JUCE 9 CONFIG REQUIRED)
-    target_compile_definitions(flowdaw_core PUBLIC FLOWDAW_JUCE_RUNTIME=1)
-endif()
-
 find_library(PORTAUDIO_RUNTIME NAMES portaudio libportaudio.so.2)
 if(PORTAUDIO_RUNTIME)
     target_compile_definitions(flowdaw_core PRIVATE FLOWDAW_HAS_PORTAUDIO=1)
     target_link_libraries(flowdaw_core PRIVATE ${PORTAUDIO_RUNTIME})
+endif()
+
+if(FLOWDAW_ENABLE_JUCE_RUNTIME)
+    if(FLOWDAW_FETCH_JUCE)
+        include(FetchContent)
+        FetchContent_Declare(JUCE
+            GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+            GIT_TAG 9.0.2
+            GIT_SHALLOW TRUE)
+        FetchContent_MakeAvailable(JUCE)
+    else()
+        find_package(JUCE 9.0.2 CONFIG REQUIRED)
+    endif()
+
+    add_library(flowdaw_juce_runtime src/JucePluginBackend.cpp)
+    target_include_directories(flowdaw_juce_runtime PUBLIC include)
+    target_link_libraries(flowdaw_juce_runtime PUBLIC flowdaw_core juce::juce_audio_processors juce::juce_audio_utils)
+    target_compile_definitions(flowdaw_juce_runtime PUBLIC FLOWDAW_JUCE_RUNTIME=1 FLOWDAW_EXTERNAL_PLUGIN_RUNTIME=1 JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    if(APPLE)
+        target_compile_definitions(flowdaw_juce_runtime PUBLIC JUCE_PLUGINHOST_AU=1)
+    else()
+        target_compile_definitions(flowdaw_juce_runtime PUBLIC JUCE_PLUGINHOST_AU=0)
+    endif()
+    target_compile_options(flowdaw_juce_runtime PRIVATE -Wall -Wextra -Wpedantic)
+
+    if(FLOWDAW_BUILD_JUCE_APP)
+        juce_add_gui_app(flowdaw-juce PRODUCT_NAME "FLOWDAW")
+        target_sources(flowdaw-juce PRIVATE app/juce_main.cpp)
+        target_link_libraries(flowdaw-juce PRIVATE flowdaw_juce_runtime juce::juce_gui_extra juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
+        target_compile_definitions(flowdaw-juce PRIVATE JUCE_APPLICATION_NAME_STRING="FLOWDAW" JUCE_APPLICATION_VERSION_STRING="0.7.0" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1)
+        if(APPLE)
+            target_compile_definitions(flowdaw-juce PRIVATE JUCE_PLUGINHOST_AU=1)
+        else()
+            target_compile_definitions(flowdaw-juce PRIVATE JUCE_PLUGINHOST_AU=0)
+        endif()
+        install(TARGETS flowdaw-juce RUNTIME DESTINATION bin BUNDLE DESTINATION .)
+    endif()
+
+    if(FLOWDAW_BUILD_TESTS AND FLOWDAW_BUILD_JUCE_TEST_PLUGIN)
+        juce_add_plugin(flowdaw_test_plugin
+            COMPANY_NAME FLOWDAW
+            IS_SYNTH FALSE
+            NEEDS_MIDI_INPUT FALSE
+            NEEDS_MIDI_OUTPUT FALSE
+            IS_MIDI_EFFECT FALSE
+            EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+            COPY_PLUGIN_AFTER_BUILD FALSE
+            PLUGIN_MANUFACTURER_CODE Flwd
+            PLUGIN_CODE Ftst
+            FORMATS VST3
+            PRODUCT_NAME "FLOWDAW Test Plugin")
+        target_sources(flowdaw_test_plugin PRIVATE tests/juce_test_plugin.cpp)
+        target_link_libraries(flowdaw_test_plugin PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
+        target_compile_definitions(flowdaw_test_plugin PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+
+        add_executable(flowdaw_phase7_juce_tests tests/test_phase7_juce.cpp)
+        target_link_libraries(flowdaw_phase7_juce_tests PRIVATE flowdaw_juce_runtime)
+        add_dependencies(flowdaw_phase7_juce_tests flowdaw_test_plugin_VST3)
+        add_test(NAME flowdaw_phase7_juce_tests COMMAND flowdaw_phase7_juce_tests $<TARGET_FILE:flowdaw_test_plugin_VST3>)
+    endif()
 endif()
 
 add_executable(flowdaw_stretch_benchmark EXCLUDE_FROM_ALL tools/stretch_benchmark.cpp)
