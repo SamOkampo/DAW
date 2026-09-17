@@ -69,15 +69,28 @@ void AudioEngine::publish(const Project& p){
         if(t.mixer.mute||(anySolo&&!t.mixer.solo))continue;
         for(auto const&c:t.clips){auto const*s=p.findSample(c.sampleId);if(!s||!s->audio)continue;const auto sourceStart=std::max<SampleIndex>(0,c.sourceStart);const auto requested=c.sourceLength>0?c.sourceLength:s->audio->frames()-sourceStart;append(MusicalTime::ticksToSamples(c.startTick,p.transport.bpm,sampleRate_),sourceStart,std::max<SampleIndex>(0,requested),c.gain*t.mixer.volume,t.mixer.pan,s->audio);}
         for(auto const&placement:t.patternClips){
-            auto const*pat=p.findPattern(placement.patternId);if(!pat||pat->stepsPerBeat<=0)continue;const Tick stepTicks=kPPQ/pat->stepsPerBeat,patTicks=pat->lengthTicks();bool anyLaneSolo=false;for(auto const&lane:pat->lanes)anyLaneSolo=anyLaneSolo||lane.solo;
+            auto const*pat=p.findPattern(placement.patternId);if(!pat||pat->stepsPerBeat<=0)continue;
+            const Tick stepTicks=kPPQ/pat->stepsPerBeat,patTicks=pat->lengthTicks();
+            bool anyLaneSolo=false;for(auto const&lane:pat->lanes)anyLaneSolo=anyLaneSolo||lane.solo;
             const float swing=std::clamp(pat->swing,0.0f,1.0f),human=std::clamp(pat->humanize,0.0f,1.0f);
-            for(int rep=0;rep<std::max(1,placement.repeats);++rep){for(std::size_t li=0;li<pat->lanes.size();++li){auto const&lane=pat->lanes[li];if(lane.mute||(anyLaneSolo&&!lane.solo))continue;auto const*s=p.findSample(lane.sampleId);if(!s||!s->audio)continue;
-                for(int step=0;step<std::min<int>(pat->stepCount,static_cast<int>(lane.steps.size()));++step){auto const&ev=lane.steps[static_cast<std::size_t>(step)];if(!ev.active||!deterministicHit(ev.probability,pat->id,li,step,rep))continue;
-                    const Tick swingTicks=(step%2==1)?static_cast<Tick>(std::llround(swing*stepTicks*0.5)):0;const Tick humanTicks=static_cast<Tick>(std::llround(signedVariation(pat->id,li,step,rep,0xA51ULL)*human*stepTicks*0.12));const float humanVelocity=static_cast<float>(signedVariation(pat->id,li,step,rep,0xB73ULL)*human*0.12);
-                    Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+static_cast<Tick>(step)*stepTicks+swingTicks+humanTicks+ev.microTicks;if(tick<0)tick=0;const float velocity=std::clamp(ev.velocity+humanVelocity,0.0f,1.5f);
-                    append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,s->audio->frames(),velocity*lane.volume*t.mixer.volume,lane.pan+t.mixer.pan,s->audio);
+            for(int rep=0;rep<std::max(1,placement.repeats);++rep){
+                for(std::size_t li=0;li<pat->lanes.size();++li){
+                    auto const&lane=pat->lanes[li];if(lane.mute||(anyLaneSolo&&!lane.solo))continue;auto const*s=p.findSample(lane.sampleId);if(!s||!s->audio)continue;
+                    for(int step=0;step<std::min<int>(pat->stepCount,static_cast<int>(lane.steps.size()));++step){
+                        auto const&ev=lane.steps[static_cast<std::size_t>(step)];if(!ev.active||!deterministicHit(ev.probability,pat->id,li,step,rep))continue;
+                        const Tick swingTicks=(step%2==1)?static_cast<Tick>(std::llround(swing*stepTicks*0.5)):0;const Tick humanTicks=static_cast<Tick>(std::llround(signedVariation(pat->id,li,step,rep,0xA51ULL)*human*stepTicks*0.12));const float humanVelocity=static_cast<float>(signedVariation(pat->id,li,step,rep,0xB73ULL)*human*0.12);
+                        Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+static_cast<Tick>(step)*stepTicks+swingTicks+humanTicks+ev.microTicks;if(tick<0)tick=0;const float velocity=std::clamp(ev.velocity+humanVelocity,0.0f,1.5f);
+                        append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,s->audio->frames(),velocity*lane.volume*t.mixer.volume,lane.pan+t.mixer.pan,s->audio);
+                    }
                 }
-            }}
+                for(auto const&ev:pat->chopEvents){
+                    auto const*s=p.findSample(ev.sampleId);if(!s||!s->audio)continue;
+                    auto slice=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==ev.sliceId;});if(slice==s->slices.end())continue;
+                    const auto sourceStart=std::clamp<SampleIndex>(slice->startFrame,0,s->audio->frames());const auto sourceEnd=std::clamp<SampleIndex>(slice->endFrame,sourceStart,s->audio->frames());if(sourceEnd<=sourceStart)continue;
+                    Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+ev.tick;if(tick<0)tick=0;
+                    append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),sourceStart,sourceEnd-sourceStart,std::clamp(ev.velocity,0.0f,1.5f)*t.mixer.volume,ev.pan+t.mixer.pan,s->audio);
+                }
+            }
         }
     }
     std::lock_guard lk(publishMutex_);Graph*raw=g.get();retired_.push_back(std::move(g));current_.store(raw,std::memory_order_release);
