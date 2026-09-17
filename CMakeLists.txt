@@ -34,6 +34,10 @@ if(PORTAUDIO_RUNTIME)
     target_link_libraries(flowdaw_core PRIVATE ${PORTAUDIO_RUNTIME})
 endif()
 
+add_executable(flowdaw_stretch_benchmark EXCLUDE_FROM_ALL tools/stretch_benchmark.cpp)
+target_link_libraries(flowdaw_stretch_benchmark PRIVATE flowdaw_core)
+target_compile_options(flowdaw_stretch_benchmark PRIVATE -Wall -Wextra -Wpedantic)
+
 if(FLOWDAW_BUILD_APP)
     find_package(X11 REQUIRED)
     add_executable(flowdaw app/main.cpp)
