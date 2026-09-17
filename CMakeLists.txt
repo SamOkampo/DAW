@@ -14,6 +14,7 @@ add_library(flowdaw_core
     src/Waveform.cpp
     src/NativeDrums.cpp
     src/SampleAnalysis.cpp
+    src/SampleEditing.cpp
     src/TimeStretch.cpp
     src/Project.cpp
     src/Serialization.cpp
@@ -49,4 +50,8 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_chop_editing_tests tests/test_chop_editing.cpp)
     target_link_libraries(flowdaw_chop_editing_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_chop_editing_tests COMMAND flowdaw_chop_editing_tests)
+
+    add_executable(flowdaw_sample_editing_tests tests/test_sample_editing.cpp)
+    target_link_libraries(flowdaw_sample_editing_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_sample_editing_tests COMMAND flowdaw_sample_editing_tests)
 endif()
