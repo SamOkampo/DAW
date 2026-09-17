@@ -1,5 +1,6 @@
 #include "flowdaw/SampleAnalysis.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <numeric>
 #include <stdexcept>
@@ -26,6 +27,15 @@ std::vector<double> onsetEnvelope(const AudioBuffer& audio,int hop=256,int windo
     double maxv=0.0; for(double v:novelty) maxv=std::max(maxv,v);
     if(maxv>0.0) for(double& v:novelty) v/=maxv;
     return novelty;
+}
+
+double transientStrength(const AudioBuffer& audio,SampleIndex center,SampleIndex radius){
+    const auto begin=std::max<SampleIndex>(0,center-radius),end=std::min<SampleIndex>(audio.frames(),center+radius+1);
+    double peak=0.0;
+    for(SampleIndex f=begin;f<end;++f){
+        double mono=0.0;for(int ch=0;ch<audio.channels;++ch)mono+=std::abs(audio.interleaved[static_cast<std::size_t>(f*audio.channels+ch)]);mono/=std::max(1,audio.channels);peak=std::max(peak,mono);
+    }
+    return peak;
 }
 }
 
@@ -67,10 +77,34 @@ BpmEstimate detectBpm(const AudioBuffer& audio,double minBpm,double maxBpm){
     BpmEstimate result; result.bpm=60.0/(bestLag*hopSeconds); result.confidence=std::clamp(best,0.0,1.0); return result;
 }
 
+BeatGridEstimate estimateBeatGrid(const AudioBuffer& audio,double minBpm,double maxBpm){
+    BeatGridEstimate out;const auto bpm=detectBpm(audio,minBpm,maxBpm);if(!bpm.valid()||audio.sampleRate<=0||audio.frames()<=0)return out;
+    out.bpm=bpm.bpm;const auto interval=std::max<SampleIndex>(1,static_cast<SampleIndex>(std::llround(audio.sampleRate*60.0/bpm.bpm)));
+    const auto transients=detectTransients(audio,0.55,0.08);if(transients.empty()){out.confidence=bpm.confidence*.35;return out;}
+    double bestScore=-1.0;SampleIndex bestPhase=0;const double sigma=std::max(32.0,static_cast<double>(interval)*0.075);
+    for(auto t:transients){const auto phase=((t%interval)+interval)%interval;double score=0.0;for(auto u:transients){auto r=((u%interval)+interval)%interval;auto d=std::llabs(r-phase);d=std::min<SampleIndex>(d,interval-d);const double z=static_cast<double>(d)/sigma;score+=std::exp(-.5*z*z);}if(score>bestScore){bestScore=score;bestPhase=phase;}}
+    out.firstBeatFrame=bestPhase;const double phaseAgreement=bestScore/std::max<std::size_t>(1,transients.size());out.confidence=std::clamp(bpm.confidence*(.45+.55*std::min(1.0,phaseAgreement)),0.0,1.0);
+
+    std::array<double,4> accent{};std::array<int,4> counts{};const auto radius=std::max<SampleIndex>(16,static_cast<SampleIndex>(audio.sampleRate*.035));int beatIndex=0;
+    for(SampleIndex f=bestPhase;f<audio.frames();f+=interval,++beatIndex){const int phase=beatIndex%4;accent[static_cast<std::size_t>(phase)]+=transientStrength(audio,f,radius);++counts[static_cast<std::size_t>(phase)];}
+    for(std::size_t i=0;i<4;++i)if(counts[i]>0)accent[i]/=counts[i];
+    int best=0,second=1;if(accent[1]>accent[0]){best=1;second=0;}for(int i=2;i<4;++i){if(accent[static_cast<std::size_t>(i)]>accent[static_cast<std::size_t>(best)]){second=best;best=i;}else if(accent[static_cast<std::size_t>(i)]>accent[static_cast<std::size_t>(second)])second=i;}
+    const double bestAccent=accent[static_cast<std::size_t>(best)],secondAccent=accent[static_cast<std::size_t>(second)];out.downbeatConfidence=bestAccent>1e-9?std::clamp((bestAccent-secondAccent)/bestAccent,0.0,1.0):0.0;out.downbeatFrame=bestPhase+static_cast<SampleIndex>(best)*interval;if(out.downbeatFrame>=audio.frames())out.downbeatFrame=bestPhase;
+    return out;
+}
+
 std::vector<SliceRange> makeEqualSlices(const AudioBuffer& audio,int count){
     if(count<=0) throw std::invalid_argument("slice count");
     std::vector<SliceRange> out; if(audio.frames()<=0) return out; out.reserve(static_cast<std::size_t>(count));
     for(int i=0;i<count;++i){out.push_back({audio.frames()*i/count,audio.frames()*(i+1)/count});}
     return out;
+}
+
+std::vector<SliceRange> makeBeatSlices(const AudioBuffer& audio,const BeatGridEstimate& grid,int beatsPerSlice){
+    if(beatsPerSlice<=0)throw std::invalid_argument("beats per slice");std::vector<SliceRange> out;if(audio.frames()<=0||audio.sampleRate<=0||!grid.valid())return out;
+    const auto beat=std::max<SampleIndex>(1,static_cast<SampleIndex>(std::llround(audio.sampleRate*60.0/grid.bpm)));const auto span=beat*beatsPerSlice;
+    SampleIndex anchor=grid.firstBeatFrame;if(beatsPerSlice%4==0&&grid.downbeatConfidence>.05)anchor=grid.downbeatFrame;anchor=std::clamp<SampleIndex>(anchor,0,audio.frames());
+    std::vector<SampleIndex> cuts{0};if(anchor>0&&anchor<audio.frames())cuts.push_back(anchor);for(SampleIndex f=anchor+span;f<audio.frames();f+=span)cuts.push_back(f);if(cuts.back()!=audio.frames())cuts.push_back(audio.frames());
+    for(std::size_t i=0;i+1<cuts.size();++i)if(cuts[i+1]>cuts[i])out.push_back({cuts[i],cuts[i+1]});return out;
 }
 }
