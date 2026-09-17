@@ -4,7 +4,7 @@ FLOWDAW is a hip-hop-first desktop DAW in active development. Its core principle
 
 ## Current state
 
-The repository contains a runnable C++20 DAW foundation, a completed Step Sequencer/Groove Engine phase, and a completed Smart Sampling / Chop Mode phase.
+The repository contains a runnable C++20 DAW foundation plus completed Step Sequencer/Groove Engine, Smart Sampling/Chop Mode and Piano Roll/MIDI/Native Instruments phases.
 
 ### Working and tested
 
@@ -29,11 +29,18 @@ The repository contains a runnable C++20 DAW foundation, a completed Step Sequen
 - Reversible 0–100% Chop Quantize, deterministic Chop Humanize, 1/8 / 1/16 / 1/32 grids and Reset Feel.
 - Pitch-preserving WSOLA Match BPM baseline over the tested 0.5x–2.0x range.
 - Derived Match-BPM assets regenerate from the original asset + stretch ratio instead of overwriting source audio.
-- Project format v7 persists complete Smart Sampling state.
-- Automated stretch quality tests and reproducible realtime-factor benchmark.
-- GitHub Actions validates all core tests and builds the complete Studio executable.
+- Piano Roll with click-to-create, select, delete, note drag, pitch drag and right-edge resize.
+- Persistent MIDI notes with tick position, duration, pitch and velocity.
+- MIDI 1/8 / 1/16 / 1/32 grid, scale-root selection and highlighted Major / Minor / Pentatonic scales.
+- Keyboard note preview and octave navigation.
+- Native melodic instruments: FLOW Keys, FLOW 808, FLOW Bass and FLOW Lead.
+- Native instrument envelope/tone state plus soft Drive and tempo-synced Delay.
+- MIDI patterns render through the same Arrangement scheduler used by drums and chops.
+- Project format v8 persists complete Smart Sampling + MIDI/instrument state while loading v1-v7.
+- Automated stretch quality tests, realtime-factor benchmark and dedicated MIDI/instrument tests.
+- GitHub Actions validates all seven core/test suites and builds the complete Studio executable.
 
-**Phase 0, Phase 1 and Phase 2 are complete. Phase 3 (Piano Roll / MIDI / Instruments) is next.**
+**Phase 0, Phase 1, Phase 2 and Phase 3 are complete. Phase 4 (Recording / Automation / Advanced Mixer) is next.**
 
 The current Linux bootstrap UI uses X11 because the development environment does not ship JUCE headers. The intended shipping backend remains **C++20 + JUCE 9.x** for Windows/macOS. The musical/audio core is toolkit-independent so the bootstrap shell can be replaced without rewriting the project model or scheduler.
 
@@ -53,6 +60,8 @@ Open a WAV or project directly:
 ./build/flowdaw projects/StepSequencer_90BPM.flow
 ```
 
+Open the Piano Roll with `P`. Inside the Piano Roll, click empty grid space to create notes, drag notes to move them, drag the right edge to resize, right-click a note to delete it, and use `A W S E D F T G Y H U J` for pitch preview.
+
 Run the stretch benchmark:
 
 ```bash
@@ -62,4 +71,4 @@ cmake --build build --target flowdaw_stretch_benchmark
 
 The development container has no physical/default audio device. The exact callback path is covered through deterministic device-block tests, while the GUI is compiled in CI and validated under the bootstrap Linux path.
 
-See `ARCHITECTURE.md`, `AUDIO_ENGINE.md`, `PROJECT_FORMAT.md`, `ROADMAP.md`, `PHASE1_STATUS.md`, `PHASE2_STATUS.md` and `docs/TIME_STRETCH_EVALUATION.md`.
+See `ARCHITECTURE.md`, `AUDIO_ENGINE.md`, `PROJECT_FORMAT.md`, `ROADMAP.md`, `PHASE1_STATUS.md`, `PHASE2_STATUS.md`, `PHASE3_STATUS.md` and `docs/TIME_STRETCH_EVALUATION.md`.

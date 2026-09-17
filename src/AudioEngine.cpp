@@ -1,5 +1,6 @@
 #include "flowdaw/AudioEngine.hpp"
 #include "flowdaw/MusicalTime.hpp"
+#include "flowdaw/NativeInstruments.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -82,6 +83,16 @@ void AudioEngine::publish(const Project& p){
                         const Tick swingTicks=(step%2==1)?static_cast<Tick>(std::llround(swing*stepTicks*0.5)):0;const Tick humanTicks=static_cast<Tick>(std::llround(signedVariation(pat->id,li,step,rep,0xA51ULL)*human*stepTicks*0.12));const float humanVelocity=static_cast<float>(signedVariation(pat->id,li,step,rep,0xB73ULL)*human*0.12);
                         Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+static_cast<Tick>(step)*stepTicks+swingTicks+humanTicks+ev.microTicks;if(tick<0)tick=0;const float velocity=std::clamp(ev.velocity+humanVelocity,0.0f,1.5f);
                         append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,s->audio->frames(),velocity*lane.volume*t.mixer.volume,lane.pan+t.mixer.pan,s->audio,0);
+                    }
+                }
+                if(pat->instrument.enabled){
+                    for(auto const&note:pat->midiNotes){
+                        if(note.lengthTicks<=0||note.velocity<=0.0f)continue;
+                        const Tick tick=std::max<Tick>(0,placement.startTick+static_cast<Tick>(rep)*patTicks+note.startTick);
+                        const SampleIndex noteFrames=std::max<SampleIndex>(1,MusicalTime::ticksToSamples(note.lengthTicks,p.transport.bpm,sampleRate_));
+                        auto synth=std::make_shared<AudioBuffer>(renderNativeInstrumentNote(pat->instrument,note.pitch,note.velocity,noteFrames,sampleRate_,p.transport.bpm));
+                        const SampleIndex synthFrames=synth->frames();
+                        append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,synthFrames,std::clamp(pat->instrument.gain,0.0f,2.0f)*t.mixer.volume,pat->instrument.pan+t.mixer.pan,std::move(synth),0);
                     }
                 }
                 for(auto const&ev:pat->chopEvents){

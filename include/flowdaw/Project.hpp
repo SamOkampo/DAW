@@ -16,7 +16,7 @@ struct SampleSlice {
     SampleIndex endFrame=0;
     float gain=1.0f;
     float pan=0.0f;
-    int chokeGroup=0; // 0 = no choke; positive values cut previous voices/events in the same group.
+    int chokeGroup=0;
 };
 struct SampleAsset {
     Id id=nextId();
@@ -25,8 +25,8 @@ struct SampleAsset {
     std::string nativeKey;
     double detectedBpm=0.0;
     float bpmConfidence=0.0f;
-    Id sourceSampleId=0;        // 0 = original. Non-zero = derived from another asset.
-    double timeRatio=1.0;      // output duration / source duration for derived assets.
+    Id sourceSampleId=0;
+    double timeRatio=1.0;
     std::vector<SampleSlice> slices;
     std::shared_ptr<AudioBuffer> audio;
 };
@@ -43,30 +43,54 @@ struct DrumLane {
 };
 struct ChopEvent {
     Id id=nextId();
-    Tick recordedTick=0;       // Exact timing captured from the performance.
-    Tick tick=0;               // Edited/rendered timing; derived from recordedTick.
+    Tick recordedTick=0;
+    Tick tick=0;
     Id sampleId=0;
     Id sliceId=0;
     float recordedVelocity=1.0f;
-    float velocity=1.0f;       // Edited/rendered velocity; derived from recordedVelocity.
+    float velocity=1.0f;
     float pan=0.0f;
+};
+struct MidiNote {
+    Id id=nextId();
+    Tick startTick=0;
+    Tick lengthTicks=kPPQ/2;
+    int pitch=60;
+    float velocity=0.9f;
+};
+struct InstrumentState {
+    bool enabled=false;
+    std::string type="flow_keys";
+    float gain=0.8f;
+    float pan=0.0f;
+    float attackMs=5.0f;
+    float releaseMs=120.0f;
+    float tone=0.5f;
+    float drive=0.0f;
+    float delayMix=0.0f;
+    Tick delayTicks=kPPQ/2;
 };
 struct Pattern {
     Id id=nextId();
     std::string name="Pattern 1";
     int stepCount=16;
     int stepsPerBeat=4;
-    float swing=0.0f;      // 0..1; delays every second subdivision.
-    float humanize=0.0f;   // 0..1; deterministic timing/velocity variation for drum lanes.
+    float swing=0.0f;
+    float humanize=0.0f;
     std::vector<DrumLane> lanes;
     std::vector<ChopEvent> chopEvents;
+    Tick chopQuantizeGridTicks=kPPQ/4;
+    float chopQuantizeStrength=0.0f;
+    float chopHumanize=0.0f;
 
-    // Non-destructive Chop performance editing. applyChopEditing() derives each
-    // event's tick/velocity from its recordedTick/recordedVelocity every time,
-    // so changing these controls never accumulates timing error.
-    Tick chopQuantizeGridTicks=kPPQ/4; // 1/16 note at 960 PPQ.
-    float chopQuantizeStrength=0.0f;   // 0 = original performance, 1 = full snap.
-    float chopHumanize=0.0f;           // deterministic timing/velocity variation.
+    // Phase 3 MIDI/Piano Roll state. MIDI remains musical data; the native
+    // instrument is rendered from these notes on publish and never baked into the project.
+    std::vector<MidiNote> midiNotes;
+    InstrumentState instrument;
+    int scaleRoot=0;                    // pitch class, C=0
+    std::string scaleType="minor";     // minor/major/minor_pentatonic/major_pentatonic
+    Tick midiGridTicks=kPPQ/4;          // default 1/16 grid
+    Tick midiDefaultLengthTicks=kPPQ/2; // default 1/8 note
 
     Tick lengthTicks() const { return static_cast<Tick>(stepCount)*kPPQ/stepsPerBeat; }
 };
@@ -75,7 +99,7 @@ struct Track { Id id=nextId(); std::string name="Audio 1"; MixerChannel mixer; s
 struct TransportState { double bpm=90.0; Tick playheadTick=0; bool playing=false; };
 struct MasterMixer { float volume=1.0f; std::vector<Effect> effects; };
 struct Project {
-    int formatVersion=7;
+    int formatVersion=8;
     std::string name="Untitled";
     int sampleRate=48000;
     TransportState transport;
