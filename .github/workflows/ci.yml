@@ -16,6 +16,10 @@ jobs:
         run: cmake --build build --parallel
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Build stretch benchmark
+        run: cmake --build build --target flowdaw_stretch_benchmark --parallel
+      - name: Benchmark stretch backend
+        run: ./build/flowdaw_stretch_benchmark
 
   studio-build:
     runs-on: ubuntu-latest

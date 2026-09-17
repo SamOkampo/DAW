@@ -9,7 +9,15 @@
 namespace flowdaw {
 struct Effect { Id id=nextId(); std::string type="gain"; bool enabled=true; float value=1.0f; };
 struct MixerChannel { float volume=1.0f; float pan=0.0f; bool mute=false; bool solo=false; std::vector<Effect> effects; };
-struct SampleSlice { Id id=nextId(); std::string name="Slice"; SampleIndex startFrame=0; SampleIndex endFrame=0; };
+struct SampleSlice {
+    Id id=nextId();
+    std::string name="Slice";
+    SampleIndex startFrame=0;
+    SampleIndex endFrame=0;
+    float gain=1.0f;
+    float pan=0.0f;
+    int chokeGroup=0; // 0 = no choke; positive values cut previous voices/events in the same group.
+};
 struct SampleAsset {
     Id id=nextId();
     std::filesystem::path path;
@@ -67,7 +75,7 @@ struct Track { Id id=nextId(); std::string name="Audio 1"; MixerChannel mixer; s
 struct TransportState { double bpm=90.0; Tick playheadTick=0; bool playing=false; };
 struct MasterMixer { float volume=1.0f; std::vector<Effect> effects; };
 struct Project {
-    int formatVersion=6;
+    int formatVersion=7;
     std::string name="Untitled";
     int sampleRate=48000;
     TransportState transport;

@@ -27,15 +27,16 @@ public:
     AudioBuffer renderOffline(SampleIndex frames) const;
 
     // One-shot preview used by Chop Mode. The original buffer is never modified.
-    bool triggerPreview(std::shared_ptr<AudioBuffer> audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain=1.0f,float pan=0.0f);
+    // chokeGroup=0 allows overlap; positive groups stop any previous voice in that group.
+    bool triggerPreview(std::shared_ptr<AudioBuffer> audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain=1.0f,float pan=0.0f,int chokeGroup=0);
     void stopPreviews();
     // Test/diagnostic hook: runs the exact device callback mixer without a sound device.
     AudioBuffer renderDeviceBlockForTest(SampleIndex frames);
 private:
-    struct RenderClip { SampleIndex start=0,sourceStart=0,length=0; float gain=1; float pan=0; std::shared_ptr<AudioBuffer> audio; };
+    struct RenderClip { SampleIndex start=0,sourceStart=0,length=0; float gain=1; float pan=0; int chokeGroup=0; std::shared_ptr<AudioBuffer> audio; };
     struct Graph { float master=1; std::vector<RenderClip> clips; };
-    struct PreviewCommand { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0; float gain=1,pan=0; bool stopAll=false; };
-    struct PreviewVoice { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0,position=0; float gain=1,pan=0; bool active=false; };
+    struct PreviewCommand { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0; float gain=1,pan=0; int chokeGroup=0; bool stopAll=false; };
+    struct PreviewVoice { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0,position=0; float gain=1,pan=0; int chokeGroup=0; bool active=false; };
     static constexpr std::size_t kPreviewQueueSize=64;
     static constexpr std::size_t kPreviewVoices=16;
 
