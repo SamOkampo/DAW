@@ -12,7 +12,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure core
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=OFF -DFLOWDAW_BUILD_TESTS=ON
-      - name: Build
+      - name: Build core and tests
         run: cmake --build build --parallel
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  studio-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Studio
+        run: cmake -S . -B build-studio -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=ON -DFLOWDAW_BUILD_TESTS=OFF
+      - name: Build Studio executable
+        run: cmake --build build-studio --parallel --target flowdaw
