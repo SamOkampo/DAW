@@ -1,0 +1,29 @@
+# Build outputs
+build/
+build-*/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+*.ninja
+.ninja_*
+Testing/
+
+# Binaries / generated audio
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+*.exe
+*.wav
+*.mp3
+*.flac
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# FLOWDAW local state
+*.flow.autosave
