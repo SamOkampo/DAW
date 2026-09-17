@@ -1,71 +1,57 @@
 # FLOWDAW project format
 
-Current project format: **v8**.
+Current project format: **v9**.
 
-`.flow` is a versioned text format so development remains inspectable and migratable. The loader accepts v1-v8 and normalizes loaded projects to v8 in memory.
+`.flow` is a versioned text format so development remains inspectable and migratable. The loader accepts v1-v9 and normalizes loaded projects to v9 in memory.
 
 ## Sample / Smart Sampling model
 
-Each `SampleAsset` can persist:
-
-- original filesystem path or native sound key;
-- detected BPM and confidence;
-- `sourceSampleId` and `timeRatio` for derived Match-BPM assets;
-- zero or more non-destructive `SampleSlice` ranges.
-
-Each v7+ `SampleSlice` persists:
-
-- stable slice ID;
-- editable name;
-- `startFrame` / `endFrame`;
-- per-pad Gain;
-- per-pad Pan;
-- Choke Group (`0` = no choke).
-
-Older v1-v6 projects load with safe defaults for these pad controls: gain `1.0`, pan `0.0`, choke group `0`.
-
-An original asset has `sourceSampleId = 0`. A Match-BPM asset stores a non-zero source ID and a duration ratio. On reopen FLOWDAW loads the original source, then regenerates the derived buffer with the stored time-stretch ratio. The original file is never overwritten.
+Each `SampleAsset` can persist its source path or native key, detected BPM/confidence, derived-asset source/ratio metadata and non-destructive `SampleSlice` ranges. v7+ slices persist stable ID, editable name, frame range, Gain, Pan and Choke Group. Match-BPM assets regenerate from their original source and ratio instead of overwriting source audio.
 
 ## Chop performance model
 
-`ChopEvent` persists its sample/slice identity together with original captured `recordedTick` / `recordedVelocity` and current edited `tick` / `velocity`.
+`ChopEvent` stores sample/slice identity, original captured `recordedTick` / `recordedVelocity` and current edited timing/velocity. Patterns persist Chop quantize grid, strength and deterministic humanize, so feel edits can always be rebuilt from the captured performance.
 
-Patterns persist:
+## MIDI / instrument model — v8+
 
-- Chop quantize grid;
-- 0–100% Chop quantize strength;
-- 0–100% deterministic Chop humanize.
+A `Pattern` can contain persistent `MidiNote` events with ID, start tick, length, MIDI pitch and velocity. The pattern also persists `InstrumentState`: instrument type, gain/pan, attack/release, tone/drive and tempo-synced delay. Piano Roll scale root/type, grid and default note length are also stored.
 
-Editing is non-cumulative: rendered timing/velocity is rebuilt from the captured performance, so changing or resetting quantize/humanize does not repeatedly move the source performance.
+## Recording / take model — v9
 
-## MIDI / instrument model — v8
+Each `Track` can persist:
 
-A `Pattern` can now contain zero or more persistent `MidiNote` events. Each note stores:
+- record-arm state;
+- input-monitor state;
+- zero or more `RecordingTake` records;
+- one `activeTakeId` used as the current non-destructive comp choice.
 
-- stable event ID;
-- `startTick`;
-- `lengthTicks`;
-- MIDI pitch `0..127`;
-- velocity.
+A take stores a stable ID, editable take name, `sampleId`, musical `startTick` and `lengthTicks`. The audio itself remains a normal WAV-backed `SampleAsset`; selecting another take changes the active comp without rewriting or deleting any recorded source file.
 
-The same pattern also stores its native `InstrumentState`:
+## Advanced mixer / routing — v9
 
-- enabled state and instrument type;
-- gain and pan;
-- attack and release;
-- tone and drive;
-- tempo-synced delay mix and delay tick length.
+Tracks persist an `outputBusId` (`0` means Master) plus zero or more `MixerSend` entries. Each send stores its stable ID, destination bus, gain, enabled state and pre/post-fader mode.
 
-Piano Roll state persisted with the pattern includes scale root, scale type, MIDI grid and default note length. Supported scale identifiers currently include `major`, `minor`, `major_pentatonic` and `minor_pentatonic`.
+The project can persist `Bus` objects with their own mixer Volume, Pan, Mute, Solo and insert-effect list. Existing gain effects remain compatible with track, bus and master channels.
 
-v1-v7 projects load with an empty MIDI event list and the safe default instrument state. They remain editable and can be saved as v8 without rewriting source audio.
+## Automation — v9
+
+The project persists zero or more `AutomationLane` objects. Each lane stores target name, target ID, optional sub-target ID and ordered musical control points (`tick`, `value`). Duplicate ticks are normalized deterministically and playback uses linear interpolation between points.
+
+Current engine targets include:
+
+- `track.volume`
+- `track.pan`
+- `bus.volume`
+- `bus.pan`
+- `send.gain` (`targetId = track.id`, `subTargetId = send.id`)
+- `master.volume`
+
+Automation remains in musical ticks until audio graph evaluation so it follows project BPM consistently.
 
 ## Sequencer / Arrangement model
 
-Patterns persist step count, subdivisions, Swing, Humanize, drum lanes, Chop events and MIDI notes. Drum lanes persist Volume, Pan, Mute and Solo. Pattern placements persist musical start tick and repeat count.
-
-MIDI instrument patterns use the same `PatternPlacement` Arrangement scheduling model as drums and recorded chops. This keeps musical timing in ticks until the audio graph is published, where MIDI notes are rendered at the current project BPM.
+Patterns persist step count, subdivisions, Swing, Humanize, drum lanes, Chop events and MIDI notes. Pattern placements persist musical start and repeat count. Audio clips, active takes, drum patterns, chops and MIDI instruments all enter the same published render graph before mixer routing and automation are applied.
 
 ## Compatibility rule
 
-Persisted schema changes must increment `formatVersion` and retain explicit backward loading where practical. v8 currently preserves backward loading through v1.
+Persisted schema changes increment `formatVersion` and keep explicit backward loading where practical. v9 preserves backward loading through v1; older projects receive safe defaults for recording, buses, sends and automation and can be resaved as v9 without modifying their source audio.
