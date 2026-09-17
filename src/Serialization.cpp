@@ -2,6 +2,7 @@
 #include "flowdaw/NativeDrums.hpp"
 #include "flowdaw/TimeStretch.hpp"
 #include "flowdaw/Wav.hpp"
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
