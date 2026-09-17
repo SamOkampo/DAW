@@ -38,5 +38,36 @@ Completed:
 15. CI validation of ten test suites, stretch benchmark, complete Studio, installed binaries and distributable package.
 16. Musical project format remains v10 intentionally; local hardware/runtime preferences are not embedded into songs.
 
-## Phase 7 — JUCE Desktop Parity / Real Plugin Runtime [NEXT]
-Replace the X11 bootstrap only after feature parity exists in a JUCE 9.x shell. Implement actual device selection through JUCE, register a real VST3 backend, AU hosting on macOS, plugin-editor windows, validation/quarantine integration, crash isolation where practical, and Windows/macOS release packaging/signing. External binary execution remains disabled until this runtime is actually built and tested.
+## Phase 7 — JUCE Runtime Foundation / Real VST3 Host [DONE]
+
+Completed:
+1. Optional JUCE runtime pinned to JUCE 9.0.2 without coupling the domain/audio core to JUCE headers.
+2. Real `flowdaw-juce` desktop target alongside the X11 bootstrap.
+3. JUCE `AudioDeviceManager`-based runtime/device shell and plugin-editor hosting foundation.
+4. Production `IExternalPluginBackend` implementation backed by JUCE audio-plugin formats.
+5. Real VST3 discovery and instantiation off the realtime callback.
+6. External processor preparation, audio processing and opaque-state capture/restore through the existing backend-neutral plugin contract.
+7. Deterministic JUCE-built VST3 fixture used for an end-to-end host integration test.
+8. CI validates VST3 discovery → instantiate → process → state roundtrip and the installed JUCE desktop binary.
+9. AU host compilation is wired on macOS builds, but AU runtime validation is intentionally deferred until macOS CI exists.
+10. X11 remains available until the JUCE Studio reaches editing/workflow parity; Phase 7 does not claim full UI migration.
+11. Realtime external-plugin insertion in the project track/bus/master graph is intentionally deferred to Phase 8 rather than faked.
+12. Project format remains v10; the real host uses the backend-independent plugin state already established in Phase 5.
+
+## Phase 8 — Realtime Plugin Graph / PDC / JUCE Studio Migration [IN PROGRESS]
+
+Target completion criteria:
+1. Prepare and instantiate external plugin processors entirely off the audio callback.
+2. Publish immutable/realtime-safe processor chains for track, bus and master routes without allocating or locking in the callback.
+3. Guarantee that retired external processors are destroyed on the control thread rather than when the audio callback drops the last graph reference.
+4. Execute real VST3 effects in the realtime track/bus/master graph while preserving bypass, wet/dry and opaque state behavior.
+5. Add current-topology plugin delay compensation using reported processor latency and preallocated delay storage.
+6. Add deterministic fake-latency tests proving aligned direct, track→bus and master summing paths.
+7. Extend the JUCE VST3 fixture test so at least one real external plugin passes through the AudioEngine realtime graph.
+8. Keep offline render/export behavior consistent with realtime plugin routing.
+9. Add callback-safe true peak/RMS metering for track, bus and master routes.
+10. Migrate core editing surfaces incrementally from X11 to JUCE: transport/arrangement, sequencer/sampler, piano roll, mixer/automation, Assist/Project Health.
+11. Retire the X11 bootstrap only after functional parity exists; no premature replacement.
+12. Add Windows/macOS JUCE CI and platform packaging before claiming cross-platform production readiness.
+
+Phase 8 does not require a new `.flow` schema merely for runtime latency/PDC metadata. Any future project-format bump must be justified by genuinely persistent musical/session state.
