@@ -51,4 +51,4 @@ jobs:
       - name: Execute real VST3 host integration test
         run: ctest --test-dir build-juce -R flowdaw_phase7_juce_tests --output-on-failure
       - name: Install JUCE desktop smoke test
-        run: cmake --install build-juce --prefix "$RUNNER_TEMP/flowdaw-juce-install" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-juce"
+        run: cmake --install build-juce --prefix "$RUNNER_TEMP/flowdaw-juce-install" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/FLOWDAW"
