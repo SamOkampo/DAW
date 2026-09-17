@@ -16,7 +16,7 @@ Effect loadEffect(std::ifstream&f,std::string&tag,const char*expected){Effect e;
 
 void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
     std::ofstream f(path);if(!f)throw std::runtime_error("Cannot save project");
-    f<<"FLOWDAW_PROJECT 7\n";
+    f<<"FLOWDAW_PROJECT 8\n";
     f<<"NAME "<<q(p.name)<<"\nSAMPLE_RATE "<<p.sampleRate<<"\nBPM "<<std::setprecision(12)<<p.transport.bpm<<"\nPLAYHEAD "<<p.transport.playheadTick<<"\n";
     f<<"MASTER "<<p.master.volume<<" "<<p.master.effects.size()<<"\n";for(auto const&e:p.master.effects)saveEffect(f,"MASTER_EFFECT",e);
     f<<"SAMPLES "<<p.samples.size()<<"\n";
@@ -33,7 +33,10 @@ void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
     }
     f<<"PATTERNS "<<p.patterns.size()<<"\n";
     for(auto const&pat:p.patterns){
-        f<<"PATTERN "<<pat.id<<" "<<q(pat.name)<<" "<<pat.stepCount<<" "<<pat.stepsPerBeat<<" "<<pat.swing<<" "<<pat.humanize<<" "<<pat.lanes.size()<<" "<<pat.chopEvents.size()<<" "<<pat.chopQuantizeGridTicks<<" "<<pat.chopQuantizeStrength<<" "<<pat.chopHumanize<<"\n";
+        auto const&i=pat.instrument;
+        f<<"PATTERN "<<pat.id<<" "<<q(pat.name)<<" "<<pat.stepCount<<" "<<pat.stepsPerBeat<<" "<<pat.swing<<" "<<pat.humanize<<" "<<pat.lanes.size()<<" "<<pat.chopEvents.size()<<" "<<pat.chopQuantizeGridTicks<<" "<<pat.chopQuantizeStrength<<" "<<pat.chopHumanize
+         <<" "<<pat.midiNotes.size()<<" "<<i.enabled<<" "<<q(i.type)<<" "<<i.gain<<" "<<i.pan<<" "<<i.attackMs<<" "<<i.releaseMs<<" "<<i.tone<<" "<<i.drive<<" "<<i.delayMix<<" "<<i.delayTicks
+         <<" "<<pat.scaleRoot<<" "<<q(pat.scaleType)<<" "<<pat.midiGridTicks<<" "<<pat.midiDefaultLengthTicks<<"\n";
         for(auto const&lane:pat.lanes){
             f<<"LANE "<<q(lane.name)<<" "<<lane.sampleId<<" "<<lane.volume<<" "<<lane.pan<<" "<<lane.mute<<" "<<lane.solo<<" "<<lane.steps.size()<<"\n";
             for(auto const&st:lane.steps)f<<"STEP "<<st.active<<" "<<st.velocity<<" "<<st.probability<<" "<<st.microTicks<<"\n";
@@ -43,12 +46,13 @@ void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
             if(pat.chopQuantizeStrength==0.0f&&pat.chopHumanize==0.0f&&recordedTick==0&&ev.tick!=0){recordedTick=ev.tick;recordedVelocity=ev.velocity;}
             f<<"CHOP "<<ev.id<<" "<<recordedTick<<" "<<ev.tick<<" "<<ev.sampleId<<" "<<ev.sliceId<<" "<<recordedVelocity<<" "<<ev.velocity<<" "<<ev.pan<<"\n";
         }
+        for(auto const&n:pat.midiNotes)f<<"MIDI "<<n.id<<" "<<n.startTick<<" "<<n.lengthTicks<<" "<<n.pitch<<" "<<n.velocity<<"\n";
     }
     f<<"END\n";
 }
 
 Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio){
-    std::ifstream f(path);if(!f)throw std::runtime_error("Cannot open project");Project p;std::string tag;f>>tag;if(tag!="FLOWDAW_PROJECT")throw std::runtime_error("Not a FLOWDAW project");int version=0;f>>version;if(version<1||version>7)throw std::runtime_error("Unsupported project version");
+    std::ifstream f(path);if(!f)throw std::runtime_error("Cannot open project");Project p;std::string tag;f>>tag;if(tag!="FLOWDAW_PROJECT")throw std::runtime_error("Not a FLOWDAW project");int version=0;f>>version;if(version<1||version>8)throw std::runtime_error("Unsupported project version");
     while(f>>tag){
         if(tag=="NAME")f>>std::quoted(p.name);
         else if(tag=="SAMPLE_RATE")f>>p.sampleRate;
@@ -72,12 +76,17 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
         else if(tag=="PATTERNS"){
             std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){Pattern pat;f>>tag;if(tag!="PATTERN")throw std::runtime_error("Expected PATTERN");
                 if(version==1){Tick oldLen{};f>>pat.id>>std::quoted(pat.name)>>oldLen;pat.stepCount=16;pat.stepsPerBeat=4;}
-                else{std::size_t nl=0,nchop=0;f>>pat.id>>std::quoted(pat.name)>>pat.stepCount>>pat.stepsPerBeat;if(version>=3)f>>pat.swing>>pat.humanize;f>>nl;if(version>=5)f>>nchop;if(version>=6)f>>pat.chopQuantizeGridTicks>>pat.chopQuantizeStrength>>pat.chopHumanize;for(std::size_t l=0;l<nl;++l){DrumLane lane;std::size_t ns=0;f>>tag;if(tag!="LANE")throw std::runtime_error("Expected LANE");f>>std::quoted(lane.name)>>lane.sampleId>>lane.volume>>lane.pan;if(version>=3)f>>lane.mute>>lane.solo;f>>ns;lane.steps.reserve(ns);for(std::size_t s=0;s<ns;++s){StepEvent st;f>>tag;if(tag!="STEP")throw std::runtime_error("Expected STEP");f>>st.active>>st.velocity>>st.probability>>st.microTicks;lane.steps.push_back(st);}pat.lanes.push_back(std::move(lane));}for(std::size_t c=0;c<nchop;++c){ChopEvent ev;f>>tag;if(tag!="CHOP")throw std::runtime_error("Expected CHOP");if(version>=6){f>>ev.id>>ev.recordedTick>>ev.tick>>ev.sampleId>>ev.sliceId>>ev.recordedVelocity>>ev.velocity>>ev.pan;}else{f>>ev.tick>>ev.sampleId>>ev.sliceId>>ev.velocity>>ev.pan;ev.recordedTick=ev.tick;ev.recordedVelocity=ev.velocity;}pat.chopEvents.push_back(ev);}}
+                else{std::size_t nl=0,nchop=0,nmidi=0;f>>pat.id>>std::quoted(pat.name)>>pat.stepCount>>pat.stepsPerBeat;if(version>=3)f>>pat.swing>>pat.humanize;f>>nl;if(version>=5)f>>nchop;if(version>=6)f>>pat.chopQuantizeGridTicks>>pat.chopQuantizeStrength>>pat.chopHumanize;
+                    if(version>=8){auto&i=pat.instrument;f>>nmidi>>i.enabled>>std::quoted(i.type)>>i.gain>>i.pan>>i.attackMs>>i.releaseMs>>i.tone>>i.drive>>i.delayMix>>i.delayTicks>>pat.scaleRoot>>std::quoted(pat.scaleType)>>pat.midiGridTicks>>pat.midiDefaultLengthTicks;}
+                    for(std::size_t l=0;l<nl;++l){DrumLane lane;std::size_t ns=0;f>>tag;if(tag!="LANE")throw std::runtime_error("Expected LANE");f>>std::quoted(lane.name)>>lane.sampleId>>lane.volume>>lane.pan;if(version>=3)f>>lane.mute>>lane.solo;f>>ns;lane.steps.reserve(ns);for(std::size_t s=0;s<ns;++s){StepEvent st;f>>tag;if(tag!="STEP")throw std::runtime_error("Expected STEP");f>>st.active>>st.velocity>>st.probability>>st.microTicks;lane.steps.push_back(st);}pat.lanes.push_back(std::move(lane));}
+                    for(std::size_t c=0;c<nchop;++c){ChopEvent ev;f>>tag;if(tag!="CHOP")throw std::runtime_error("Expected CHOP");if(version>=6){f>>ev.id>>ev.recordedTick>>ev.tick>>ev.sampleId>>ev.sliceId>>ev.recordedVelocity>>ev.velocity>>ev.pan;}else{f>>ev.tick>>ev.sampleId>>ev.sliceId>>ev.velocity>>ev.pan;ev.recordedTick=ev.tick;ev.recordedVelocity=ev.velocity;}pat.chopEvents.push_back(ev);}
+                    for(std::size_t m=0;m<nmidi;++m){MidiNote note;f>>tag;if(tag!="MIDI")throw std::runtime_error("Expected MIDI");f>>note.id>>note.startTick>>note.lengthTicks>>note.pitch>>note.velocity;note.startTick=std::max<Tick>(0,note.startTick);note.lengthTicks=std::max<Tick>(1,note.lengthTicks);note.pitch=std::clamp(note.pitch,0,127);note.velocity=std::clamp(note.velocity,0.0f,1.5f);pat.midiNotes.push_back(note);}
+                }
                 p.patterns.push_back(std::move(pat));
             }
         }
         else if(tag=="END")break;else throw std::runtime_error("Unknown project token: "+tag);
     }
-    p.formatVersion=7;return p;
+    p.formatVersion=8;return p;
 }
 }
