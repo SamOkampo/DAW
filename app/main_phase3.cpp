@@ -66,4 +66,6 @@ struct Phase3App:App{
 };
 }
 
+#ifndef FLOWDAW_EMBED_PHASE3
 int main(int argc,char**argv){Phase3App app;return app.runPhase3(argc,argv);}
+#endif
