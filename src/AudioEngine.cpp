@@ -1,9 +1,11 @@
 #include "flowdaw/AudioEngine.hpp"
+#include "flowdaw/Automation.hpp"
 #include "flowdaw/MusicalTime.hpp"
 #include "flowdaw/NativeInstruments.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <thread>
 
 #ifdef FLOWDAW_HAS_PORTAUDIO
 extern "C" {
@@ -27,94 +29,63 @@ std::uint64_t eventHash(Id patternId,std::size_t lane,int step,int repeat,std::u
 double deterministicUnit(Id p,std::size_t lane,int step,int repeat,std::uint64_t salt=0){return static_cast<double>(eventHash(p,lane,step,repeat,salt)&0xFFFFFFULL)/static_cast<double>(0x1000000ULL);}
 bool deterministicHit(float probability,Id p,std::size_t lane,int step,int repeat){if(probability>=1.0f)return true;if(probability<=0.0f)return false;return deterministicUnit(p,lane,step,repeat)<probability;}
 double signedVariation(Id p,std::size_t lane,int step,int repeat,std::uint64_t salt){return deterministicUnit(p,lane,step,repeat,salt)*2.0-1.0;}
+float effectsGain(const std::vector<Effect>&fx){float g=1.0f;for(auto const&e:fx)if(e.enabled&&e.type=="gain")g*=std::clamp(e.value,0.0f,4.0f);return g;}
 
-void mixRange(float* out,unsigned long frames,const AudioBuffer& audio,SampleIndex sourceStart,SampleIndex sourceLength,SampleIndex outputOffset,float gain,float pan,int deviceRate){
-    if(frames==0||sourceLength<=0||audio.frames()<=0||audio.channels<=0)return;
-    const double ratio=static_cast<double>(audio.sampleRate)/deviceRate;const int ch=audio.channels;
-    pan=std::clamp(pan,-1.0f,1.0f);const float lpan=std::sqrt((1.0f-pan)*0.5f),rpan=std::sqrt((1.0f+pan)*0.5f);
-    for(unsigned long i=0;i<frames;++i){
-        const SampleIndex rel=outputOffset+static_cast<SampleIndex>(i);if(rel<0)continue;
-        const double srcPos=static_cast<double>(sourceStart)+static_cast<double>(rel)*ratio;
-        if(srcPos>=static_cast<double>(sourceStart+sourceLength)||srcPos>=static_cast<double>(audio.frames()-1))break;
-        const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);
-        auto get=[&](SampleIndex idx,int cc){return audio.interleaved[static_cast<std::size_t>(idx*ch+std::min(cc,ch-1))];};
-        const float sl=get(i0,0)+(get(i1,0)-get(i0,0))*frac;const float sr=ch>1?get(i0,1)+(get(i1,1)-get(i0,1))*frac:sl;
-        out[i*2]+=sl*gain*lpan;out[i*2+1]+=sr*gain*rpan;
-    }
+void mixRangeSimple(float*out,unsigned long frames,const AudioBuffer&audio,SampleIndex sourceStart,SampleIndex sourceLength,SampleIndex outputOffset,float gain,float pan,int deviceRate){
+    if(frames==0||sourceLength<=0||audio.frames()<=0||audio.channels<=0)return;const double ratio=static_cast<double>(audio.sampleRate)/deviceRate;const int ch=audio.channels;pan=std::clamp(pan,-1.0f,1.0f);const float lpan=std::sqrt((1.0f-pan)*0.5f),rpan=std::sqrt((1.0f+pan)*0.5f);
+    for(unsigned long i=0;i<frames;++i){const SampleIndex rel=outputOffset+static_cast<SampleIndex>(i);if(rel<0)continue;const double srcPos=static_cast<double>(sourceStart)+static_cast<double>(rel)*ratio;if(srcPos>=static_cast<double>(sourceStart+sourceLength)||srcPos>=static_cast<double>(audio.frames()-1))break;const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);auto get=[&](SampleIndex idx,int cc){return audio.interleaved[static_cast<std::size_t>(idx*ch+std::min(cc,ch-1))];};const float sl=get(i0,0)+(get(i1,0)-get(i0,0))*frac;const float sr=ch>1?get(i0,1)+(get(i1,1)-get(i0,1))*frac:sl;out[i*2]+=sl*gain*lpan;out[i*2+1]+=sr*gain*rpan;}
 }
 }
 
 AudioEngine::AudioEngine()=default;
 AudioEngine::~AudioEngine(){close();}
 bool AudioEngine::open(int sampleRate,unsigned long framesPerBuffer){
-    sampleRate_=sampleRate;framesPerBuffer_=framesPerBuffer;error_.clear();
+    sampleRate_=sampleRate;framesPerBuffer_=framesPerBuffer;error_.clear();inputAvailable_.store(false,std::memory_order_relaxed);
 #ifdef FLOWDAW_HAS_PORTAUDIO
-    auto e=Pa_Initialize();if(e!=paNoError){error_=Pa_GetErrorText(e);return false;}PaStream* s=nullptr;
-    e=Pa_OpenDefaultStream(&s,0,2,paFloat32,static_cast<double>(sampleRate_),framesPerBuffer_,reinterpret_cast<PaStreamCallback*>(&AudioEngine::paCallback),this);
+    auto e=Pa_Initialize();if(e!=paNoError){error_=Pa_GetErrorText(e);return false;}PaStream*s=nullptr;
+    e=Pa_OpenDefaultStream(&s,1,2,paFloat32,static_cast<double>(sampleRate_),framesPerBuffer_,reinterpret_cast<PaStreamCallback*>(&AudioEngine::paCallback),this);
+    if(e==paNoError)inputAvailable_.store(true,std::memory_order_relaxed);
+    else{e=Pa_OpenDefaultStream(&s,0,2,paFloat32,static_cast<double>(sampleRate_),framesPerBuffer_,reinterpret_cast<PaStreamCallback*>(&AudioEngine::paCallback),this);if(e==paNoError)error_="Audio output ready; no default input device";}
     if(e!=paNoError){error_=Pa_GetErrorText(e);Pa_Terminate();return false;}stream_=s;e=Pa_StartStream(s);if(e!=paNoError){error_=Pa_GetErrorText(e);Pa_CloseStream(s);stream_=nullptr;Pa_Terminate();return false;}return true;
 #else
     error_="PortAudio runtime unavailable; offline renderer remains active";return false;
 #endif
 }
 void AudioEngine::close(){
+    if(recording_.load(std::memory_order_acquire))finishRecording();
 #ifdef FLOWDAW_HAS_PORTAUDIO
     if(stream_){Pa_StopStream(static_cast<PaStream*>(stream_));Pa_CloseStream(static_cast<PaStream*>(stream_));stream_=nullptr;Pa_Terminate();}
 #endif
+    inputAvailable_.store(false,std::memory_order_relaxed);
 }
-std::string AudioEngine::lastError() const{return error_;}
+std::string AudioEngine::lastError()const{return error_;}
 
-void AudioEngine::publish(const Project& p){
-    auto g=std::make_unique<Graph>();g->master=p.master.volume;bool anySolo=false;for(auto const&t:p.tracks)anySolo=anySolo||t.mixer.solo;
-    auto append=[&](SampleIndex start,SampleIndex sourceStart,SampleIndex length,float gain,float pan,std::shared_ptr<AudioBuffer> audio,int chokeGroup){if(!audio||audio->frames()==0||length<=0||gain<=0.0f)return;RenderClip r;r.start=start;r.sourceStart=sourceStart;r.length=length;r.gain=gain;r.pan=std::clamp(pan,-1.0f,1.0f);r.chokeGroup=std::max(0,chokeGroup);r.audio=std::move(audio);g->clips.push_back(std::move(r));};
+void AudioEngine::publish(const Project&p){
+    auto g=std::make_unique<Graph>();g->master=p.master.volume;g->masterEffectGain=effectsGain(p.master.effects);g->bpm=p.transport.bpm;g->automation=p.automation;
+    auto automationIndex=[&](const std::string&target,Id targetId,Id sub=0){for(int i=0;i<static_cast<int>(g->automation.size());++i){auto const&l=g->automation[static_cast<std::size_t>(i)];if(l.target==target&&l.targetId==targetId&&l.subTargetId==sub)return i;}return-1;};
+    g->masterVolumeAutomation=automationIndex("master.volume",0);
+    bool anySolo=false;for(auto const&t:p.tracks)anySolo=anySolo||t.mixer.solo;bool anyBusSolo=false;for(auto const&b:p.buses)anyBusSolo=anyBusSolo||b.mixer.solo;
+    auto appendRoute=[&](const Track&t,const Bus*bus,const MixerSend*send,SampleIndex start,SampleIndex sourceStart,SampleIndex length,float sourceGain,float sourcePan,std::shared_ptr<AudioBuffer>audio,int chokeGroup){
+        if(!audio||audio->frames()==0||length<=0||sourceGain<=0.0f)return;if(bus&&(bus->mixer.mute||(anyBusSolo&&!bus->mixer.solo)))return;if(!bus&&anyBusSolo)return;
+        RenderClip r;r.start=start;r.sourceStart=sourceStart;r.length=length;r.gain=sourceGain*effectsGain(t.mixer.effects)*(bus?effectsGain(bus->mixer.effects):1.0f);r.pan=sourcePan;r.chokeGroup=std::max(0,chokeGroup);r.audio=std::move(audio);
+        const bool pre=send&&send->preFader;r.trackVolume=pre?1.0f:t.mixer.volume;r.trackPan=t.mixer.pan;r.busVolume=bus?bus->mixer.volume:1.0f;r.busPan=bus?bus->mixer.pan:0.0f;r.sendGain=send?send->gain:1.0f;
+        r.trackVolumeAutomation=pre?-1:automationIndex("track.volume",t.id);r.trackPanAutomation=automationIndex("track.pan",t.id);if(bus){r.busVolumeAutomation=automationIndex("bus.volume",bus->id);r.busPanAutomation=automationIndex("bus.pan",bus->id);}if(send)r.sendAutomation=automationIndex("send.gain",t.id,send->id);g->clips.push_back(std::move(r));
+    };
+    auto appendEvent=[&](const Track&t,SampleIndex start,SampleIndex sourceStart,SampleIndex length,float gain,float pan,std::shared_ptr<AudioBuffer>audio,int chokeGroup){
+        const Bus*mainBus=t.outputBusId?p.findBus(t.outputBusId):nullptr;appendRoute(t,mainBus,nullptr,start,sourceStart,length,gain,pan,audio,chokeGroup);
+        for(auto const&s:t.sends){if(!s.enabled||s.gain<=0.0f)continue;auto const*b=p.findBus(s.busId);if(!b)continue;appendRoute(t,b,&s,start,sourceStart,length,gain,pan,audio,chokeGroup);}
+    };
     for(auto const&t:p.tracks){
-        if(t.mixer.mute||(anySolo&&!t.mixer.solo))continue;
-        const std::size_t trackClipBase=g->clips.size();
-        for(auto const&c:t.clips){auto const*s=p.findSample(c.sampleId);if(!s||!s->audio)continue;const auto sourceStart=std::max<SampleIndex>(0,c.sourceStart);const auto requested=c.sourceLength>0?c.sourceLength:s->audio->frames()-sourceStart;append(MusicalTime::ticksToSamples(c.startTick,p.transport.bpm,sampleRate_),sourceStart,std::max<SampleIndex>(0,requested),c.gain*t.mixer.volume,t.mixer.pan,s->audio,0);}
+        if(t.mixer.mute||(anySolo&&!t.mixer.solo))continue;const std::size_t trackClipBase=g->clips.size();
+        for(auto const&c:t.clips){auto const*s=p.findSample(c.sampleId);if(!s||!s->audio)continue;const auto sourceStart=std::max<SampleIndex>(0,c.sourceStart);const auto requested=c.sourceLength>0?c.sourceLength:s->audio->frames()-sourceStart;appendEvent(t,MusicalTime::ticksToSamples(c.startTick,p.transport.bpm,sampleRate_),sourceStart,std::max<SampleIndex>(0,requested),c.gain,0.0f,s->audio,0);}
+        if(t.activeTakeId){auto it=std::find_if(t.takes.begin(),t.takes.end(),[&](auto const&take){return take.id==t.activeTakeId;});if(it!=t.takes.end()){auto const*s=p.findSample(it->sampleId);if(s&&s->audio)appendEvent(t,MusicalTime::ticksToSamples(it->startTick,p.transport.bpm,sampleRate_),0,s->audio->frames(),1.0f,0.0f,s->audio,0);}}
         for(auto const&placement:t.patternClips){
-            auto const*pat=p.findPattern(placement.patternId);if(!pat||pat->stepsPerBeat<=0)continue;
-            const Tick stepTicks=kPPQ/pat->stepsPerBeat,patTicks=pat->lengthTicks();
-            bool anyLaneSolo=false;for(auto const&lane:pat->lanes)anyLaneSolo=anyLaneSolo||lane.solo;
-            const float swing=std::clamp(pat->swing,0.0f,1.0f),human=std::clamp(pat->humanize,0.0f,1.0f);
+            auto const*pat=p.findPattern(placement.patternId);if(!pat||pat->stepsPerBeat<=0)continue;const Tick stepTicks=kPPQ/pat->stepsPerBeat,patTicks=pat->lengthTicks();bool anyLaneSolo=false;for(auto const&lane:pat->lanes)anyLaneSolo=anyLaneSolo||lane.solo;const float swing=std::clamp(pat->swing,0.0f,1.0f),human=std::clamp(pat->humanize,0.0f,1.0f);
             for(int rep=0;rep<std::max(1,placement.repeats);++rep){
-                for(std::size_t li=0;li<pat->lanes.size();++li){
-                    auto const&lane=pat->lanes[li];if(lane.mute||(anyLaneSolo&&!lane.solo))continue;auto const*s=p.findSample(lane.sampleId);if(!s||!s->audio)continue;
-                    for(int step=0;step<std::min<int>(pat->stepCount,static_cast<int>(lane.steps.size()));++step){
-                        auto const&ev=lane.steps[static_cast<std::size_t>(step)];if(!ev.active||!deterministicHit(ev.probability,pat->id,li,step,rep))continue;
-                        const Tick swingTicks=(step%2==1)?static_cast<Tick>(std::llround(swing*stepTicks*0.5)):0;const Tick humanTicks=static_cast<Tick>(std::llround(signedVariation(pat->id,li,step,rep,0xA51ULL)*human*stepTicks*0.12));const float humanVelocity=static_cast<float>(signedVariation(pat->id,li,step,rep,0xB73ULL)*human*0.12);
-                        Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+static_cast<Tick>(step)*stepTicks+swingTicks+humanTicks+ev.microTicks;if(tick<0)tick=0;const float velocity=std::clamp(ev.velocity+humanVelocity,0.0f,1.5f);
-                        append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,s->audio->frames(),velocity*lane.volume*t.mixer.volume,lane.pan+t.mixer.pan,s->audio,0);
-                    }
-                }
-                if(pat->instrument.enabled){
-                    for(auto const&note:pat->midiNotes){
-                        if(note.lengthTicks<=0||note.velocity<=0.0f)continue;
-                        const Tick tick=std::max<Tick>(0,placement.startTick+static_cast<Tick>(rep)*patTicks+note.startTick);
-                        const SampleIndex noteFrames=std::max<SampleIndex>(1,MusicalTime::ticksToSamples(note.lengthTicks,p.transport.bpm,sampleRate_));
-                        auto synth=std::make_shared<AudioBuffer>(renderNativeInstrumentNote(pat->instrument,note.pitch,note.velocity,noteFrames,sampleRate_,p.transport.bpm));
-                        const SampleIndex synthFrames=synth->frames();
-                        append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,synthFrames,std::clamp(pat->instrument.gain,0.0f,2.0f)*t.mixer.volume,pat->instrument.pan+t.mixer.pan,std::move(synth),0);
-                    }
-                }
-                for(auto const&ev:pat->chopEvents){
-                    auto const*s=p.findSample(ev.sampleId);if(!s||!s->audio)continue;
-                    auto slice=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==ev.sliceId;});if(slice==s->slices.end())continue;
-                    const auto sourceStart=std::clamp<SampleIndex>(slice->startFrame,0,s->audio->frames());const auto sourceEnd=std::clamp<SampleIndex>(slice->endFrame,sourceStart,s->audio->frames());if(sourceEnd<=sourceStart)continue;
-                    Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+ev.tick;if(tick<0)tick=0;
-                    const SampleIndex startSamples=MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_);
-                    const int choke=std::max(0,slice->chokeGroup);
-                    if(choke>0){
-                        for(std::size_t idx=g->clips.size();idx>trackClipBase;--idx){
-                            auto&previous=g->clips[idx-1];if(previous.chokeGroup!=choke||previous.start>startSamples||!previous.audio)continue;
-                            const SampleIndex outputGap=std::max<SampleIndex>(0,startSamples-previous.start);
-                            const double sourcePerDevice=static_cast<double>(previous.audio->sampleRate)/static_cast<double>(sampleRate_);
-                            const SampleIndex cutFrames=std::max<SampleIndex>(1,static_cast<SampleIndex>(std::llround(static_cast<double>(outputGap)*sourcePerDevice)));
-                            previous.length=std::min(previous.length,cutFrames);break;
-                        }
-                    }
-                    const float gain=std::clamp(ev.velocity,0.0f,1.5f)*std::clamp(slice->gain,0.0f,2.0f)*t.mixer.volume;
-                    const float pan=ev.pan+slice->pan+t.mixer.pan;
-                    append(startSamples,sourceStart,sourceEnd-sourceStart,gain,pan,s->audio,choke);
-                }
+                for(std::size_t li=0;li<pat->lanes.size();++li){auto const&lane=pat->lanes[li];if(lane.mute||(anyLaneSolo&&!lane.solo))continue;auto const*s=p.findSample(lane.sampleId);if(!s||!s->audio)continue;for(int step=0;step<std::min<int>(pat->stepCount,static_cast<int>(lane.steps.size()));++step){auto const&ev=lane.steps[static_cast<std::size_t>(step)];if(!ev.active||!deterministicHit(ev.probability,pat->id,li,step,rep))continue;const Tick swingTicks=(step%2==1)?static_cast<Tick>(std::llround(swing*stepTicks*0.5)):0;const Tick humanTicks=static_cast<Tick>(std::llround(signedVariation(pat->id,li,step,rep,0xA51ULL)*human*stepTicks*0.12));const float humanVelocity=static_cast<float>(signedVariation(pat->id,li,step,rep,0xB73ULL)*human*0.12);Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+static_cast<Tick>(step)*stepTicks+swingTicks+humanTicks+ev.microTicks;if(tick<0)tick=0;const float velocity=std::clamp(ev.velocity+humanVelocity,0.0f,1.5f);appendEvent(t,MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,s->audio->frames(),velocity*lane.volume,lane.pan,s->audio,0);}}
+                if(pat->instrument.enabled){for(auto const&note:pat->midiNotes){if(note.lengthTicks<=0||note.velocity<=0.0f)continue;const Tick tick=std::max<Tick>(0,placement.startTick+static_cast<Tick>(rep)*patTicks+note.startTick);const SampleIndex noteFrames=std::max<SampleIndex>(1,MusicalTime::ticksToSamples(note.lengthTicks,p.transport.bpm,sampleRate_));auto synth=std::make_shared<AudioBuffer>(renderNativeInstrumentNote(pat->instrument,note.pitch,note.velocity,noteFrames,sampleRate_,p.transport.bpm));const auto synthFrames=synth->frames();appendEvent(t,MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,synthFrames,std::clamp(pat->instrument.gain,0.0f,2.0f),pat->instrument.pan,std::move(synth),0);}}
+                for(auto const&ev:pat->chopEvents){auto const*s=p.findSample(ev.sampleId);if(!s||!s->audio)continue;auto slice=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==ev.sliceId;});if(slice==s->slices.end())continue;const auto sourceStart=std::clamp<SampleIndex>(slice->startFrame,0,s->audio->frames());const auto sourceEnd=std::clamp<SampleIndex>(slice->endFrame,sourceStart,s->audio->frames());if(sourceEnd<=sourceStart)continue;Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+ev.tick;if(tick<0)tick=0;const SampleIndex startSamples=MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_);const int choke=std::max(0,slice->chokeGroup);if(choke>0){for(std::size_t idx=g->clips.size();idx>trackClipBase;--idx){auto&previous=g->clips[idx-1];if(previous.chokeGroup!=choke||previous.start>startSamples||!previous.audio)continue;const SampleIndex outputGap=std::max<SampleIndex>(0,startSamples-previous.start);const double sourcePerDevice=static_cast<double>(previous.audio->sampleRate)/static_cast<double>(sampleRate_);const SampleIndex cutFrames=std::max<SampleIndex>(1,static_cast<SampleIndex>(std::llround(static_cast<double>(outputGap)*sourcePerDevice)));previous.length=std::min(previous.length,cutFrames);}}
+                    appendEvent(t,startSamples,sourceStart,sourceEnd-sourceStart,std::clamp(ev.velocity,0.0f,1.5f)*std::clamp(slice->gain,0.0f,2.0f),ev.pan+slice->pan,s->audio,choke);}
             }
         }
     }
@@ -122,55 +93,31 @@ void AudioEngine::publish(const Project& p){
 }
 void AudioEngine::play(){playing_.store(true,std::memory_order_release);}void AudioEngine::pause(){playing_.store(false,std::memory_order_release);}void AudioEngine::stop(){playing_.store(false,std::memory_order_release);playhead_.store(0,std::memory_order_release);}
 
-bool AudioEngine::triggerPreview(std::shared_ptr<AudioBuffer> audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain,float pan,int chokeGroup){
-    if(!audio||audio->frames()<2)return false;
-    sourceStart=std::clamp<SampleIndex>(sourceStart,0,audio->frames()-1);
-    sourceLength=std::min<SampleIndex>(std::max<SampleIndex>(1,sourceLength),audio->frames()-sourceStart);
-    {std::lock_guard lk(previewLifetimeMutex_);bool seen=false;for(auto const&p:previewKeepAlive_)if(p.get()==audio.get()){seen=true;break;}if(!seen)previewKeepAlive_.push_back(audio);}
-    const std::uint32_t w=previewWrite_.load(std::memory_order_relaxed);
-    const std::uint32_t r=previewRead_.load(std::memory_order_acquire);
-    const std::uint32_t next=static_cast<std::uint32_t>((w+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));
-    if(next==r)return false;
-    previewQueue_[w]={audio.get(),sourceStart,sourceLength,gain,std::clamp(pan,-1.0f,1.0f),std::max(0,chokeGroup),false};
-    previewWrite_.store(next,std::memory_order_release);
-    return true;
-}
-void AudioEngine::stopPreviews(){
-    const std::uint32_t w=previewWrite_.load(std::memory_order_relaxed);
-    const std::uint32_t r=previewRead_.load(std::memory_order_acquire);
-    const std::uint32_t next=static_cast<std::uint32_t>((w+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));
-    if(next==r)return;
-    previewQueue_[w]={nullptr,0,0,1,0,0,true};
-    previewWrite_.store(next,std::memory_order_release);
-}
-void AudioEngine::consumePreviewCommands(){
-    auto r=previewRead_.load(std::memory_order_relaxed);const auto w=previewWrite_.load(std::memory_order_acquire);
-    while(r!=w){
-        const auto cmd=previewQueue_[r];
-        if(cmd.stopAll){for(auto&v:previewVoices_)v.active=false;}
-        else if(cmd.audio){
-            if(cmd.chokeGroup>0)for(auto&v:previewVoices_)if(v.active&&v.chokeGroup==cmd.chokeGroup)v.active=false;
-            PreviewVoice*slot=nullptr;for(auto&v:previewVoices_)if(!v.active){slot=&v;break;}if(!slot)slot=&previewVoices_[0];
-            *slot={cmd.audio,cmd.start,cmd.length,0,cmd.gain,cmd.pan,cmd.chokeGroup,true};
-        }
-        r=static_cast<std::uint32_t>((r+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));
-    }
-    previewRead_.store(r,std::memory_order_release);
-}
-void AudioEngine::mixPreviewVoices(float*out,unsigned long frames){
-    for(auto&v:previewVoices_){if(!v.active||!v.audio)continue;const auto before=v.position;mixRange(out,frames,*v.audio,v.start,v.length,before,v.gain,v.pan,sampleRate_);v.position+=static_cast<SampleIndex>(frames);const double ratio=static_cast<double>(v.audio->sampleRate)/sampleRate_;if(static_cast<double>(v.position)*ratio>=static_cast<double>(v.length))v.active=false;}
-}
+bool AudioEngine::triggerPreview(std::shared_ptr<AudioBuffer>audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain,float pan,int chokeGroup){if(!audio||audio->frames()<2)return false;sourceStart=std::clamp<SampleIndex>(sourceStart,0,audio->frames()-1);sourceLength=std::min<SampleIndex>(std::max<SampleIndex>(1,sourceLength),audio->frames()-sourceStart);{std::lock_guard lk(previewLifetimeMutex_);bool seen=false;for(auto const&p:previewKeepAlive_)if(p.get()==audio.get()){seen=true;break;}if(!seen)previewKeepAlive_.push_back(audio);}const std::uint32_t w=previewWrite_.load(std::memory_order_relaxed),r=previewRead_.load(std::memory_order_acquire),next=static_cast<std::uint32_t>((w+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));if(next==r)return false;previewQueue_[w]={audio.get(),sourceStart,sourceLength,gain,std::clamp(pan,-1.0f,1.0f),std::max(0,chokeGroup),false};previewWrite_.store(next,std::memory_order_release);return true;}
+void AudioEngine::stopPreviews(){const std::uint32_t w=previewWrite_.load(std::memory_order_relaxed),r=previewRead_.load(std::memory_order_acquire),next=static_cast<std::uint32_t>((w+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));if(next==r)return;previewQueue_[w]={nullptr,0,0,1,0,0,true};previewWrite_.store(next,std::memory_order_release);}
+void AudioEngine::consumePreviewCommands(){auto r=previewRead_.load(std::memory_order_relaxed);const auto w=previewWrite_.load(std::memory_order_acquire);while(r!=w){const auto cmd=previewQueue_[r];if(cmd.stopAll){for(auto&v:previewVoices_)v.active=false;}else if(cmd.audio){if(cmd.chokeGroup>0)for(auto&v:previewVoices_)if(v.active&&v.chokeGroup==cmd.chokeGroup)v.active=false;PreviewVoice*slot=nullptr;for(auto&v:previewVoices_)if(!v.active){slot=&v;break;}if(!slot)slot=&previewVoices_[0];*slot={cmd.audio,cmd.start,cmd.length,0,cmd.gain,cmd.pan,cmd.chokeGroup,true};}r=static_cast<std::uint32_t>((r+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));}previewRead_.store(r,std::memory_order_release);}
+void AudioEngine::mixPreviewVoices(float*out,unsigned long frames){for(auto&v:previewVoices_){if(!v.active||!v.audio)continue;const auto before=v.position;mixRangeSimple(out,frames,*v.audio,v.start,v.length,before,v.gain,v.pan,sampleRate_);v.position+=static_cast<SampleIndex>(frames);const double ratio=static_cast<double>(v.audio->sampleRate)/sampleRate_;if(static_cast<double>(v.position)*ratio>=static_cast<double>(v.length))v.active=false;}}
 
-int AudioEngine::process(float*out,unsigned long frames){
-    std::fill(out,out+frames*2,0.0f);consumePreviewCommands();const bool transport=playing_.load(std::memory_order_acquire);auto*g=current_.load(std::memory_order_acquire);const auto base=playhead_.load(std::memory_order_relaxed);
-    if(transport&&g){for(auto const&c:g->clips){if(base+static_cast<SampleIndex>(frames)<=c.start)continue;const SampleIndex localOffset=std::max<SampleIndex>(0,base-c.start);const unsigned long outOffset=base<c.start?static_cast<unsigned long>(c.start-base):0;if(outOffset>=frames)continue;mixRange(out+outOffset*2,frames-outOffset,*c.audio,c.sourceStart,c.length,localOffset,c.gain*g->master,c.pan,sampleRate_);}}
-    mixPreviewVoices(out,frames);for(unsigned long i=0;i<frames*2;++i)out[i]=std::clamp(out[i],-1.0f,1.0f);if(transport)playhead_.store(base+static_cast<SampleIndex>(frames),std::memory_order_release);return 0;
+bool AudioEngine::beginRecording(SampleIndex maxFrames){if(maxFrames<=0||recording_.load(std::memory_order_acquire))return false;recordingBuffer_.assign(static_cast<std::size_t>(maxFrames),0.0f);recordingWrite_.store(0,std::memory_order_release);recording_.store(true,std::memory_order_release);return true;}
+void AudioEngine::captureInput(const float*in,unsigned long frames){if(!in||!recording_.load(std::memory_order_acquire))return;recordingWriters_.fetch_add(1,std::memory_order_acq_rel);if(recording_.load(std::memory_order_acquire)){auto pos=recordingWrite_.load(std::memory_order_relaxed);const auto cap=static_cast<SampleIndex>(recordingBuffer_.size());const auto count=std::min<SampleIndex>(static_cast<SampleIndex>(frames),std::max<SampleIndex>(0,cap-pos));for(SampleIndex i=0;i<count;++i)recordingBuffer_[static_cast<std::size_t>(pos+i)]=in[i];recordingWrite_.store(pos+count,std::memory_order_release);if(pos+count>=cap)recording_.store(false,std::memory_order_release);}recordingWriters_.fetch_sub(1,std::memory_order_acq_rel);}
+AudioBuffer AudioEngine::finishRecording(){recording_.store(false,std::memory_order_release);while(recordingWriters_.load(std::memory_order_acquire)>0)std::this_thread::yield();AudioBuffer out;out.sampleRate=sampleRate_;out.channels=1;const auto n=std::clamp<SampleIndex>(recordingWrite_.load(std::memory_order_acquire),0,static_cast<SampleIndex>(recordingBuffer_.size()));out.interleaved.assign(recordingBuffer_.begin(),recordingBuffer_.begin()+n);return out;}
+
+int AudioEngine::process(const float*in,float*out,unsigned long frames){
+    std::fill(out,out+frames*2,0.0f);captureInput(in,frames);consumePreviewCommands();const bool transport=playing_.load(std::memory_order_acquire);auto*g=current_.load(std::memory_order_acquire);const auto base=playhead_.load(std::memory_order_relaxed);
+    auto automationAt=[&](int idx,Tick tick,float fallback){return idx>=0&&idx<static_cast<int>(g->automation.size())?automationValueAt(g->automation[static_cast<std::size_t>(idx)],tick,fallback):fallback;};
+    auto mixClip=[&](float*dst,unsigned long count,const RenderClip&c,SampleIndex localOffset,SampleIndex absoluteStart){if(!c.audio||count==0)return;const double ratio=static_cast<double>(c.audio->sampleRate)/sampleRate_;const int ch=c.audio->channels;for(unsigned long i=0;i<count;++i){const SampleIndex rel=localOffset+static_cast<SampleIndex>(i);if(rel<0)continue;const double srcPos=static_cast<double>(c.sourceStart)+static_cast<double>(rel)*ratio;if(srcPos>=static_cast<double>(c.sourceStart+c.length)||srcPos>=static_cast<double>(c.audio->frames()-1))break;const Tick tick=MusicalTime::samplesToTicks(absoluteStart+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float tv=automationAt(c.trackVolumeAutomation,tick,c.trackVolume),tp=automationAt(c.trackPanAutomation,tick,c.trackPan),bv=automationAt(c.busVolumeAutomation,tick,c.busVolume),bp=automationAt(c.busPanAutomation,tick,c.busPan),sg=automationAt(c.sendAutomation,tick,c.sendGain),mv=automationAt(g->masterVolumeAutomation,tick,g->master);const float gain=c.gain*tv*bv*sg*mv*g->masterEffectGain;const float pan=std::clamp(c.pan+tp+bp,-1.0f,1.0f);const float lp=std::sqrt((1.0f-pan)*0.5f),rp=std::sqrt((1.0f+pan)*0.5f);const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);auto get=[&](SampleIndex idx,int cc){return c.audio->interleaved[static_cast<std::size_t>(idx*ch+std::min(cc,ch-1))];};const float sl=get(i0,0)+(get(i1,0)-get(i0,0))*frac,sr=ch>1?get(i0,1)+(get(i1,1)-get(i0,1))*frac:sl;dst[i*2]+=sl*gain*lp;dst[i*2+1]+=sr*gain*rp;}};
+    if(transport&&g){for(auto const&c:g->clips){if(base+static_cast<SampleIndex>(frames)<=c.start)continue;const SampleIndex localOffset=std::max<SampleIndex>(0,base-c.start);const unsigned long outOffset=base<c.start?static_cast<unsigned long>(c.start-base):0;if(outOffset>=frames)continue;mixClip(out+outOffset*2,frames-outOffset,c,localOffset,base+static_cast<SampleIndex>(outOffset));}}
+    mixPreviewVoices(out,frames);if(in&&inputMonitoring_.load(std::memory_order_relaxed)){for(unsigned long i=0;i<frames;++i){out[i*2]+=in[i]*0.7071f;out[i*2+1]+=in[i]*0.7071f;}}
+    for(unsigned long i=0;i<frames*2;++i)out[i]=std::clamp(out[i],-1.0f,1.0f);if(transport)playhead_.store(base+static_cast<SampleIndex>(frames),std::memory_order_release);return 0;
 }
-int AudioEngine::paCallback(const void*,void*output,unsigned long frames,const void*,unsigned long,void*user){return static_cast<AudioEngine*>(user)->process(static_cast<float*>(output),frames);}
+int AudioEngine::paCallback(const void*input,void*output,unsigned long frames,const void*,unsigned long,void*user){return static_cast<AudioEngine*>(user)->process(static_cast<const float*>(input),static_cast<float*>(output),frames);}
 
 AudioBuffer AudioEngine::renderOffline(SampleIndex frames)const{
     AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,frames)*2),0.0f);auto*g=current_.load(std::memory_order_acquire);if(!g)return out;
-    for(auto const&c:g->clips){const SampleIndex start=std::max<SampleIndex>(0,c.start);if(start>=frames)continue;const unsigned long count=static_cast<unsigned long>(frames-start);mixRange(out.interleaved.data()+start*2,count,*c.audio,c.sourceStart,c.length,std::max<SampleIndex>(0,-c.start),c.gain*g->master,c.pan,sampleRate_);}for(auto&x:out.interleaved)x=std::clamp(x,-1.0f,1.0f);return out;
+    auto automationAt=[&](int idx,Tick tick,float fallback){return idx>=0&&idx<static_cast<int>(g->automation.size())?automationValueAt(g->automation[static_cast<std::size_t>(idx)],tick,fallback):fallback;};
+    for(auto const&c:g->clips){const SampleIndex start=std::max<SampleIndex>(0,c.start);if(start>=frames||!c.audio)continue;const SampleIndex localOffset=std::max<SampleIndex>(0,-c.start);const double ratio=static_cast<double>(c.audio->sampleRate)/sampleRate_;const int ch=c.audio->channels;for(SampleIndex i=start;i<frames;++i){const SampleIndex rel=localOffset+(i-start);const double srcPos=static_cast<double>(c.sourceStart)+static_cast<double>(rel)*ratio;if(srcPos>=static_cast<double>(c.sourceStart+c.length)||srcPos>=static_cast<double>(c.audio->frames()-1))break;const Tick tick=MusicalTime::samplesToTicks(i,g->bpm,sampleRate_);const float gain=c.gain*automationAt(c.trackVolumeAutomation,tick,c.trackVolume)*automationAt(c.busVolumeAutomation,tick,c.busVolume)*automationAt(c.sendAutomation,tick,c.sendGain)*automationAt(g->masterVolumeAutomation,tick,g->master)*g->masterEffectGain;const float pan=std::clamp(c.pan+automationAt(c.trackPanAutomation,tick,c.trackPan)+automationAt(c.busPanAutomation,tick,c.busPan),-1.0f,1.0f);const float lp=std::sqrt((1.0f-pan)*0.5f),rp=std::sqrt((1.0f+pan)*0.5f);const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);auto get=[&](SampleIndex idx,int cc){return c.audio->interleaved[static_cast<std::size_t>(idx*ch+std::min(cc,ch-1))];};const float sl=get(i0,0)+(get(i1,0)-get(i0,0))*frac,sr=ch>1?get(i0,1)+(get(i1,1)-get(i0,1))*frac:sl;out.interleaved[static_cast<std::size_t>(i*2)]+=sl*gain*lp;out.interleaved[static_cast<std::size_t>(i*2+1)]+=sr*gain*rp;}}
+    for(auto&x:out.interleaved)x=std::clamp(x,-1.0f,1.0f);return out;
 }
-AudioBuffer AudioEngine::renderDeviceBlockForTest(SampleIndex frames){AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,frames)*2),0.0f);if(frames>0)process(out.interleaved.data(),static_cast<unsigned long>(frames));return out;}
+AudioBuffer AudioEngine::renderDeviceBlockForTest(SampleIndex frames){AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,frames)*2),0.0f);if(frames>0)process(nullptr,out.interleaved.data(),static_cast<unsigned long>(frames));return out;}
+AudioBuffer AudioEngine::processInputBlockForTest(const AudioBuffer&monoInput){AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,monoInput.frames())*2),0.0f);if(monoInput.channels!=1||monoInput.frames()<=0)return out;process(monoInput.interleaved.data(),out.interleaved.data(),static_cast<unsigned long>(monoInput.frames()));return out;}
 }
