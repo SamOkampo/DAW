@@ -1,35 +1,33 @@
-# Audio Engine
+# FLOWDAW audio engine
 
-## Clock
+## Realtime contract
 
-FLOWDAW uses 960 pulses per quarter note (`PPQ=960`) in 4/4 for Phase 0. Timeline positions are integer ticks. Conversion to samples happens at graph compilation/render boundaries using project BPM and device sample rate.
+The shipping architecture remains C++20 with a JUCE 9.x desktop/device adapter. UI state and file analysis never run inside the realtime callback.
 
-At constant tempo:
+The control thread compiles project state into immutable render graphs. The audio callback reads the published graph, mixes timeline clips/pattern events and never mutates the Project.
 
-`seconds = ticks / PPQ * 60 / BPM`
+## Musical scheduling
 
-`samples = round(seconds * sampleRate)`
+- Internal resolution: 960 PPQ.
+- Pattern event timing is derived from project BPM and ticks.
+- Swing delays off subdivisions.
+- Humanize is deterministic, so reopening/rendering the same project does not randomly change the performance.
+- Probability decisions are deterministic per event/repeat.
 
-Keeping edits in integer musical ticks avoids cumulative floating-point drift when moving clips/patterns on the grid. A future TempoMap will replace the constant-tempo conversion without changing clip positions.
+## Smart sampling
 
-## Realtime rules
+BPM/transient analysis and WSOLA processing occur outside the realtime callback. Match BPM creates a derived cache buffer and stores only the relationship to its source (`sourceSampleId`, `timeRatio`) in the project.
 
-The callback must not allocate, lock, touch disk, parse project files, or call UI code. Phase 0 publishes an immutable graph pointer with release/acquire semantics. Audio buffers are decoded before publication and shared by stable ownership.
+Current WSOLA is a Phase-2 baseline and is tested for requested duration, approximate pitch preservation and 82→90 BPM behavior. Production builds should benchmark CPU/audio quality against mature stretch implementations before locking the final backend.
 
-## Render graph Phase 0
+## Chop preview
 
-`Transport -> Track Clip Readers -> Track Gain/Pan -> Master Gain -> Output`
+Chop Mode does not start the transport and does not create Arrangement clips just to audition a pad.
 
-Planned evolution:
+- UI/control thread enqueues a small `PreviewCommand` into a fixed SPSC ring.
+- The callback consumes commands into 16 preallocated preview voices.
+- No mutex is taken and no heap allocation is performed in the callback path.
+- Audio-buffer lifetime is retained by the control-side engine owner while previews can reference it.
+- Preview voices can overlap, allowing finger-drumming/chop performances.
 
-`Clip Readers / Instruments -> Track FX chain -> sends/buses -> group buses -> Master FX -> limiter/meter -> device`
-
-Automation is compiled to per-block/per-sample parameter ramps rather than querying the UI/project model from the callback.
-
-## Resampling
-
-Phase 0 uses linear interpolation so files with a different sample rate remain playable. This is intentionally replaceable. Before shipping, offline/high-quality and realtime resamplers should be separated and benchmarked; quality-sensitive stretching is a different subsystem from plain sample-rate conversion.
-
-## Smart BPM / time stretch
-
-BPM detection and time stretching do not belong in the realtime callback. Analysis runs on workers, creates metadata/warp information, and the realtime graph consumes precomputed state. Source files remain untouched; transformed audio may be represented by edit metadata or internal cache files.
+A device-block test exercises the same `process()` mixer path even on CI machines without a physical audio device.

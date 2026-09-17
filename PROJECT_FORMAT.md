@@ -1,26 +1,24 @@
-# FLOWDAW Project Format
+# FLOWDAW project format
 
-## Principles
+Current project format: **v4**.
 
-- Non-destructive: source audio is referenced, never rewritten by clip edits.
-- Explicit versioning: every file starts with `FLOWDAW_PROJECT <formatVersion>`.
-- Stable numeric IDs for assets/tracks/clips/effects.
-- Unknown future versions fail explicitly instead of being interpreted incorrectly.
-- Autosave/version snapshots will write new files atomically (temp + rename) in the production persistence layer.
+`.flow` is a versioned text format so early development remains inspectable and migratable. Older v1-v3 files are accepted by the loader and normalized to v4 in memory.
 
-## Phase 0 records
+## v4 sample model
 
-The current text format stores:
+Each `SampleAsset` can persist:
 
-- name, sample rate, BPM and playhead;
-- master gain;
-- sample IDs, names and paths;
-- track IDs, mixer volume/pan/mute/solo;
-- clip IDs, sample reference, start/length ticks, source range, gain and loop flag;
-- patterns and their length.
+- original filesystem path or native sound key;
+- detected BPM and confidence;
+- `sourceSampleId` and `timeRatio` for derived Match-BPM assets;
+- zero or more non-destructive `SampleSlice` ranges (`startFrame`, `endFrame`).
 
-Audio bytes are not embedded. When a project is opened, assets are resolved from their saved paths and decoded into memory. Missing-media relinking is a Phase 1 persistence feature.
+An original asset has `sourceSampleId = 0`. A Match-BPM asset stores a non-zero source ID and a duration ratio. On reopen FLOWDAW loads the original source, then regenerates the derived buffer with the stored time-stretch ratio. The original file is never overwritten.
 
-## Migration policy
+## Sequencer model
 
-`formatVersion=1` is the first internal format, not a public compatibility promise. Before beta, migrations become explicit `vN -> vN+1` functions and serializer tests must include golden project files.
+Patterns persist step count, subdivisions, Swing, Humanize, lanes and per-step Active/Velocity/Probability/Microtiming. Lanes persist Volume, Pan, Mute and Solo. Pattern placements persist musical start tick and repeat count.
+
+## Forward rule
+
+Future changes must increment `formatVersion` when the persisted schema changes and keep explicit migration/backward-loading behavior where practical.

@@ -1,47 +1,37 @@
 # FLOWDAW Roadmap
 
-## Phase 0 — Foundations
+## Phase 0 — Foundations [DONE]
+Audio engine, transport, BPM, timeline, WAV import/playback, waveform, clip movement, non-destructive project model, save/open and Undo/Redo.
 
-Completed in the bootstrap implementation:
+## Phase 1 — Step Sequencer / Groove Engine [DONE]
+16/32/64-step patterns, native drums, pattern Arrangement blocks, Velocity/Probability/Microtiming, Swing/Humanize, lane mixer controls, presets, persistence and render tests.
 
-- project/domain model;
-- 960-PPQ musical clock;
-- audio graph foundation;
-- WAV decode;
-- timeline + waveform;
-- transport state;
-- draggable non-destructive audio clip;
-- save/open with project format versioning;
-- undo/redo;
-- automated tests;
-- runnable desktop Studio shell.
+## Phase 2 — Smart Sampling [IN PROGRESS]
 
-Productionization items that remain intentionally separate from feature work:
+Done:
+1. Sample analysis metadata.
+2. BPM detector.
+3. Transient detector.
+4. Equal Chop and Auto Chop.
+5. Non-destructive slice persistence.
+6. WSOLA Match BPM baseline.
+7. Derived assets + reopen regeneration.
+8. Visible slice markers.
+9. 16 keyboard-mapped Chop pads.
+10. Realtime one-shot preview independent of transport.
 
-- replace X11/PortAudio bootstrap adapters with pinned JUCE app/device adapters on Windows and macOS;
-- native file chooser and desktop lifecycle;
-- atomic autosave + recovery;
-- device/sample-rate/buffer settings and xrun meter;
-- epoch/RCU-style render-graph reclamation;
-- high-quality sample-rate converter.
+Next:
+11. Record pad performance into a sampler Pattern/clip.
+12. Editable/manual slice markers.
+13. Chop by beat/bar.
+14. Downbeat and beat-grid analysis.
+15. Production-grade stretch quality/performance benchmarking.
 
-## Phase 1 — Step Sequencer / Groove Engine
+## Phase 3 — Piano Roll / MIDI / Instruments
+MIDI event model, professional piano roll, scale highlighting, native instruments and initial effects.
 
-1. [DONE] 16-step Drum Rack core.
-2. [DONE] Original generated Kick/Snare/Hat starter kit.
-3. [DONE] Per-step Velocity, Probability and Microtiming model + UI editor.
-4. [DONE] Pattern transport synchronized to the same 960-PPQ clock.
-5. [DONE] Swing implemented as event scheduling offsets, never destructive audio edits.
-6. [DONE] Deterministic Humanize for timing and velocity.
-7. [DONE] Lane Mute/Solo.
-8. [DONE] Undo + save/open + render tests for all above.
-9. [DONE] 16/32/64 pattern lengths with a paged 16-step sequencer view.
-10. [DONE] Visible draggable Pattern blocks in Arrangement with grid snap and Undo.
-11. [NEXT] Per-pad gain/pan UI and broader native drum kit browser.
-12. [NEXT] Human Feel macro controls and groove presets.
+## Phase 4 — Recording / Automation / Advanced Mixer
+Vocal recording, takes, automation curves, routing and advanced mixer UX.
 
-Exit criterion: create a 90 BPM boom-bap drum loop, manipulate groove/step timing, arrange/move the pattern, save/reopen and hear the identical result.
-
-## Phase 2 — Sampling core
-
-Sampler, Chop Mode, transient suggestions, BPM detection, warp metadata and time stretching. Smart BPM and Smart Chop become first-class only after the timing/sequencing layer is stable.
+## Phase 5 — Assist / Plugins / Advanced Workflow
+Context-aware production copilot, VST3/AU host layer and workflow polish.

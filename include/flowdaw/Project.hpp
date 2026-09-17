@@ -9,7 +9,19 @@
 namespace flowdaw {
 struct Effect { Id id=nextId(); std::string type="gain"; bool enabled=true; float value=1.0f; };
 struct MixerChannel { float volume=1.0f; float pan=0.0f; bool mute=false; bool solo=false; std::vector<Effect> effects; };
-struct SampleAsset { Id id=nextId(); std::filesystem::path path; std::string name; std::string nativeKey; std::shared_ptr<AudioBuffer> audio; };
+struct SampleSlice { Id id=nextId(); std::string name="Slice"; SampleIndex startFrame=0; SampleIndex endFrame=0; };
+struct SampleAsset {
+    Id id=nextId();
+    std::filesystem::path path;
+    std::string name;
+    std::string nativeKey;
+    double detectedBpm=0.0;
+    float bpmConfidence=0.0f;
+    Id sourceSampleId=0;        // 0 = original. Non-zero = derived from another asset.
+    double timeRatio=1.0;      // output duration / source duration for derived assets.
+    std::vector<SampleSlice> slices;
+    std::shared_ptr<AudioBuffer> audio;
+};
 struct Clip { Id id=nextId(); Id sampleId=0; Tick startTick=0; Tick lengthTicks=0; SampleIndex sourceStart=0; SampleIndex sourceLength=0; float gain=1.0f; bool loop=false; };
 struct StepEvent { bool active=false; float velocity=1.0f; float probability=1.0f; int microTicks=0; };
 struct DrumLane {
@@ -36,7 +48,7 @@ struct Track { Id id=nextId(); std::string name="Audio 1"; MixerChannel mixer; s
 struct TransportState { double bpm=90.0; Tick playheadTick=0; bool playing=false; };
 struct MasterMixer { float volume=1.0f; std::vector<Effect> effects; };
 struct Project {
-    int formatVersion=3;
+    int formatVersion=4;
     std::string name="Untitled";
     int sampleRate=48000;
     TransportState transport;

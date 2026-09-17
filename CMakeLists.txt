@@ -13,6 +13,8 @@ add_library(flowdaw_core
     src/Wav.cpp
     src/Waveform.cpp
     src/NativeDrums.cpp
+    src/SampleAnalysis.cpp
+    src/TimeStretch.cpp
     src/Project.cpp
     src/Serialization.cpp
     src/Undo.cpp
