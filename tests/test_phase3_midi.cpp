@@ -39,8 +39,8 @@ int main(){
     require(energy(rendered,0,beat-1000)<0.001,"MIDI note must respect Arrangement start tick");
     require(energy(rendered,beat+1000,beat+16000)>50.0,"MIDI note must render through native instrument");
 
-    const auto path=std::filesystem::temp_directory_path()/"flowdaw_phase3_v8.flow";ProjectSerializer::save(p,path);auto loaded=ProjectSerializer::load(path,false);std::filesystem::remove(path);
-    require(loaded.formatVersion==8,"project must save/load as v8");
+    const auto path=std::filesystem::temp_directory_path()/"flowdaw_phase3_v9.flow";ProjectSerializer::save(p,path);auto loaded=ProjectSerializer::load(path,false);std::filesystem::remove(path);
+    require(loaded.formatVersion==9,"project must save/load as v9");
     require(loaded.patterns.size()==1&&loaded.patterns[0].midiNotes.size()==1,"MIDI notes must persist");
     auto const&lp=loaded.patterns[0];require(lp.instrument.enabled&&lp.instrument.type=="flow_keys","native instrument must persist");
     require(std::abs(lp.instrument.gain-.75f)<.001f&&lp.scaleRoot==0&&lp.scaleType=="minor","instrument and scale controls must persist");
@@ -48,7 +48,7 @@ int main(){
 
     const auto legacyPath=std::filesystem::temp_directory_path()/"flowdaw_phase3_legacy_v7.flow";
     {std::ofstream f(legacyPath);f<<"FLOWDAW_PROJECT 7\nNAME \"legacy\"\nSAMPLE_RATE 48000\nBPM 90\nPLAYHEAD 0\nMASTER 1 0\nSAMPLES 0\nTRACKS 0\nPATTERNS 0\nEND\n";}
-    auto legacy=ProjectSerializer::load(legacyPath,false);std::filesystem::remove(legacyPath);require(legacy.formatVersion==8,"v7 projects must migrate to v8 in memory");
+    auto legacy=ProjectSerializer::load(legacyPath,false);std::filesystem::remove(legacyPath);require(legacy.formatVersion==9,"v7 projects must migrate to v9 in memory");
 
     std::cout<<"FLOWDAW Phase 3 MIDI/instrument tests: PASS\n";return 0;
  }catch(const std::exception&e){std::cerr<<"FAIL: "<<e.what()<<"\n";return 1;}
