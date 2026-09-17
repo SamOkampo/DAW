@@ -62,4 +62,8 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_time_stretch_quality_tests tests/test_time_stretch_quality.cpp)
     target_link_libraries(flowdaw_time_stretch_quality_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_time_stretch_quality_tests COMMAND flowdaw_time_stretch_quality_tests)
+
+    add_executable(flowdaw_phase2_pad_controls_tests tests/test_phase2_pad_controls.cpp)
+    target_link_libraries(flowdaw_phase2_pad_controls_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase2_pad_controls_tests COMMAND flowdaw_phase2_pad_controls_tests)
 endif()
