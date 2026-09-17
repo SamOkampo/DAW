@@ -35,10 +35,10 @@ int main(){
         take.chopEvents={e1,e2};const Id takeId=take.id;p.patterns.push_back(take);
         Track t;t.name="CHOPS";PatternPlacement pp;pp.patternId=takeId;t.patternClips.push_back(pp);p.tracks.push_back(t);
 
-        const auto path=std::filesystem::temp_directory_path()/"flowdaw_phase2_v8.flow";
+        const auto path=std::filesystem::temp_directory_path()/"flowdaw_phase2_v9.flow";
         ProjectSerializer::save(p,path);auto loaded=ProjectSerializer::load(path,false);
-        require(loaded.formatVersion==8,"project must migrate/save as v8");
-        require(loaded.samples.size()==1&&loaded.samples[0].slices.size()==2,"v8 slices must survive save/load");
+        require(loaded.formatVersion==9,"project must migrate/save as v9");
+        require(loaded.samples.size()==1&&loaded.samples[0].slices.size()==2,"v9 slices must survive save/load");
         require(std::abs(loaded.samples[0].slices[1].gain-0.5f)<0.0001f,"slice gain must persist");
         require(loaded.samples[0].slices[0].chokeGroup==1&&loaded.samples[0].slices[1].chokeGroup==1,"slice choke group must persist");
         std::filesystem::remove(path);
@@ -50,7 +50,7 @@ int main(){
             f<<"SAMPLES 1\nSAMPLE 1 \"sample\" \"\" \"\" 90 0.8 0 1 1\nSLICE 2 \"slice\" 0 100\nTRACKS 0\nPATTERNS 0\nEND\n";
         }
         auto legacy=ProjectSerializer::load(legacyPath,false);std::filesystem::remove(legacyPath);
-        require(legacy.formatVersion==8,"v6 project must migrate to v8 in memory");
+        require(legacy.formatVersion==9,"v6 project must migrate to v9 in memory");
         require(std::abs(legacy.samples[0].slices[0].gain-1.0f)<0.0001f&&legacy.samples[0].slices[0].chokeGroup==0,"v6 slice defaults must be safe");
 
         AudioEngine preview;
