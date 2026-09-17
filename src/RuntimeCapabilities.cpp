@@ -5,9 +5,9 @@ namespace flowdaw {
 RuntimeCapabilities runtimeCapabilities(){
     RuntimeCapabilities c;
 #ifdef FLOWDAW_JUCE_RUNTIME
-    c.uiBackend="JUCE toolchain available";
+    c.uiBackend="JUCE 9 production runtime";
     c.juceCompiled=true;
-    c.audioDeviceManager=false;
+    c.audioDeviceManager=true;
 #else
     c.uiBackend="X11 bootstrap";
 #endif
@@ -18,6 +18,6 @@ RuntimeCapabilities runtimeCapabilities(){
     return c;
 }
 std::string runtimeCapabilitySummary(const RuntimeCapabilities&c){
-    std::ostringstream o;o<<c.uiBackend<<" | JUCE "<<(c.juceCompiled?"AVAILABLE":"OFF")<<" | external plugins "<<(c.externalPluginExecution?"ACTIVE":"SLOTS ONLY")<<" | recovery "<<(c.crashRecovery?"ON":"OFF")<<" | quarantine "<<(c.pluginQuarantine?"ON":"OFF");return o.str();
+    std::ostringstream o;o<<c.uiBackend<<" | JUCE "<<(c.juceCompiled?"ACTIVE":"OFF")<<" | AudioDeviceManager "<<(c.audioDeviceManager?"ACTIVE":"OFF")<<" | external plugins "<<(c.externalPluginExecution?"ACTIVE":"SLOTS ONLY")<<" | editors "<<(c.pluginEditorHosting?"ACTIVE":"OFF")<<" | recovery "<<(c.crashRecovery?"ON":"OFF")<<" | quarantine "<<(c.pluginQuarantine?"ON":"OFF");return o.str();
 }
 }
