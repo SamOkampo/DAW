@@ -52,6 +52,11 @@ add_executable(flowdaw_stretch_benchmark EXCLUDE_FROM_ALL tools/stretch_benchmar
 target_link_libraries(flowdaw_stretch_benchmark PRIVATE flowdaw_core)
 target_compile_options(flowdaw_stretch_benchmark PRIVATE -Wall -Wextra -Wpedantic)
 
+add_executable(flowdaw-doctor tools/flowdaw_doctor.cpp)
+target_link_libraries(flowdaw-doctor PRIVATE flowdaw_core)
+target_compile_options(flowdaw-doctor PRIVATE -Wall -Wextra -Wpedantic)
+install(TARGETS flowdaw-doctor RUNTIME DESTINATION bin)
+
 if(FLOWDAW_BUILD_APP)
     find_package(X11 REQUIRED)
     add_executable(flowdaw app/main_phase5.cpp)
