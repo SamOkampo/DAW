@@ -10,9 +10,11 @@ option(FLOWDAW_BUILD_TESTS "Build tests" ON)
 
 add_library(flowdaw_core
     src/MusicalTime.cpp
+    src/Midi.cpp
     src/Wav.cpp
     src/Waveform.cpp
     src/NativeDrums.cpp
+    src/NativeInstruments.cpp
     src/SampleAnalysis.cpp
     src/SampleEditing.cpp
     src/TimeStretch.cpp
@@ -70,4 +72,8 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase2_pad_controls_tests tests/test_phase2_pad_controls.cpp)
     target_link_libraries(flowdaw_phase2_pad_controls_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase2_pad_controls_tests COMMAND flowdaw_phase2_pad_controls_tests)
+
+    add_executable(flowdaw_phase3_midi_tests tests/test_phase3_midi.cpp)
+    target_link_libraries(flowdaw_phase3_midi_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase3_midi_tests COMMAND flowdaw_phase3_midi_tests)
 endif()
