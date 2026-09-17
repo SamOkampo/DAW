@@ -91,7 +91,8 @@ void AudioEngine::publish(const Project& p){
                         const Tick tick=std::max<Tick>(0,placement.startTick+static_cast<Tick>(rep)*patTicks+note.startTick);
                         const SampleIndex noteFrames=std::max<SampleIndex>(1,MusicalTime::ticksToSamples(note.lengthTicks,p.transport.bpm,sampleRate_));
                         auto synth=std::make_shared<AudioBuffer>(renderNativeInstrumentNote(pat->instrument,note.pitch,note.velocity,noteFrames,sampleRate_,p.transport.bpm));
-                        append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,synth->frames(),std::clamp(pat->instrument.gain,0.0f,2.0f)*t.mixer.volume,pat->instrument.pan+t.mixer.pan,std::move(synth),0);
+                        const SampleIndex synthFrames=synth->frames();
+                        append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,synthFrames,std::clamp(pat->instrument.gain,0.0f,2.0f)*t.mixer.volume,pat->instrument.pan+t.mixer.pan,std::move(synth),0);
                     }
                 }
                 for(auto const&ev:pat->chopEvents){
