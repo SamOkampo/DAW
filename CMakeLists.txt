@@ -58,10 +58,12 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
         find_package(JUCE 9.0.2 CONFIG REQUIRED)
     endif()
 
+    target_compile_definitions(flowdaw_core PUBLIC FLOWDAW_JUCE_RUNTIME=1 FLOWDAW_EXTERNAL_PLUGIN_RUNTIME=1)
+
     add_library(flowdaw_juce_runtime src/JucePluginBackend.cpp)
     target_include_directories(flowdaw_juce_runtime PUBLIC include)
     target_link_libraries(flowdaw_juce_runtime PUBLIC flowdaw_core juce::juce_audio_processors juce::juce_audio_utils)
-    target_compile_definitions(flowdaw_juce_runtime PUBLIC FLOWDAW_JUCE_RUNTIME=1 FLOWDAW_EXTERNAL_PLUGIN_RUNTIME=1 JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_compile_definitions(flowdaw_juce_runtime PUBLIC JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
     if(APPLE)
         target_compile_definitions(flowdaw_juce_runtime PUBLIC JUCE_PLUGINHOST_AU=1)
     else()
