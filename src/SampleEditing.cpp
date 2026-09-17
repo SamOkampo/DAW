@@ -19,7 +19,9 @@ bool insertSliceBoundary(SampleAsset& sample,SampleIndex frame,SampleIndex minSl
         auto const current=sample.slices[i];
         if(frame<=current.startFrame||frame>=current.endFrame)continue;
         if(frame-current.startFrame<minSliceFrames||current.endFrame-frame<minSliceFrames)return false;
-        SampleSlice left=current,right=current;left.id=nextId();right.id=nextId();
+        // Preserve the original slice id on the left half so existing references
+        // remain stable whenever a split is performed before recording takes.
+        SampleSlice left=current,right=current;right.id=nextId();
         left.name="Slice "+std::to_string(i+1);right.name="Slice "+std::to_string(i+2);
         left.endFrame=frame;right.startFrame=frame;
         sample.slices[i]=left;sample.slices.insert(sample.slices.begin()+static_cast<std::ptrdiff_t>(i+1),right);
