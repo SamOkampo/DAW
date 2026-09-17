@@ -31,3 +31,7 @@ jobs:
         run: cmake -S . -B build-studio -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=ON -DFLOWDAW_BUILD_TESTS=OFF
       - name: Build Studio executable
         run: cmake --build build-studio --parallel --target flowdaw
+      - name: Install smoke test
+        run: cmake --install build-studio --prefix "$RUNNER_TEMP/flowdaw-install" && test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw"
+      - name: Package smoke test
+        run: cd build-studio && cpack -G TGZ && test -n "$(find . -maxdepth 1 -name 'FLOWDAW-*.tar.gz' -print -quit)"
