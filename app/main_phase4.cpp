@@ -1,6 +1,6 @@
-#define main flowdaw_phase3_entry
+#define FLOWDAW_EMBED_PHASE3 1
 #include "main_phase3.cpp"
-#undef main
+#undef FLOWDAW_EMBED_PHASE3
 
 #include "flowdaw/Automation.hpp"
 #include "flowdaw/Export.hpp"
