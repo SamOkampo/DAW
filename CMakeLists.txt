@@ -24,6 +24,9 @@ add_library(flowdaw_core
     src/ChopEditing.cpp
     src/Automation.cpp
     src/Export.cpp
+    src/PluginHost.cpp
+    src/ProductionAssistant.cpp
+    src/Workflow.cpp
     src/AudioEngine.cpp
 )
 target_include_directories(flowdaw_core PUBLIC include)
@@ -41,7 +44,7 @@ target_compile_options(flowdaw_stretch_benchmark PRIVATE -Wall -Wextra -Wpedanti
 
 if(FLOWDAW_BUILD_APP)
     find_package(X11 REQUIRED)
-    add_executable(flowdaw app/main_phase4.cpp)
+    add_executable(flowdaw app/main_phase5.cpp)
     target_link_libraries(flowdaw PRIVATE flowdaw_core X11::X11)
     target_compile_options(flowdaw PRIVATE -Wall -Wextra -Wpedantic)
 endif()
@@ -79,4 +82,8 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase4_tests tests/test_phase4.cpp)
     target_link_libraries(flowdaw_phase4_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase4_tests COMMAND flowdaw_phase4_tests)
+
+    add_executable(flowdaw_phase5_tests tests/test_phase5.cpp)
+    target_link_libraries(flowdaw_phase5_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase5_tests COMMAND flowdaw_phase5_tests)
 endif()
