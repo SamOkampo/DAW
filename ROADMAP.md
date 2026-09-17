@@ -9,7 +9,7 @@ Audio engine, transport, BPM, timeline, WAV import/playback, waveform, clip move
 ## Phase 2 — Smart Sampling [IN PROGRESS]
 
 Done:
-1. Sample analysis metadata.
+1. Sample analysis metadata and confidence.
 2. BPM detector.
 3. Transient detector.
 4. Equal Chop and Auto Chop.
@@ -19,13 +19,20 @@ Done:
 8. Visible slice markers.
 9. 16 keyboard-mapped Chop pads.
 10. Realtime one-shot preview independent of transport.
+11. REC CHOPS performance capture into Pattern events.
+12. Project format v6 with original `recordedTick/recordedVelocity` plus reversible edited timing/velocity.
+13. 0–100% non-destructive Chop quantize and deterministic Chop humanize core.
+14. Dedicated CHOPS Arrangement lane, draggable with grid snap and Undo.
+15. Manual slice editing: drag boundary, insert boundary and merge boundary, with identity safeguards.
+16. Beat-grid baseline: BPM + first-beat phase + 4/4 downbeat candidate/confidence.
+17. Beat/bar slice generator with automated synthetic accent/offset tests.
 
 Next:
-11. Record pad performance into a sampler Pattern/clip.
-12. Editable/manual slice markers.
-13. Chop by beat/bar.
-14. Downbeat and beat-grid analysis.
-15. Production-grade stretch quality/performance benchmarking.
+18. Expose `CHOP BEAT` and `CHOP BAR` in the Studio UI.
+19. Show beat-grid/downbeat overlay and confidence in the waveform UI.
+20. Add visible Chop quantize/humanize strength controls rather than only the current 50% shortcut.
+21. Production-grade stretch quality/performance benchmarking and backend evaluation.
+22. Sample workflow polish: slice naming, pad banks beyond 16, preview stop/choke groups and per-pad controls.
 
 ## Phase 3 — Piano Roll / MIDI / Instruments
 MIDI event model, professional piano roll, scale highlighting, native instruments and initial effects.
