@@ -18,6 +18,7 @@ add_library(flowdaw_core
     src/Project.cpp
     src/Serialization.cpp
     src/Undo.cpp
+    src/ChopEditing.cpp
     src/AudioEngine.cpp
 )
 target_include_directories(flowdaw_core PUBLIC include)
