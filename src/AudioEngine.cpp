@@ -32,7 +32,7 @@ void mixRange(float* out,unsigned long frames,const AudioBuffer& audio,SampleInd
     const double ratio=static_cast<double>(audio.sampleRate)/deviceRate;const int ch=audio.channels;
     pan=std::clamp(pan,-1.0f,1.0f);const float lpan=std::sqrt((1.0f-pan)*0.5f),rpan=std::sqrt((1.0f+pan)*0.5f);
     for(unsigned long i=0;i<frames;++i){
-        const SampleIndex rel=outputOffset+static_cast<SampleIndex>(i); if(rel<0) continue;
+        const SampleIndex rel=outputOffset+static_cast<SampleIndex>(i);if(rel<0)continue;
         const double srcPos=static_cast<double>(sourceStart)+static_cast<double>(rel)*ratio;
         if(srcPos>=static_cast<double>(sourceStart+sourceLength)||srcPos>=static_cast<double>(audio.frames()-1))break;
         const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);
@@ -64,10 +64,11 @@ std::string AudioEngine::lastError() const{return error_;}
 
 void AudioEngine::publish(const Project& p){
     auto g=std::make_unique<Graph>();g->master=p.master.volume;bool anySolo=false;for(auto const&t:p.tracks)anySolo=anySolo||t.mixer.solo;
-    auto append=[&](SampleIndex start,SampleIndex sourceStart,SampleIndex length,float gain,float pan,std::shared_ptr<AudioBuffer> audio){if(!audio||audio->frames()==0||length<=0||gain<=0.0f)return;RenderClip r;r.start=start;r.sourceStart=sourceStart;r.length=length;r.gain=gain;r.pan=std::clamp(pan,-1.0f,1.0f);r.audio=std::move(audio);g->clips.push_back(std::move(r));};
+    auto append=[&](SampleIndex start,SampleIndex sourceStart,SampleIndex length,float gain,float pan,std::shared_ptr<AudioBuffer> audio,int chokeGroup){if(!audio||audio->frames()==0||length<=0||gain<=0.0f)return;RenderClip r;r.start=start;r.sourceStart=sourceStart;r.length=length;r.gain=gain;r.pan=std::clamp(pan,-1.0f,1.0f);r.chokeGroup=std::max(0,chokeGroup);r.audio=std::move(audio);g->clips.push_back(std::move(r));};
     for(auto const&t:p.tracks){
         if(t.mixer.mute||(anySolo&&!t.mixer.solo))continue;
-        for(auto const&c:t.clips){auto const*s=p.findSample(c.sampleId);if(!s||!s->audio)continue;const auto sourceStart=std::max<SampleIndex>(0,c.sourceStart);const auto requested=c.sourceLength>0?c.sourceLength:s->audio->frames()-sourceStart;append(MusicalTime::ticksToSamples(c.startTick,p.transport.bpm,sampleRate_),sourceStart,std::max<SampleIndex>(0,requested),c.gain*t.mixer.volume,t.mixer.pan,s->audio);}
+        const std::size_t trackClipBase=g->clips.size();
+        for(auto const&c:t.clips){auto const*s=p.findSample(c.sampleId);if(!s||!s->audio)continue;const auto sourceStart=std::max<SampleIndex>(0,c.sourceStart);const auto requested=c.sourceLength>0?c.sourceLength:s->audio->frames()-sourceStart;append(MusicalTime::ticksToSamples(c.startTick,p.transport.bpm,sampleRate_),sourceStart,std::max<SampleIndex>(0,requested),c.gain*t.mixer.volume,t.mixer.pan,s->audio,0);}
         for(auto const&placement:t.patternClips){
             auto const*pat=p.findPattern(placement.patternId);if(!pat||pat->stepsPerBeat<=0)continue;
             const Tick stepTicks=kPPQ/pat->stepsPerBeat,patTicks=pat->lengthTicks();
@@ -80,7 +81,7 @@ void AudioEngine::publish(const Project& p){
                         auto const&ev=lane.steps[static_cast<std::size_t>(step)];if(!ev.active||!deterministicHit(ev.probability,pat->id,li,step,rep))continue;
                         const Tick swingTicks=(step%2==1)?static_cast<Tick>(std::llround(swing*stepTicks*0.5)):0;const Tick humanTicks=static_cast<Tick>(std::llround(signedVariation(pat->id,li,step,rep,0xA51ULL)*human*stepTicks*0.12));const float humanVelocity=static_cast<float>(signedVariation(pat->id,li,step,rep,0xB73ULL)*human*0.12);
                         Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+static_cast<Tick>(step)*stepTicks+swingTicks+humanTicks+ev.microTicks;if(tick<0)tick=0;const float velocity=std::clamp(ev.velocity+humanVelocity,0.0f,1.5f);
-                        append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,s->audio->frames(),velocity*lane.volume*t.mixer.volume,lane.pan+t.mixer.pan,s->audio);
+                        append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,s->audio->frames(),velocity*lane.volume*t.mixer.volume,lane.pan+t.mixer.pan,s->audio,0);
                     }
                 }
                 for(auto const&ev:pat->chopEvents){
@@ -88,7 +89,20 @@ void AudioEngine::publish(const Project& p){
                     auto slice=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==ev.sliceId;});if(slice==s->slices.end())continue;
                     const auto sourceStart=std::clamp<SampleIndex>(slice->startFrame,0,s->audio->frames());const auto sourceEnd=std::clamp<SampleIndex>(slice->endFrame,sourceStart,s->audio->frames());if(sourceEnd<=sourceStart)continue;
                     Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+ev.tick;if(tick<0)tick=0;
-                    append(MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),sourceStart,sourceEnd-sourceStart,std::clamp(ev.velocity,0.0f,1.5f)*t.mixer.volume,ev.pan+t.mixer.pan,s->audio);
+                    const SampleIndex startSamples=MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_);
+                    const int choke=std::max(0,slice->chokeGroup);
+                    if(choke>0){
+                        for(std::size_t idx=g->clips.size();idx>trackClipBase;--idx){
+                            auto&previous=g->clips[idx-1];if(previous.chokeGroup!=choke||previous.start>startSamples||!previous.audio)continue;
+                            const SampleIndex outputGap=std::max<SampleIndex>(0,startSamples-previous.start);
+                            const double sourcePerDevice=static_cast<double>(previous.audio->sampleRate)/static_cast<double>(sampleRate_);
+                            const SampleIndex cutFrames=std::max<SampleIndex>(1,static_cast<SampleIndex>(std::llround(static_cast<double>(outputGap)*sourcePerDevice)));
+                            previous.length=std::min(previous.length,cutFrames);break;
+                        }
+                    }
+                    const float gain=std::clamp(ev.velocity,0.0f,1.5f)*std::clamp(slice->gain,0.0f,2.0f)*t.mixer.volume;
+                    const float pan=ev.pan+slice->pan+t.mixer.pan;
+                    append(startSamples,sourceStart,sourceEnd-sourceStart,gain,pan,s->audio,choke);
                 }
             }
         }
@@ -97,16 +111,16 @@ void AudioEngine::publish(const Project& p){
 }
 void AudioEngine::play(){playing_.store(true,std::memory_order_release);}void AudioEngine::pause(){playing_.store(false,std::memory_order_release);}void AudioEngine::stop(){playing_.store(false,std::memory_order_release);playhead_.store(0,std::memory_order_release);}
 
-bool AudioEngine::triggerPreview(std::shared_ptr<AudioBuffer> audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain,float pan){
-    if(!audio||audio->frames()<2) return false;
+bool AudioEngine::triggerPreview(std::shared_ptr<AudioBuffer> audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain,float pan,int chokeGroup){
+    if(!audio||audio->frames()<2)return false;
     sourceStart=std::clamp<SampleIndex>(sourceStart,0,audio->frames()-1);
     sourceLength=std::min<SampleIndex>(std::max<SampleIndex>(1,sourceLength),audio->frames()-sourceStart);
     {std::lock_guard lk(previewLifetimeMutex_);bool seen=false;for(auto const&p:previewKeepAlive_)if(p.get()==audio.get()){seen=true;break;}if(!seen)previewKeepAlive_.push_back(audio);}
     const std::uint32_t w=previewWrite_.load(std::memory_order_relaxed);
     const std::uint32_t r=previewRead_.load(std::memory_order_acquire);
     const std::uint32_t next=static_cast<std::uint32_t>((w+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));
-    if(next==r) return false;
-    previewQueue_[w]={audio.get(),sourceStart,sourceLength,gain,std::clamp(pan,-1.0f,1.0f),false};
+    if(next==r)return false;
+    previewQueue_[w]={audio.get(),sourceStart,sourceLength,gain,std::clamp(pan,-1.0f,1.0f),std::max(0,chokeGroup),false};
     previewWrite_.store(next,std::memory_order_release);
     return true;
 }
@@ -114,12 +128,23 @@ void AudioEngine::stopPreviews(){
     const std::uint32_t w=previewWrite_.load(std::memory_order_relaxed);
     const std::uint32_t r=previewRead_.load(std::memory_order_acquire);
     const std::uint32_t next=static_cast<std::uint32_t>((w+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));
-    if(next==r) return;
-    previewQueue_[w]={nullptr,0,0,1,0,true};
+    if(next==r)return;
+    previewQueue_[w]={nullptr,0,0,1,0,0,true};
     previewWrite_.store(next,std::memory_order_release);
 }
 void AudioEngine::consumePreviewCommands(){
-    auto r=previewRead_.load(std::memory_order_relaxed);const auto w=previewWrite_.load(std::memory_order_acquire);while(r!=w){const auto cmd=previewQueue_[r];if(cmd.stopAll){for(auto&v:previewVoices_)v.active=false;}else if(cmd.audio){PreviewVoice*slot=nullptr;for(auto&v:previewVoices_)if(!v.active){slot=&v;break;}if(!slot)slot=&previewVoices_[0];*slot={cmd.audio,cmd.start,cmd.length,0,cmd.gain,cmd.pan,true};}r=static_cast<std::uint32_t>((r+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));}previewRead_.store(r,std::memory_order_release);
+    auto r=previewRead_.load(std::memory_order_relaxed);const auto w=previewWrite_.load(std::memory_order_acquire);
+    while(r!=w){
+        const auto cmd=previewQueue_[r];
+        if(cmd.stopAll){for(auto&v:previewVoices_)v.active=false;}
+        else if(cmd.audio){
+            if(cmd.chokeGroup>0)for(auto&v:previewVoices_)if(v.active&&v.chokeGroup==cmd.chokeGroup)v.active=false;
+            PreviewVoice*slot=nullptr;for(auto&v:previewVoices_)if(!v.active){slot=&v;break;}if(!slot)slot=&previewVoices_[0];
+            *slot={cmd.audio,cmd.start,cmd.length,0,cmd.gain,cmd.pan,cmd.chokeGroup,true};
+        }
+        r=static_cast<std::uint32_t>((r+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));
+    }
+    previewRead_.store(r,std::memory_order_release);
 }
 void AudioEngine::mixPreviewVoices(float*out,unsigned long frames){
     for(auto&v:previewVoices_){if(!v.active||!v.audio)continue;const auto before=v.position;mixRange(out,frames,*v.audio,v.start,v.length,before,v.gain,v.pan,sampleRate_);v.position+=static_cast<SampleIndex>(frames);const double ratio=static_cast<double>(v.audio->sampleRate)/sampleRate_;if(static_cast<double>(v.position)*ratio>=static_cast<double>(v.length))v.active=false;}
