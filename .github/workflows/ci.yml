@@ -43,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install JUCE Linux dependencies
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libfreetype6-dev libfontconfig1-dev libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev libxcomposite-dev libxrender-dev libgl1-mesa-dev
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libfreetype6-dev libfontconfig1-dev libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev libxcomposite-dev libxrender-dev libxi-dev libgl1-mesa-dev
       - name: Configure JUCE 9.0.2 runtime
         run: cmake -S . -B build-juce -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=OFF -DFLOWDAW_BUILD_TESTS=ON -DFLOWDAW_ENABLE_JUCE_RUNTIME=ON -DFLOWDAW_FETCH_JUCE=ON -DFLOWDAW_BUILD_JUCE_APP=ON -DFLOWDAW_BUILD_JUCE_TEST_PLUGIN=ON
       - name: Build JUCE desktop and real VST3 fixture
