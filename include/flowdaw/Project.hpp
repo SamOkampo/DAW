@@ -33,6 +33,13 @@ struct DrumLane {
     bool solo=false;
     std::vector<StepEvent> steps;
 };
+struct ChopEvent {
+    Tick tick=0;       // Relative to the owning Pattern.
+    Id sampleId=0;
+    Id sliceId=0;
+    float velocity=1.0f;
+    float pan=0.0f;
+};
 struct Pattern {
     Id id=nextId();
     std::string name="Pattern 1";
@@ -41,6 +48,7 @@ struct Pattern {
     float swing=0.0f;      // 0..1; delays every second subdivision.
     float humanize=0.0f;   // 0..1; deterministic timing/velocity variation.
     std::vector<DrumLane> lanes;
+    std::vector<ChopEvent> chopEvents;
     Tick lengthTicks() const { return static_cast<Tick>(stepCount)*kPPQ/stepsPerBeat; }
 };
 struct PatternPlacement { Id id=nextId(); Id patternId=0; Tick startTick=0; int repeats=1; };
@@ -48,7 +56,7 @@ struct Track { Id id=nextId(); std::string name="Audio 1"; MixerChannel mixer; s
 struct TransportState { double bpm=90.0; Tick playheadTick=0; bool playing=false; };
 struct MasterMixer { float volume=1.0f; std::vector<Effect> effects; };
 struct Project {
-    int formatVersion=4;
+    int formatVersion=5;
     std::string name="Untitled";
     int sampleRate=48000;
     TransportState transport;
