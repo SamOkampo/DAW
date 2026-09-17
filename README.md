@@ -4,7 +4,7 @@ FLOWDAW is a hip-hop-first desktop DAW in active development. Its core principle
 
 ## Current state
 
-The repository contains a runnable C++20 DAW foundation plus completed Step Sequencer/Groove Engine, Smart Sampling/Chop Mode, Piano Roll/MIDI/Native Instruments, and Recording/Automation/Advanced Mixer phases.
+The repository contains a runnable C++20 DAW foundation plus completed Step Sequencer/Groove Engine, Smart Sampling/Chop Mode, Piano Roll/MIDI/Native Instruments, Recording/Automation/Advanced Mixer, and Assist/Plugins/Advanced Workflow phases.
 
 ### Working and tested
 
@@ -26,12 +26,22 @@ The repository contains a runnable C++20 DAW foundation plus completed Step Sequ
 - Persistent linear automation for Track Volume/Pan, Bus Volume/Pan, Send Gain and Master Volume.
 - Mixer/REC Studio view with Arm, Monitor, REC AUDIO, take switching, routing, sends, buses and automation-point writing.
 - Master WAV export plus per-track WAV stem export.
-- Project format v9 persists Smart Sampling, MIDI/instrument, recording, mixer-routing and automation state while loading v1-v8.
-- GitHub Actions validates eight core/test suites, the stretch benchmark and the complete Studio executable.
+- Project format v10 persists Smart Sampling, MIDI/instrument, recording, mixer-routing, automation and plugin-rack state while loading v1-v9.
+- Persistent plugin racks on Master, Tracks and Buses with bypass, wet mix, parameters and opaque state.
+- Built-in FLOW Gain, FLOW Soft Clip and FLOW Width processors; native master processing runs in realtime/offline rendering.
+- SDK-neutral external plugin backend contract plus VST3/AU bundle discovery that does not execute third-party binaries during scanning.
+- Context-aware production assistant for headroom, gain staging, groove, buses, takes and sample-tempo checks.
+- Assistant edits are explicit and Undoable; informational advice never mutates the project automatically.
+- Project Health validation for broken routing/references, duplicate IDs and suspicious project state.
+- Advanced workflow commands for common production actions.
+- Safer project saving using temporary replacement plus `.bak` backup of the previous project.
+- GitHub Actions validates nine core/test suites, the stretch benchmark and the complete Phase 0–5 Studio executable.
 
-**Phase 0, Phase 1, Phase 2, Phase 3 and Phase 4 are complete. Phase 5 (Assist / Plugins / Advanced Workflow) is next.**
+**Phase 0 through Phase 5 are complete. The next milestone is production desktop hardening: JUCE 9.x UI/device integration, a real VST3 backend, AU hosting on macOS, plugin-editor hosting/sandboxing, packaging, crash recovery and release-grade profiling.**
 
 The current Linux bootstrap UI uses X11 because the development environment does not ship JUCE headers. The intended shipping backend remains **C++20 + JUCE 9.x** for Windows/macOS. The musical/audio core is toolkit-independent so the bootstrap shell can be replaced without rewriting the project model or scheduler.
+
+External plugin support in the bootstrap is deliberately honest: FLOWDAW can discover `.vst3` and `.component` bundles, persist them as plugin slots and expose a tested `IExternalPluginBackend` contract, but it does **not** execute third-party VST3/AU binaries unless a real backend is registered. Built-in FLOW plugins do process audio now.
 
 ## Build
 
@@ -49,7 +59,7 @@ Open a WAV or project directly:
 ./build/flowdaw projects/StepSequencer_90BPM.flow
 ```
 
-Open the Piano Roll with `P`. Open the Phase 4 mixer with `M`; `F9` toggles audio recording when an input device is available. In the mixer, Arm selects a recording destination, Monitor enables input monitoring, take arrows change the non-destructive comp, automation buttons write the selected track's current value at the playhead, and Export WAV / Stems produce offline renders.
+Open the Piano Roll with `P`. Open the Phase 4 mixer with `M`; `F9` toggles audio recording when an input device is available. Open Phase 5 with `I` to access Assist, Project Health, plugin discovery/racks and advanced workflow commands. Assistant changes only run after explicit Apply and are committed to Undo.
 
 Run the stretch benchmark:
 
@@ -58,6 +68,6 @@ cmake --build build --target flowdaw_stretch_benchmark
 ./build/flowdaw_stretch_benchmark
 ```
 
-CI does not have a physical microphone, so recording correctness is tested by feeding deterministic mono input through the exact callback capture/monitor path. The complete Studio executable is compiled separately under the Linux bootstrap path.
+CI does not have a physical microphone or third-party commercial plugins. Recording correctness is tested by feeding deterministic mono input through the exact callback capture/monitor path; external plugin hosting is tested through the same backend contract with a deterministic fake backend. The complete Studio executable is compiled separately under the Linux bootstrap path.
 
-See `ARCHITECTURE.md`, `AUDIO_ENGINE.md`, `PROJECT_FORMAT.md`, `ROADMAP.md`, `PHASE1_STATUS.md`, `PHASE2_STATUS.md`, `PHASE3_STATUS.md`, `PHASE4_STATUS.md` and `docs/TIME_STRETCH_EVALUATION.md`.
+See `ARCHITECTURE.md`, `AUDIO_ENGINE.md`, `PROJECT_FORMAT.md`, `ROADMAP.md`, `PHASE1_STATUS.md`, `PHASE2_STATUS.md`, `PHASE3_STATUS.md`, `PHASE4_STATUS.md`, `PHASE5_STATUS.md` and `docs/TIME_STRETCH_EVALUATION.md`.

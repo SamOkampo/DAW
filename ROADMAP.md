@@ -65,5 +65,25 @@ Completed:
 16. Dedicated Phase 4 tests for recording, monitoring, takes, comp selection, automation, routing, buses, sends, migration and export.
 17. CI validation of all eight test suites, stretch benchmark and complete Studio executable.
 
-## Phase 5 — Assist / Plugins / Advanced Workflow [NEXT]
-Context-aware production copilot, VST3/AU host layer, workflow polish and production-platform hardening.
+## Phase 5 — Assist / Plugins / Advanced Workflow [DONE]
+
+Completed:
+1. Project format v10 with persistent plugin racks on Master, Tracks and Buses plus backward loading for v1–v9.
+2. Persistent plugin identity, format, path, enabled/bypass state, wet mix, parameter values and opaque state blob.
+3. SDK-neutral `PluginHost` processor/backend interface so external formats can be integrated without coupling the project model to one SDK.
+4. Safe VST3/AU bundle discovery that identifies plugin bundles without executing third-party binaries during scanning.
+5. Built-in FLOW Gain, FLOW Soft Clip and FLOW Width processors with real audio processing and wet/bypass behavior.
+6. Realtime/offline native master plugin processing in the audio engine; track/bus native gain racks are folded into the published render graph.
+7. External VST3/AU slots remain explicitly bypassed in the bootstrap Studio until a registered production backend is available; no fake external processing is claimed.
+8. Context snapshot generator that summarizes current BPM, tracks, patterns, samples, buses, automation and plugin state for production assistance.
+9. Deterministic context-aware production assistant for headroom, hot tracks, mix-bus opportunities, groove, master soft clipping, alternate takes and sample-tempo checks.
+10. Assistant edits require explicit Apply and are committed through the existing Undo stack; informational suggestions never mutate the project.
+11. Project Health validator for broken routes, invalid sends/sample references, duplicate IDs, unusual BPM and excessive master gain.
+12. Searchable advanced-workflow command model with explicit commands for vocal arming, bus creation, solo cleanup and external-plugin bypass.
+13. Phase 5 Studio panel with Assist navigation, Apply + Undo, Project Health, plugin scanning, native plugin rack management and command execution.
+14. Safer project saving using a temporary file, atomic-style replacement and `.bak` backup of the previous project when one exists.
+15. Dedicated Phase 5 tests covering built-in processing, external backend contract/state, discovery, v10 persistence/migration, assistant behavior, project health, workflow commands and engine plugin rendering.
+16. CI validation of all nine test suites, the stretch benchmark and the complete Phase 0–5 Studio executable.
+
+## Post-roadmap — Production desktop hardening [NEXT]
+Replace the Linux X11 bootstrap with the intended JUCE 9.x desktop shell, register a production VST3 backend (and AU on macOS), add plugin-editor hosting/sandboxing, device/session UX, packaging, crash recovery and release-grade performance profiling without changing the established non-destructive project model.

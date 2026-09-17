@@ -8,7 +8,32 @@
 
 namespace flowdaw {
 struct Effect { Id id=nextId(); std::string type="gain"; bool enabled=true; float value=1.0f; };
-struct MixerChannel { float volume=1.0f; float pan=0.0f; bool mute=false; bool solo=false; std::vector<Effect> effects; };
+
+// Phase 5 plugin state is backend-agnostic. The core persists format/identifier,
+// normalized parameters and an opaque backend state chunk without depending on an SDK.
+struct PluginParameter {
+    std::string id;
+    float value=0.0f;
+};
+struct PluginInstance {
+    Id id=nextId();
+    std::string format="builtin"; // builtin, vst3, au
+    std::string identifier="flow.gain";
+    std::string name="FLOW Gain";
+    bool enabled=true;
+    bool bypass=false;
+    float wet=1.0f;
+    std::string opaqueState;
+    std::vector<PluginParameter> parameters;
+};
+struct MixerChannel {
+    float volume=1.0f;
+    float pan=0.0f;
+    bool mute=false;
+    bool solo=false;
+    std::vector<Effect> effects;
+    std::vector<PluginInstance> plugins;
+};
 struct SampleSlice {
     Id id=nextId();
     std::string name="Slice";
@@ -92,7 +117,6 @@ struct Pattern {
 };
 struct PatternPlacement { Id id=nextId(); Id patternId=0; Tick startTick=0; int repeats=1; };
 
-// Phase 4 recording / mixer / automation model.
 struct RecordingTake {
     Id id=nextId();
     std::string name="Take";
@@ -131,15 +155,19 @@ struct Track {
     std::vector<PatternPlacement> patternClips;
     bool armed=false;
     bool inputMonitor=false;
-    Id outputBusId=0; // 0 = master
+    Id outputBusId=0;
     std::vector<MixerSend> sends;
     std::vector<RecordingTake> takes;
     Id activeTakeId=0;
 };
 struct TransportState { double bpm=90.0; Tick playheadTick=0; bool playing=false; };
-struct MasterMixer { float volume=1.0f; std::vector<Effect> effects; };
+struct MasterMixer {
+    float volume=1.0f;
+    std::vector<Effect> effects;
+    std::vector<PluginInstance> plugins;
+};
 struct Project {
-    int formatVersion=9;
+    int formatVersion=10;
     std::string name="Untitled";
     int sampleRate=48000;
     TransportState transport;
