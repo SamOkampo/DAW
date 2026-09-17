@@ -99,7 +99,7 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
             PRODUCT_NAME "FLOWDAW Test Plugin")
         target_sources(flowdaw_test_plugin PRIVATE tests/juce_test_plugin.cpp)
         target_link_libraries(flowdaw_test_plugin PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
-        target_compile_definitions(flowdaw_test_plugin PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+        target_compile_definitions(flowdaw_test_plugin PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
 
         add_executable(flowdaw_phase7_juce_tests tests/test_phase7_juce.cpp)
         target_link_libraries(flowdaw_phase7_juce_tests PRIVATE flowdaw_juce_runtime)
