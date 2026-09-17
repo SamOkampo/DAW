@@ -35,8 +35,8 @@ Productionization items that remain intentionally separate from feature work:
 6. [DONE] Deterministic Humanize for timing and velocity.
 7. [DONE] Lane Mute/Solo.
 8. [DONE] Undo + save/open + render tests for all above.
-9. [NEXT] 32/64/custom pattern lengths with a paged sequencer view.
-10. [NEXT] Visible draggable Pattern blocks in Arrangement.
+9. [DONE] 16/32/64 pattern lengths with a paged 16-step sequencer view.
+10. [DONE] Visible draggable Pattern blocks in Arrangement with grid snap and Undo.
 11. [NEXT] Per-pad gain/pan UI and broader native drum kit browser.
 12. [NEXT] Human Feel macro controls and groove presets.
 
