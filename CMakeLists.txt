@@ -42,7 +42,7 @@ target_compile_options(flowdaw_stretch_benchmark PRIVATE -Wall -Wextra -Wpedanti
 
 if(FLOWDAW_BUILD_APP)
     find_package(X11 REQUIRED)
-    add_executable(flowdaw app/main.cpp)
+    add_executable(flowdaw app/main_phase3.cpp)
     target_link_libraries(flowdaw PRIVATE flowdaw_core X11::X11)
     target_compile_options(flowdaw PRIVATE -Wall -Wextra -Wpedantic)
 endif()
