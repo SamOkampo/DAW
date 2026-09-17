@@ -29,8 +29,6 @@ public:
     bool triggerPreview(std::shared_ptr<AudioBuffer> audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain=1.0f,float pan=0.0f,int chokeGroup=0);
     void stopPreviews();
 
-    // Phase 4 recording. Allocation happens before the callback starts writing.
-    // The callback only performs bounded writes and atomics.
     bool beginRecording(SampleIndex maxFrames);
     AudioBuffer finishRecording();
     bool isRecording() const { return recording_.load(std::memory_order_acquire); }
@@ -39,7 +37,6 @@ public:
     void setInputMonitoring(bool enabled) { inputMonitoring_.store(enabled,std::memory_order_relaxed); }
     bool inputMonitoring() const { return inputMonitoring_.load(std::memory_order_relaxed); }
 
-    // Test/diagnostic hooks use the exact callback mixer without a device.
     AudioBuffer renderDeviceBlockForTest(SampleIndex frames);
     AudioBuffer processInputBlockForTest(const AudioBuffer& monoInput);
 private:
@@ -57,6 +54,7 @@ private:
         double bpm=90.0;
         int masterVolumeAutomation=-1;
         std::vector<AutomationLane> automation;
+        std::vector<PluginInstance> masterPlugins;
         std::vector<RenderClip> clips;
     };
     struct PreviewCommand { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0; float gain=1,pan=0; int chokeGroup=0; bool stopAll=false; };
