@@ -81,7 +81,12 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
         else()
             target_compile_definitions(flowdaw-juce PRIVATE JUCE_PLUGINHOST_AU=0)
         endif()
-        install(TARGETS flowdaw-juce RUNTIME DESTINATION bin BUNDLE DESTINATION .)
+        install(TARGETS flowdaw-juce
+            RUNTIME DESTINATION bin
+                PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                            GROUP_READ GROUP_EXECUTE
+                            WORLD_READ WORLD_EXECUTE
+            BUNDLE DESTINATION .)
     endif()
 
     if(FLOWDAW_BUILD_TESTS AND FLOWDAW_BUILD_JUCE_TEST_PLUGIN)
