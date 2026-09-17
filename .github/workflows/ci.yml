@@ -16,6 +16,8 @@ jobs:
         run: cmake --build build --parallel
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Doctor smoke test
+        run: ./build/flowdaw-doctor status
       - name: Build stretch benchmark
         run: cmake --build build --target flowdaw_stretch_benchmark --parallel
       - name: Benchmark stretch backend
@@ -30,8 +32,8 @@ jobs:
       - name: Configure Studio
         run: cmake -S . -B build-studio -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=ON -DFLOWDAW_BUILD_TESTS=OFF
       - name: Build Studio executable
-        run: cmake --build build-studio --parallel --target flowdaw
+        run: cmake --build build-studio --parallel --target flowdaw flowdaw-doctor
       - name: Install smoke test
-        run: cmake --install build-studio --prefix "$RUNNER_TEMP/flowdaw-install" && test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw"
+        run: cmake --install build-studio --prefix "$RUNNER_TEMP/flowdaw-install" && test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw" && test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw-doctor" && "$RUNNER_TEMP/flowdaw-install/bin/flowdaw-doctor" status
       - name: Package smoke test
         run: cd build-studio && cpack -G TGZ && test -n "$(find . -maxdepth 1 -name 'FLOWDAW-*.tar.gz' -print -quit)"
