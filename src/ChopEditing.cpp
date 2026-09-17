@@ -12,6 +12,12 @@ double signedUnit(Id id,std::uint64_t salt){
     const auto h=mix64(static_cast<std::uint64_t>(id)^salt);
     return (static_cast<double>(h&0xFFFFFFULL)/static_cast<double>(0xFFFFFFULL))*2.0-1.0;
 }
+void captureLegacyUiEvents(Pattern& pattern){
+    if(pattern.chopQuantizeStrength!=0.0f||pattern.chopHumanize!=0.0f)return;
+    for(auto&ev:pattern.chopEvents){
+        if(ev.recordedTick==0&&ev.tick!=0){ev.recordedTick=ev.tick;ev.recordedVelocity=ev.velocity;}
+    }
+}
 }
 
 void applyChopEditing(Pattern& pattern){
@@ -30,17 +36,20 @@ void applyChopEditing(Pattern& pattern){
 }
 
 void quantizeChopEvents(Pattern& pattern,Tick gridTicks,float strength){
+    captureLegacyUiEvents(pattern);
     pattern.chopQuantizeGridTicks=std::max<Tick>(1,gridTicks);
     pattern.chopQuantizeStrength=std::clamp(strength,0.0f,1.0f);
     applyChopEditing(pattern);
 }
 
 void humanizeChopEvents(Pattern& pattern,float amount){
+    captureLegacyUiEvents(pattern);
     pattern.chopHumanize=std::clamp(amount,0.0f,1.0f);
     applyChopEditing(pattern);
 }
 
 void resetChopEditing(Pattern& pattern){
+    captureLegacyUiEvents(pattern);
     pattern.chopQuantizeStrength=0.0f;
     pattern.chopHumanize=0.0f;
     applyChopEditing(pattern);
