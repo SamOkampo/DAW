@@ -31,9 +31,13 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - The JUCE backend exposes callback-safe MIDI input through the backend-neutral processor contract, and CI builds a real VST3 synth fixture to verify MIDI-to-audio routing end-to-end.
 - Selecting an external instrument never silently falls back to a native FLOW instrument if the plugin fails to prepare.
 
+- The JUCE Studio now has its first real editing surface: a track Arrangement with audio/pattern blocks, moving playhead, 1/16-snapped drag editing and one Undo entry per completed drag.
+- JUCE transport now exposes play/pause, stop and undoable BPM edits.
+- The selected-track mixer surface exposes volume, pan, mute, solo and a live stereo sample/true-peak meter fed from route-ID snapshots. Mixer slider gestures collapse to one Undo entry while intermediate values are republished from the control thread.
+
 ## Still required before Phase 8 is complete
 
-- Remaining editing-surface migration from X11 to JUCE.
+- Remaining editing-surface migration from X11 to JUCE: sequencer/sampler, piano roll, automation/bus mixer depth, Assist/Project Health and remaining arrangement operations.
 - Windows/macOS JUCE CI, AU runtime validation and platform packaging.
 
 ## Realtime invariants
