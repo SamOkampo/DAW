@@ -19,6 +19,8 @@ public:
     void close();
     void setPluginHost(std::shared_ptr<PluginHost> host);
     void publish(const Project& project);
+    // Control-thread reclamation of graphs retired by publish(). Never destroys a graph while realtime/offline readers are active.
+    std::size_t collectRetiredGraphs();
     void play();
     void pause();
     void stop();
@@ -114,7 +116,9 @@ private:
     static constexpr std::size_t kPreviewVoices=16;
 
     std::atomic<Graph*> current_{nullptr};
+    std::unique_ptr<Graph> currentOwned_;
     std::vector<std::unique_ptr<Graph>> retired_;
+    mutable std::atomic<unsigned int> graphReaders_{0};
     mutable std::mutex publishMutex_;
     std::shared_ptr<PluginHost> pluginHost_;
     std::atomic<bool> playing_{false};
