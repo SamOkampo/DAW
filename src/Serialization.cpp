@@ -27,7 +27,7 @@ PluginInstance loadPlugin(std::ifstream&f,std::string&tag,const char*expected){
 void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
     auto tmp=path;tmp+= ".tmp";std::filesystem::create_directories(path.parent_path().empty()?std::filesystem::path("."):path.parent_path());
     std::ofstream f(tmp,std::ios::trunc);if(!f)throw std::runtime_error("Cannot save project");
-    f<<"FLOWDAW_PROJECT 10\n";
+    f<<"FLOWDAW_PROJECT 11\n";
     f<<"NAME "<<q(p.name)<<"\nSAMPLE_RATE "<<p.sampleRate<<"\nBPM "<<std::setprecision(12)<<p.transport.bpm<<"\nPLAYHEAD "<<p.transport.playheadTick<<"\n";
     f<<"MASTER "<<p.master.volume<<" "<<p.master.effects.size()<<" "<<p.master.plugins.size()<<"\n";for(auto const&e:p.master.effects)saveEffect(f,"MASTER_EFFECT",e);for(auto const&pl:p.master.plugins)savePlugin(f,"MASTER_PLUGIN",pl);
     f<<"SAMPLES "<<p.samples.size()<<"\n";
@@ -38,13 +38,14 @@ void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
     f<<"TRACKS "<<p.tracks.size()<<"\n";
     for(auto const&t:p.tracks){
         f<<"TRACK "<<t.id<<" "<<q(t.name)<<" "<<t.mixer.volume<<" "<<t.mixer.pan<<" "<<t.mixer.mute<<" "<<t.mixer.solo<<" "<<t.clips.size()<<" "<<t.patternClips.size()<<" "<<t.mixer.effects.size()
-         <<" "<<t.armed<<" "<<t.inputMonitor<<" "<<t.outputBusId<<" "<<t.sends.size()<<" "<<t.takes.size()<<" "<<t.activeTakeId<<" "<<t.mixer.plugins.size()<<"\n";
+         <<" "<<t.armed<<" "<<t.inputMonitor<<" "<<t.outputBusId<<" "<<t.sends.size()<<" "<<t.takes.size()<<" "<<t.activeTakeId<<" "<<t.mixer.plugins.size()<<" "<<t.externalInstrumentEnabled<<"\n";
         for(auto const&c:t.clips)f<<"CLIP "<<c.id<<" "<<c.sampleId<<" "<<c.startTick<<" "<<c.lengthTicks<<" "<<c.sourceStart<<" "<<c.sourceLength<<" "<<c.gain<<" "<<c.loop<<"\n";
         for(auto const&pc:t.patternClips)f<<"PATCLIP "<<pc.id<<" "<<pc.patternId<<" "<<pc.startTick<<" "<<pc.repeats<<"\n";
         for(auto const&e:t.mixer.effects)saveEffect(f,"TRACK_EFFECT",e);
         for(auto const&s:t.sends)f<<"SEND "<<s.id<<" "<<s.busId<<" "<<s.gain<<" "<<s.enabled<<" "<<s.preFader<<"\n";
         for(auto const&take:t.takes)f<<"TAKE "<<take.id<<" "<<q(take.name)<<" "<<take.sampleId<<" "<<take.startTick<<" "<<take.lengthTicks<<"\n";
         for(auto const&pl:t.mixer.plugins)savePlugin(f,"TRACK_PLUGIN",pl);
+        if(t.externalInstrumentEnabled)savePlugin(f,"TRACK_INSTRUMENT",t.externalInstrument);
     }
     f<<"PATTERNS "<<p.patterns.size()<<"\n";
     for(auto const&pat:p.patterns){
@@ -72,13 +73,13 @@ void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
 }
 
 Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio){
-    std::ifstream f(path);if(!f)throw std::runtime_error("Cannot open project");Project p;std::string tag;f>>tag;if(tag!="FLOWDAW_PROJECT")throw std::runtime_error("Not a FLOWDAW project");int version=0;f>>version;if(version<1||version>10)throw std::runtime_error("Unsupported project version");
+    std::ifstream f(path);if(!f)throw std::runtime_error("Cannot open project");Project p;std::string tag;f>>tag;if(tag!="FLOWDAW_PROJECT")throw std::runtime_error("Not a FLOWDAW project");int version=0;f>>version;if(version<1||version>11)throw std::runtime_error("Unsupported project version");
     while(f>>tag){
         if(tag=="NAME")f>>std::quoted(p.name);
         else if(tag=="SAMPLE_RATE")f>>p.sampleRate;
         else if(tag=="BPM")f>>p.transport.bpm;
         else if(tag=="PLAYHEAD")f>>p.transport.playheadTick;
-        else if(tag=="MASTER"){std::size_t nfx=0,nplugins=0;f>>p.master.volume;if(version>=3)f>>nfx;if(version>=10)f>>nplugins;for(std::size_t i=0;i<nfx;++i)p.master.effects.push_back(loadEffect(f,tag,"MASTER_EFFECT"));for(std::size_t i=0;i<nplugins;++i)p.master.plugins.push_back(loadPlugin(f,tag,"MASTER_PLUGIN"));}
+        else if(tag=="MASTER"){std::size_t nfx=0,nplugins=0;f>>p.master.volume;if(version>=3)f>>nfx;if(version>=10)f>>nplugins;if(version>=11)f>>t.externalInstrumentEnabled;for(std::size_t i=0;i<nfx;++i)p.master.effects.push_back(loadEffect(f,tag,"MASTER_EFFECT"));for(std::size_t i=0;i<nplugins;++i)p.master.plugins.push_back(loadPlugin(f,tag,"MASTER_PLUGIN"));}
         else if(tag=="SAMPLES"){
             std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){SampleAsset s;f>>tag;if(tag!="SAMPLE")throw std::runtime_error("Expected SAMPLE");f>>s.id>>std::quoted(s.name);std::string sp;f>>std::quoted(sp);s.path=sp;if(version>=2)f>>std::quoted(s.nativeKey);
                 std::size_t nslices=0;if(version>=4)f>>s.detectedBpm>>s.bpmConfidence>>s.sourceSampleId>>s.timeRatio>>nslices;
@@ -96,6 +97,7 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
                 for(std::size_t j=0;j<nsend;++j){MixerSend s;f>>tag;if(tag!="SEND")throw std::runtime_error("Expected SEND");f>>s.id>>s.busId>>s.gain>>s.enabled>>s.preFader;t.sends.push_back(s);}
                 for(std::size_t j=0;j<ntake;++j){RecordingTake take;f>>tag;if(tag!="TAKE")throw std::runtime_error("Expected TAKE");f>>take.id>>std::quoted(take.name)>>take.sampleId>>take.startTick>>take.lengthTicks;t.takes.push_back(take);}
                 for(std::size_t j=0;j<nplugins;++j)t.mixer.plugins.push_back(loadPlugin(f,tag,"TRACK_PLUGIN"));
+                if(version>=11&&t.externalInstrumentEnabled)t.externalInstrument=loadPlugin(f,tag,"TRACK_INSTRUMENT");
                 p.tracks.push_back(std::move(t));
             }
         }
@@ -119,6 +121,6 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
         }
         else if(tag=="END")break;else throw std::runtime_error("Unknown project token: "+tag);
     }
-    p.formatVersion=10;return p;
+    p.formatVersion=11;return p;
 }
 }
