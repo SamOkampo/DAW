@@ -22,7 +22,7 @@ The repository contains a runnable C++20 DAW foundation plus completed Step Sequ
 - Audio input capture using a preallocated realtime-safe recording buffer.
 - Persistent non-destructive recording takes with active-take comp selection.
 - Advanced mixer routing, buses, sends, automation, master export and stems.
-- Project format v10 persists Smart Sampling, MIDI/instrument, recording, mixer-routing, automation and plugin-rack state while loading v1-v9.
+- Project format v11 persists Smart Sampling, MIDI/native instruments, track external-instrument slots, recording, mixer-routing, automation and plugin-rack state while loading v1-v10.
 - Built-in FLOW Gain, FLOW Soft Clip and FLOW Width processors plus an SDK-neutral external-plugin backend contract.
 - Context-aware production assistant, Project Health and Undoable advanced-workflow commands.
 - Machine-local application settings for preferred sample rate, buffer size, input/output names, plugin roots and autosave policy.
