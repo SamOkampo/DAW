@@ -6,6 +6,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <algorithm>
 #include <cmath>
+#include <cctype>
 #include <functional>
 #include <string>
 #include <utility>
