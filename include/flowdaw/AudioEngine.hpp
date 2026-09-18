@@ -29,7 +29,7 @@ public:
     void seekSamples(SampleIndex s) { playhead_.store(s,std::memory_order_relaxed); }
     int sampleRate() const { return sampleRate_; }
     std::string lastError() const;
-    AudioBuffer renderOffline(SampleIndex frames) const;
+    // Offline bounce uses the prepared realtime routing graph in bounded blocks.\n    // Prefer a dedicated AudioEngine for export because plugin/PDC state is reset.\n    AudioBuffer renderOffline(SampleIndex frames);
 
     // Phase 7: allows JUCE (or another production device backend) to drive the
     // same callback path without opening the legacy PortAudio stream. Call only
