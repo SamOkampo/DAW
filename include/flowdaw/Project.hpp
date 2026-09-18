@@ -151,6 +151,10 @@ struct Track {
     Id id=nextId();
     std::string name="Audio 1";
     MixerChannel mixer;
+    // Phase 8: external instrument is a source slot, separate from mixer inserts.
+    // Legacy/native Pattern::instrument remains available when this is disabled.
+    bool externalInstrumentEnabled=false;
+    PluginInstance externalInstrument;
     std::vector<Clip> clips;
     std::vector<PatternPlacement> patternClips;
     bool armed=false;
@@ -167,7 +171,7 @@ struct MasterMixer {
     std::vector<PluginInstance> plugins;
 };
 struct Project {
-    int formatVersion=10;
+    int formatVersion=11;
     std::string name="Untitled";
     int sampleRate=48000;
     TransportState transport;
