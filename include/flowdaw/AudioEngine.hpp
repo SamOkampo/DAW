@@ -1,5 +1,6 @@
 #pragma once
 #include "flowdaw/Project.hpp"
+#include "flowdaw/RealtimeMeter.hpp"
 #include "flowdaw/RealtimePluginGraph.hpp"
 #include "flowdaw/RealtimeRouting.hpp"
 #include <array>
@@ -21,6 +22,7 @@ public:
     void publish(const Project& project);
     // Control-thread reclamation of graphs retired by publish(). Never destroys a graph while realtime/offline readers are active.
     std::size_t collectRetiredGraphs();
+    AudioMeterSnapshot meterSnapshot() const;
     void play();
     void pause();
     void stop();
@@ -29,7 +31,9 @@ public:
     void seekSamples(SampleIndex s) { playhead_.store(s,std::memory_order_relaxed); }
     int sampleRate() const { return sampleRate_; }
     std::string lastError() const;
-    AudioBuffer renderOffline(SampleIndex frames) const;
+    // Offline bounce uses the prepared realtime routing graph in bounded blocks.
+    // Prefer a dedicated AudioEngine for export because plugin/PDC state is reset.
+    AudioBuffer renderOffline(SampleIndex frames);
 
     // Phase 7: allows JUCE (or another production device backend) to drive the
     // same callback path without opening the legacy PortAudio stream. Call only
@@ -86,6 +90,7 @@ private:
         RealtimePluginChain runtime;
         RealtimeStereoRouteBuffer buffer;
         RealtimeDelayLine outputDelay;
+        std::shared_ptr<RealtimeMeterState> meter;
         std::vector<RealtimeSendRoute> sends;
     };
     struct RealtimeBusRoute {
@@ -95,6 +100,7 @@ private:
         RealtimePluginChain runtime;
         RealtimeStereoRouteBuffer buffer;
         RealtimeDelayLine masterDelay;
+        std::shared_ptr<RealtimeMeterState> meter;
     };
     struct Graph {
         float master=1;
@@ -105,6 +111,7 @@ private:
         std::vector<AutomationLane> automation;
         std::vector<PluginInstance> masterPlugins;
         RealtimePluginChain masterRuntime;
+        std::shared_ptr<RealtimeMeterState> masterMeter;
         std::vector<RenderClip> clips;
         std::vector<RealtimeSourceClip> realtimeClips;
         std::vector<RealtimeTrackRoute> realtimeTracks;

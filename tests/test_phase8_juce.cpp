@@ -1,4 +1,5 @@
 #include "flowdaw/AudioEngine.hpp"
+#include "flowdaw/Export.hpp"
 #include "flowdaw/JucePluginBackend.hpp"
 #include "flowdaw/PluginHost.hpp"
 #include <cmath>
@@ -30,5 +31,10 @@ int main(int argc,char**argv){try{
     require(std::abs(routedOutput.interleaved[0]-routedExpected)<0.02f,"real VST3 track->bus chain did not process both insert stages");
     require(std::abs(routedOutput.interleaved[100]-routedExpected)<0.02f,"real VST3 track->bus routing was not stable across the device block");
 
-    std::cout<<"Phase 8 real VST3 master + track/bus graph OK: "<<plugin.name<<"\n";return 0;
+    auto bounced=renderProjectOffline(routed,0.0,host);
+    require(bounced.frames()>=128,"real VST3 export ended too early");
+    require(std::abs(bounced.interleaved[0]-routedExpected)<0.02f,"real VST3 was not executed during project export");
+    require(std::abs(bounced.interleaved[100]-routedExpected)<0.02f,"real VST3 export did not preserve track->bus processing");
+
+    std::cout<<"Phase 8 real VST3 realtime + offline graph OK: "<<plugin.name<<"\\n";return 0;
 }catch(const std::exception&e){std::cerr<<"Phase 8 JUCE graph test failed: "<<e.what()<<"\n";return 1;}}

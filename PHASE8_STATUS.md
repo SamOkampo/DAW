@@ -21,11 +21,14 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - JUCE CI now validates real VST3 processing not only on master but across a real track→bus insert chain.
 - Graph ownership now separates the currently published graph from retired graphs; realtime/offline readers are counted atomically and retired plugin graphs are reclaimed only from the control thread when no reader can still reference them.
 - A concurrent test holds a processor inside the realtime callback while a replacement graph is published, proving the old graph is retained until the callback exits; repeated idle publications are also verified not to accumulate retired graphs.
+- Offline rendering now drives the same prepared track/bus/master realtime graph in bounded blocks, preserving external effects, PDC, automation and master processing instead of using the legacy flattened renderer.
+- Project WAV export and per-track stem export accept the production `PluginHost`, so JUCE-backed VST3 effects are instantiated for bounce; CI compares deterministic realtime/offline samples and also bounces the real JUCE VST3 fixture.
+- Track, bus and master routes publish callback-safe sample-peak and RMS readings through lock-free 32-bit atomics; meter objects are allocated with the graph, not from the callback.
+- JUCE reads meter snapshots on its UI timer and surfaces master sample-peak/RMS in dBFS while retaining route-ID readings for the upcoming Mixer UI. These readings are explicitly sample peak, not yet oversampled true peak.
 
 ## Still required before Phase 8 is complete
 
-- Offline render/export parity with realtime external-plugin routing.
-- Callback-safe true peak/RMS meters for track, bus and master.
+- Oversampled true-peak estimation for track, bus and master; callback-safe sample peak + RMS are now delivered.
 - Remaining editing-surface migration from X11 to JUCE.
 - Windows/macOS JUCE CI, AU runtime validation and platform packaging.
 - External instrument-plugin MIDI routing; this submilestone validates external audio effects only.

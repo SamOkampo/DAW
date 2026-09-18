@@ -1,4 +1,5 @@
 #include "flowdaw/AudioEngine.hpp"
+#include "flowdaw/Export.hpp"
 #include "flowdaw/PluginHost.hpp"
 #include "flowdaw/RealtimePluginGraph.hpp"
 #include <algorithm>
@@ -132,4 +133,65 @@ static void testTrackBusRoutingPdc(){
     require(near(output.interleaved[12],0.0f,0.004f),"PDC impulse smeared into the next sample");
 }
 
-int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testSafeGraphReclamation();testTrackBusRoutingPdc();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
+
+static void testOfflineExportParity(){
+    auto host=std::make_shared<PluginHost>();host->registerBackend(std::make_shared<FakeBackend>());
+    Project project;project.transport.bpm=120.0;
+
+    SampleAsset sample;sample.audio=std::make_shared<AudioBuffer>();sample.audio->sampleRate=48000;sample.audio->channels=1;sample.audio->interleaved.assign(128,0.0f);sample.audio->interleaved[0]=0.4f;const Id sampleId=sample.id;project.samples.push_back(sample);
+
+    Bus bus;bus.name="Offline parity bus";bus.mixer.plugins.push_back(fakePlugin("fake.latency2"));const Id busId=bus.id;project.buses.push_back(bus);
+    Track track;track.name="Offline parity track";track.outputBusId=busId;track.mixer.plugins.push_back(fakePlugin("fake.latency3"));
+    Clip clip;clip.sampleId=sampleId;clip.sourceLength=128;clip.lengthTicks=kPPQ;track.clips.push_back(clip);project.tracks.push_back(track);
+    project.master.plugins.push_back(fakePlugin("fake.latency2"));
+
+    AudioEngine realtime;realtime.configureExternalDevice(48000,16,false);realtime.setPluginHost(host);realtime.publish(project);realtime.play();
+    auto device=realtime.renderDeviceBlockForTest(32);
+
+    AudioEngine offline;offline.configureExternalDevice(48000,16,false);offline.setPluginHost(host);offline.publish(project);
+    auto directBounce=offline.renderOffline(32);
+    require(device.interleaved.size()==directBounce.interleaved.size(),"offline parity block length mismatch");
+    for(std::size_t i=0;i<device.interleaved.size();++i)require(near(device.interleaved[i],directBounce.interleaved[i],0.0001f),"offline AudioEngine graph diverged from realtime graph");
+
+    auto exported=renderProjectOffline(project,0.0,host);
+    require(exported.frames()>=32,"project export ended before test graph output");
+    for(std::size_t i=0;i<device.interleaved.size();++i)require(near(device.interleaved[i],exported.interleaved[i],0.0001f),"project export with external host diverged from realtime graph");
+}
+
+
+static void testRealtimeMeterPrimitive(){
+    RealtimeMeterState meter;
+    const float audio[]={-1.0f,0.5f,0.5f,-0.25f};
+    meter.process(audio,2,2);
+    const auto reading=meter.snapshot();
+    require(near(reading.samplePeakLeft,1.0f),"sample-peak left meter mismatch");
+    require(near(reading.samplePeakRight,0.5f),"sample-peak right meter mismatch");
+    require(near(reading.rmsLeft,std::sqrt(0.625f),0.0001f),"RMS left meter mismatch");
+    require(near(reading.rmsRight,std::sqrt(0.15625f),0.0001f),"RMS right meter mismatch");
+    meter.reset();
+    const auto reset=meter.snapshot();
+    require(near(reset.samplePeakLeft,0.0f)&&near(reset.rmsRight,0.0f),"meter reset did not publish silence");
+}
+
+static void testAudioEngineMeters(){
+    AudioEngine engine;engine.configureExternalDevice(48000,32,false);
+    Project project;
+    SampleAsset sample;sample.audio=std::make_shared<AudioBuffer>();sample.audio->sampleRate=48000;sample.audio->channels=1;sample.audio->interleaved.assign(64,0.25f);const Id sampleId=sample.id;project.samples.push_back(sample);
+    Bus bus;bus.name="Meter Bus";const Id busId=bus.id;project.buses.push_back(bus);
+    Track track;track.name="Meter Track";track.outputBusId=busId;const Id trackId=track.id;Clip clip;clip.sampleId=sampleId;clip.sourceLength=64;clip.lengthTicks=kPPQ;track.clips.push_back(clip);project.tracks.push_back(track);
+
+    engine.publish(project);engine.play();(void)engine.renderDeviceBlockForTest(32);
+    const auto snapshot=engine.meterSnapshot();
+    require(snapshot.tracks.size()==1&&snapshot.tracks[0].id==trackId,"track meter identity/snapshot mismatch");
+    require(snapshot.buses.size()==1&&snapshot.buses[0].id==busId,"bus meter identity/snapshot mismatch");
+    require(snapshot.tracks[0].level.samplePeakLeft>0.0f&&snapshot.tracks[0].level.rmsLeft>0.0f,"track meter did not observe routed audio");
+    require(snapshot.buses[0].level.samplePeakLeft>0.0f&&snapshot.buses[0].level.rmsLeft>0.0f,"bus meter did not observe routed audio");
+    require(snapshot.master.samplePeakLeft>0.0f&&snapshot.master.rmsLeft>0.0f,"master meter did not observe post-graph audio");
+
+    Project replacement;engine.publish(replacement);
+    const auto reset=engine.meterSnapshot();
+    require(reset.tracks.empty()&&reset.buses.empty(),"meter bank retained removed routes after graph publication");
+    require(near(reset.master.samplePeakLeft,0.0f)&&near(reset.master.rmsLeft,0.0f),"new master meter did not start at silence");
+}
+
+int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testSafeGraphReclamation();testTrackBusRoutingPdc();testOfflineExportParity();testRealtimeMeterPrimitive();testAudioEngineMeters();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}

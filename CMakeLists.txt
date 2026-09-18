@@ -29,6 +29,7 @@ add_library(flowdaw_core
     src/Automation.cpp
     src/Export.cpp
     src/PluginHost.cpp
+    src/RealtimeMeter.cpp
     src/RealtimePluginGraph.cpp
     src/RealtimeRouting.cpp
     src/ProductionAssistant.cpp
