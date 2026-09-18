@@ -13,12 +13,15 @@ struct AudioDeviceSettings {
 };
 
 struct AppSettings {
-    int version=1;
+    int version=2;
     AudioDeviceSettings audio;
     int autosaveSeconds=120;
     bool restoreLastSession=true;
     std::filesystem::path lastProjectPath;
     std::vector<std::filesystem::path> pluginRoots;
+    std::vector<std::filesystem::path> sampleRoots;
+    std::vector<std::filesystem::path> favoriteSamples;
+    std::vector<std::filesystem::path> recentSamples;
 };
 
 std::filesystem::path defaultSettingsDirectory();
