@@ -24,14 +24,17 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - Offline rendering now drives the same prepared track/bus/master realtime graph in bounded blocks, preserving external effects, PDC, automation and master processing instead of using the legacy flattened renderer.
 - Project WAV export and per-track stem export accept the production `PluginHost`, so JUCE-backed VST3 effects are instantiated for bounce; CI compares deterministic realtime/offline samples and also bounces the real JUCE VST3 fixture.
 - Track, bus and master routes publish callback-safe sample-peak and RMS readings through lock-free 32-bit atomics; meter objects are allocated with the graph, not from the callback.
-- JUCE reads meter snapshots on its UI timer and surfaces master sample-peak/RMS in dBFS while retaining route-ID readings for the upcoming Mixer UI. These readings are explicitly sample peak, not yet oversampled true peak.
+- JUCE reads meter snapshots on its UI timer and surfaces master metering while retaining route-ID readings for the upcoming Mixer UI.
+- Track, bus and master meters now include a callback-safe 4x cubic inter-sample true-peak estimate with fixed three-sample history per channel; no allocation or lock is introduced in the callback. This is an engineering estimate for peak safety, not yet a standards-certified BS.1770/EBU implementation.
+
+- Track-level external VST3/AU instrument slots now persist independently from mixer inserts; Pattern MIDI is scheduled as sample-offset note-on/note-off events during graph publication and rendered into a dedicated instrument buffer before track inserts.
+- The JUCE backend exposes callback-safe MIDI input through the backend-neutral processor contract, and CI builds a real VST3 synth fixture to verify MIDI-to-audio routing end-to-end.
+- Selecting an external instrument never silently falls back to a native FLOW instrument if the plugin fails to prepare.
 
 ## Still required before Phase 8 is complete
 
-- Oversampled true-peak estimation for track, bus and master; callback-safe sample peak + RMS are now delivered.
 - Remaining editing-surface migration from X11 to JUCE.
 - Windows/macOS JUCE CI, AU runtime validation and platform packaging.
-- External instrument-plugin MIDI routing; this submilestone validates external audio effects only.
 
 ## Realtime invariants
 
