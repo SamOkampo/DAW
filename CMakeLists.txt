@@ -109,6 +109,22 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
         target_link_libraries(flowdaw_test_plugin PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
         target_compile_definitions(flowdaw_test_plugin PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
 
+        juce_add_plugin(flowdaw_test_instrument
+            COMPANY_NAME FLOWDAW
+            IS_SYNTH TRUE
+            NEEDS_MIDI_INPUT TRUE
+            NEEDS_MIDI_OUTPUT FALSE
+            IS_MIDI_EFFECT FALSE
+            EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+            COPY_PLUGIN_AFTER_BUILD FALSE
+            PLUGIN_MANUFACTURER_CODE Flwd
+            PLUGIN_CODE Fsyn
+            FORMATS VST3
+            PRODUCT_NAME "FLOWDAW Test Instrument")
+        target_sources(flowdaw_test_instrument PRIVATE tests/juce_test_instrument.cpp)
+        target_link_libraries(flowdaw_test_instrument PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
+        target_compile_definitions(flowdaw_test_instrument PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+
         add_executable(flowdaw_phase7_juce_tests tests/test_phase7_juce.cpp)
         target_link_libraries(flowdaw_phase7_juce_tests PRIVATE flowdaw_juce_runtime)
         add_dependencies(flowdaw_phase7_juce_tests flowdaw_test_plugin_VST3)
@@ -116,8 +132,8 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
 
         add_executable(flowdaw_phase8_juce_tests tests/test_phase8_juce.cpp)
         target_link_libraries(flowdaw_phase8_juce_tests PRIVATE flowdaw_juce_runtime)
-        add_dependencies(flowdaw_phase8_juce_tests flowdaw_test_plugin_VST3)
-        add_test(NAME flowdaw_phase8_juce_tests COMMAND flowdaw_phase8_juce_tests $<TARGET_FILE:flowdaw_test_plugin_VST3>)
+        add_dependencies(flowdaw_phase8_juce_tests flowdaw_test_plugin_VST3 flowdaw_test_instrument_VST3)
+        add_test(NAME flowdaw_phase8_juce_tests COMMAND flowdaw_phase8_juce_tests $<TARGET_FILE:flowdaw_test_plugin_VST3> $<TARGET_FILE:flowdaw_test_instrument_VST3>)
     endif()
 endif()
 
