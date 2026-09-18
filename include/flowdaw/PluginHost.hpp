@@ -29,6 +29,16 @@ public:
     virtual void setState(const std::string& state)=0;
     virtual std::string state() const=0;
     virtual void process(AudioBuffer& buffer)=0;
+
+    // Phase 8 realtime contract. Existing/offline processors remain source-compatible:
+    // realtime execution is opt-in and the engine never falls back to allocating an
+    // AudioBuffer inside the device callback.
+    virtual bool supportsRealtimeProcessing() const noexcept { return false; }
+    virtual int latencySamples() const noexcept { return 0; }
+    virtual bool processRealtime(float* interleaved,SampleIndex frames,int channels) noexcept {
+        (void)interleaved;(void)frames;(void)channels;return false;
+    }
+    virtual void resetRealtime() noexcept {}
 };
 
 class IExternalPluginBackend {
@@ -48,7 +58,8 @@ private:
     std::vector<std::shared_ptr<IExternalPluginBackend>> backends_;
 };
 
-// Realtime-safe master processors supported directly by the bootstrap engine.
-// External VST3/AU processors are intentionally instantiated only by a registered backend.
+// Realtime-safe native processors supported directly by the engine. External
+// processors use IPluginProcessor::processRealtime only after control-thread
+// construction/preparation has succeeded.
 void processRealtimeBuiltinSample(const PluginInstance& plugin,float& left,float& right);
 }

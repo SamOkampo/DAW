@@ -1,0 +1,69 @@
+#include "flowdaw/AudioEngine.hpp"
+#include "flowdaw/PluginHost.hpp"
+#include "flowdaw/RealtimePluginGraph.hpp"
+#include <algorithm>
+#include <cmath>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+using namespace flowdaw;
+
+static void require(bool value,const char*message){if(!value)throw std::runtime_error(message);}
+static bool near(float a,float b,float eps=0.001f){return std::abs(a-b)<=eps;}
+
+class FakeLatencyProcessor final:public IPluginProcessor{
+public:
+    FakeLatencyProcessor(int latency,float gain):latency_(latency),gain_(gain){}
+    bool prepare(int,int channels,std::string&)override{channels_=channels;line_.assign(static_cast<std::size_t>(std::max(0,latency_))*static_cast<std::size_t>(channels_),0.0f);write_=0;return true;}
+    void setState(const std::string&)override{}
+    std::string state()const override{return"fake-state";}
+    void process(AudioBuffer&buffer)override{(void)processRealtime(buffer.interleaved.data(),buffer.frames(),buffer.channels);}
+    bool supportsRealtimeProcessing()const noexcept override{return true;}
+    int latencySamples()const noexcept override{return latency_;}
+    bool processRealtime(float*data,SampleIndex frames,int channels)noexcept override{
+        if(!data||frames<=0||channels!=channels_)return false;
+        if(latency_<=0){for(SampleIndex f=0;f<frames;++f)for(int c=0;c<channels_;++c)data[static_cast<std::size_t>(f*channels_+c)]*=gain_;return true;}
+        for(SampleIndex f=0;f<frames;++f){const auto ringBase=static_cast<std::size_t>(write_)*static_cast<std::size_t>(channels_);const auto ioBase=static_cast<std::size_t>(f)*static_cast<std::size_t>(channels_);for(int c=0;c<channels_;++c){const auto cc=static_cast<std::size_t>(c);const float in=data[ioBase+cc];data[ioBase+cc]=line_[ringBase+cc]*gain_;line_[ringBase+cc]=in;}if(++write_>=latency_)write_=0;}return true;
+    }
+    void resetRealtime()noexcept override{std::fill(line_.begin(),line_.end(),0.0f);write_=0;}
+private:int latency_=0;float gain_=1.0f;int channels_=2,write_=0;std::vector<float>line_;
+};
+
+class FakeBackend final:public IExternalPluginBackend{
+public:
+    bool supports(const std::string&format)const override{return format=="vst3";}
+    std::unique_ptr<IPluginProcessor> create(const PluginInstance&plugin,std::string&)override{
+        const int latency=plugin.identifier.find("latency3")!=std::string::npos?3:(plugin.identifier.find("latency2")!=std::string::npos?2:0);
+        return std::make_unique<FakeLatencyProcessor>(latency,0.5f);
+    }
+};
+
+static PluginInstance fakePlugin(const std::string&id,float wet=1.0f){PluginInstance p;p.format="vst3";p.identifier=id;p.name="Fake Phase 8";p.enabled=true;p.bypass=false;p.wet=wet;return p;}
+
+static void testDelayLine(){
+    RealtimeDelayLine delay;delay.prepare(2,2);float source[]={1,1,2,2,3,3,4,4};float dest[8]{};delay.addDelayed(source,dest,4);
+    require(near(dest[0],0)&&near(dest[2],0),"PDC delay emitted audio too early");require(near(dest[4],1)&&near(dest[6],2),"PDC delay did not preserve exact sample offset");
+}
+
+static void testPreparedChain(){
+    PluginHost host;host.registerBackend(std::make_shared<FakeBackend>());RealtimePluginChain chain;std::vector<RealtimePluginIssue>issues;
+    require(chain.prepare({fakePlugin("fake.latency3")},&host,48000,2,4,&issues),"realtime chain failed to prepare fake backend");require(issues.empty(),"unexpected realtime chain issue");require(chain.latencySamples()==3,"chain latency did not include processor latency");
+    float audio[16];std::fill(std::begin(audio),std::end(audio),1.0f);chain.process(audio,8);for(int f=0;f<3;++f)require(near(audio[f*2],0),"latency processor emitted before reported latency");for(int f=3;f<8;++f)require(near(audio[f*2],0.5f),"realtime processor gain/output mismatch");
+
+    RealtimePluginChain wetChain;issues.clear();require(wetChain.prepare({fakePlugin("fake.latency2",0.5f)},&host,48000,2,8,&issues),"wet/dry chain failed to prepare");float wetAudio[12];std::fill(std::begin(wetAudio),std::end(wetAudio),1.0f);wetChain.process(wetAudio,6);require(near(wetAudio[0],0)&&near(wetAudio[2],0),"wet/dry dry path was not latency aligned");for(int f=2;f<6;++f)require(near(wetAudio[f*2],0.75f),"latency-aligned wet/dry mix is incorrect");
+}
+
+static void testRealtimeMasterGraph(){
+    auto host=std::make_shared<PluginHost>();host->registerBackend(std::make_shared<FakeBackend>());AudioEngine engine;engine.configureExternalDevice(48000,4,true);engine.setPluginHost(host);engine.setInputMonitoring(true);
+    Project project;project.master.plugins.push_back(fakePlugin("fake.latency3"));engine.publish(project);
+    AudioBuffer input;input.sampleRate=48000;input.channels=1;input.interleaved.assign(8,1.0f);auto output=engine.processInputBlockForTest(input);require(output.frames()==8,"engine test block size changed");
+    for(int f=0;f<3;++f)require(near(output.interleaved[static_cast<std::size_t>(f*2)],0),"master plugin latency was not present in realtime AudioEngine path");
+    for(int f=3;f<8;++f)require(near(output.interleaved[static_cast<std::size_t>(f*2)],0.35355f,0.002f),"external master plugin did not process monitored audio in realtime engine");
+}
+
+static void testBuiltinRealtimeChain(){
+    auto gain=makeBuiltinPlugin("flow.gain");setPluginParameter(gain,"gain",0.25f);RealtimePluginChain chain;std::vector<RealtimePluginIssue>issues;require(chain.prepare({gain},nullptr,48000,2,8,&issues),"builtin chain should not require external host");float audio[]={1,1,-1,-1};chain.process(audio,2);require(near(audio[0],0.25f)&&near(audio[2],-0.25f),"builtin realtime chain processing changed");
+}
+
+int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}

@@ -1,5 +1,6 @@
 #pragma once
 #include "flowdaw/Project.hpp"
+#include "flowdaw/RealtimePluginGraph.hpp"
 #include <array>
 #include <atomic>
 #include <memory>
@@ -15,6 +16,7 @@ public:
 
     bool open(int sampleRate=48000,unsigned long framesPerBuffer=256);
     void close();
+    void setPluginHost(std::shared_ptr<PluginHost> host);
     void publish(const Project& project);
     void play();
     void pause();
@@ -62,6 +64,7 @@ private:
         int masterVolumeAutomation=-1;
         std::vector<AutomationLane> automation;
         std::vector<PluginInstance> masterPlugins;
+        RealtimePluginChain masterRuntime;
         std::vector<RenderClip> clips;
     };
     struct PreviewCommand { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0; float gain=1,pan=0; int chokeGroup=0; bool stopAll=false; };
@@ -72,6 +75,7 @@ private:
     std::atomic<Graph*> current_{nullptr};
     std::vector<std::unique_ptr<Graph>> retired_;
     mutable std::mutex publishMutex_;
+    std::shared_ptr<PluginHost> pluginHost_;
     std::atomic<bool> playing_{false};
     std::atomic<SampleIndex> playhead_{0};
     int sampleRate_=48000;
