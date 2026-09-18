@@ -9,13 +9,13 @@
 #include <string>
 #include <vector>
 
-namespace juceui {
+namespace flowdaw::juceui {
 class SampleBrowserComponent final:public juce::Component,private juce::ListBoxModel,public juce::FileDragAndDropTarget{
 public:
     using ImportFn=std::function<void(const std::filesystem::path&)>;
     using SettingsChangedFn=std::function<void()>;
 
-    SampleBrowserComponent(flowdaw::AppSettings&settings,ImportFn importFn,SettingsChangedFn settingsChanged)
+    SampleBrowserComponent(AppSettings&settings,ImportFn importFn,SettingsChangedFn settingsChanged)
         :settings_(settings),importFn_(std::move(importFn)),settingsChanged_(std::move(settingsChanged)),list_("Samples",this){
         title_.setText("SAMPLE BROWSER",juce::dontSendNotification);title_.setFont(juce::Font(14.0f,juce::Font::bold));addAndMakeVisible(title_);
         search_.setTextToShowWhenEmpty("Search WAVs...",juce::Colour(0xff7f8796));search_.onTextChange=[this]{refresh();};addAndMakeVisible(search_);
@@ -116,7 +116,7 @@ private:
         auto p=selectedPath();if(p.empty())return;auto&v=settings_.favoriteSamples;auto it=std::find(v.begin(),v.end(),p);if(it==v.end()){v.push_back(p);if(v.size()>256)v.erase(v.begin());}else v.erase(it);notifySettingsChanged();refresh();
     }
 
-    flowdaw::AppSettings&settings_;ImportFn importFn_;SettingsChangedFn settingsChanged_;std::vector<std::filesystem::path>visible_;std::unique_ptr<juce::FileChooser>chooser_;
+    AppSettings&settings_;ImportFn importFn_;SettingsChangedFn settingsChanged_;std::vector<std::filesystem::path>visible_;std::unique_ptr<juce::FileChooser>chooser_;
     juce::Label title_,hint_;juce::TextEditor search_;juce::ComboBox source_,root_;juce::TextButton addRoot_,favorite_,import_;juce::ListBox list_;
 };
 }
