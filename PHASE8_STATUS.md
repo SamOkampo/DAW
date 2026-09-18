@@ -43,7 +43,8 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 ## Still required before Phase 8 is complete
 
 - JUCE Arrangement now also supports block selection, Delete, Duplicate and Pattern repeat count edits through the shared Undo stack.
-- Remaining editing-surface migration from X11 to JUCE: deeper plugin/send editing.
+- JUCE plugin routing now allows the scanned effect selection to be added as a Track insert or Master insert, and the Automation/Bus panel can create/update/remove Track→Bus sends with gain plus pre/post-fader mode through Undo.
+- Remaining editing-surface migration from X11 to JUCE is limited to deeper rack/parameter-management polish rather than core production routing.
 - Windows/macOS JUCE CI, AU runtime validation and platform packaging.
 
 ## Realtime invariants
