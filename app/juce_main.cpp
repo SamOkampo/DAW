@@ -56,7 +56,7 @@ public:
         openEditor_.setButtonText("Open Plugin Editor");openEditor_.onClick=[this]{openSelectedEditor();};addAndMakeVisible(openEditor_);
         addAndMakeVisible(pluginChoice_);pluginChoice_.setTextWhenNothingSelected("No plugin selected");
         note_.setText("JUCE owns device I/O and registers the real VST3/AU backend with FLOWDAW's AudioEngine. Phase 8 now executes prepared track, bus and master inserts through preallocated realtime route buffers with PDC; full Studio editing parity remains in progress.",juce::dontSendNotification);note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
-        meterLabel_.setText("Meters (sample peak / RMS): waiting for audio",juce::dontSendNotification);addAndMakeVisible(meterLabel_);
+        meterLabel_.setText("Meters (TP estimate / sample peak / RMS): waiting for audio",juce::dontSendNotification);addAndMakeVisible(meterLabel_);
         setSize(1100,760);startTimer(100);
     }
     ~MainComponent()override{deviceManager_.removeAudioCallback(this);engine_.stop();engine_.collectRetiredGraphs();saveDeviceSettings();saveSafety();}
@@ -88,10 +88,10 @@ private:
         engine_.collectRetiredGraphs();
         const auto meters=engine_.meterSnapshot();
         const auto db=[](float value){return value>0.000001f?20.0f*std::log10(value):-120.0f;};
-        meterLabel_.setText("Meters (sample peak / RMS) | Master L "
-                            +juce::String(db(meters.master.samplePeakLeft),1)+" / "+juce::String(db(meters.master.rmsLeft),1)
-                            +" dBFS | R "+juce::String(db(meters.master.samplePeakRight),1)+" / "+juce::String(db(meters.master.rmsRight),1)
-                            +" dBFS | "+juce::String(static_cast<int>(meters.tracks.size()))+" track meter(s), "
+        meterLabel_.setText("Meters (TP est / sample / RMS) | Master L "
+                            +juce::String(db(meters.master.truePeakLeft),1)+" / "+juce::String(db(meters.master.samplePeakLeft),1)+" / "+juce::String(db(meters.master.rmsLeft),1)
+                            +" dB | R "+juce::String(db(meters.master.truePeakRight),1)+" / "+juce::String(db(meters.master.samplePeakRight),1)+" / "+juce::String(db(meters.master.rmsRight),1)
+                            +" dB | "+juce::String(static_cast<int>(meters.tracks.size()))+" track meter(s), "
                             +juce::String(static_cast<int>(meters.buses.size()))+" bus meter(s)",juce::dontSendNotification);
         if(++settingsSaveTicks_>=50){settingsSaveTicks_=0;saveDeviceSettings();}
     }
