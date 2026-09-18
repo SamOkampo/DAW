@@ -1,5 +1,6 @@
 #pragma once
 #include "flowdaw/Project.hpp"
+#include "flowdaw/RealtimeMeter.hpp"
 #include "flowdaw/RealtimePluginGraph.hpp"
 #include "flowdaw/RealtimeRouting.hpp"
 #include <array>
@@ -21,6 +22,7 @@ public:
     void publish(const Project& project);
     // Control-thread reclamation of graphs retired by publish(). Never destroys a graph while realtime/offline readers are active.
     std::size_t collectRetiredGraphs();
+    AudioMeterSnapshot meterSnapshot() const;
     void play();
     void pause();
     void stop();
@@ -88,6 +90,7 @@ private:
         RealtimePluginChain runtime;
         RealtimeStereoRouteBuffer buffer;
         RealtimeDelayLine outputDelay;
+        std::shared_ptr<RealtimeMeterState> meter;
         std::vector<RealtimeSendRoute> sends;
     };
     struct RealtimeBusRoute {
@@ -97,6 +100,7 @@ private:
         RealtimePluginChain runtime;
         RealtimeStereoRouteBuffer buffer;
         RealtimeDelayLine masterDelay;
+        std::shared_ptr<RealtimeMeterState> meter;
     };
     struct Graph {
         float master=1;
@@ -107,6 +111,7 @@ private:
         std::vector<AutomationLane> automation;
         std::vector<PluginInstance> masterPlugins;
         RealtimePluginChain masterRuntime;
+        std::shared_ptr<RealtimeMeterState> masterMeter;
         std::vector<RenderClip> clips;
         std::vector<RealtimeSourceClip> realtimeClips;
         std::vector<RealtimeTrackRoute> realtimeTracks;
