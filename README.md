@@ -23,7 +23,7 @@ The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 s
 - Realtime Track/Bus/Master plugin graph with topology-aware plugin delay compensation.
 - Callback-safe sample peak, RMS and 4x inter-sample true-peak estimates for Track/Bus/Master routes.
 - Real VST3 execution through JUCE on Linux/Windows/macOS and AU runtime validation on macOS.
-- Persistent Track/Bus/Master plugin racks with FLOW Gain/Soft Clip/Width, bypass, wet mix, insert reordering, native parameters and external-plugin editor state roundtrip.
+- Persistent Track/Bus/Master plugin racks with FLOW Gain/Soft Clip/Width, enabled/bypass, wet mix, insert reordering, native parameters and external-plugin editor state roundtrip.
 - External instrument slots driven by Pattern MIDI before Track inserts.
 - Realtime/offline routing parity, master WAV export and per-track stem export through the production PluginHost.
 - Production Assistant, Project Health and explicit Undoable workflow commands.
