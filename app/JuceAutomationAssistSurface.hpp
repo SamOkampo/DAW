@@ -33,6 +33,12 @@ public:
         busMute_.setButtonText("Mute");busMute_.onClick=[this]{toggleBus(false);};addAndMakeVisible(busMute_);
         busSolo_.setButtonText("Solo");busSolo_.onClick=[this]{toggleBus(true);};addAndMakeVisible(busSolo_);
         createBus_.setButtonText("Create Bus");createBus_.onClick=[this]{runWorkflow("create-mix-bus");};addAndMakeVisible(createBus_);
+        addAndMakeVisible(sendTrackChoice_);sendTrackChoice_.setTextWhenNothingSelected("Send track");sendTrackChoice_.onChange=[this]{syncSendControls();};
+        addAndMakeVisible(sendBusChoice_);sendBusChoice_.setTextWhenNothingSelected("Send bus");sendBusChoice_.onChange=[this]{syncSendControls();};
+        sendGain_.setRange(0.0,2.0,0.01);sendGain_.setSliderStyle(juce::Slider::LinearHorizontal);sendGain_.setTextBoxStyle(juce::Slider::TextBoxRight,false,62,22);addAndMakeVisible(sendGain_);
+        preFader_.setButtonText("Pre");addAndMakeVisible(preFader_);
+        setSend_.setButtonText("Set Send");setSend_.onClick=[this]{setSend();};addAndMakeVisible(setSend_);
+        removeSend_.setButtonText("Remove");removeSend_.onClick=[this]{removeSend();};addAndMakeVisible(removeSend_);
 
         addAndMakeVisible(suggestionChoice_);suggestionChoice_.onChange=[this]{syncSuggestionReport();};
         refreshAssist_.setButtonText("Analyze");refreshAssist_.onClick=[this]{refreshAssist();};addAndMakeVisible(refreshAssist_);
@@ -48,7 +54,8 @@ public:
         const int busPrevious=busChoice_.getSelectedId(),routePrevious=routeChoice_.getSelectedId();
         busChoice_.clear(juce::dontSendNotification);int id=1;for(auto const&bus:project_.buses)busChoice_.addItem(juce::String(bus.name),id++);
         if(!project_.buses.empty())busChoice_.setSelectedId(busPrevious>0&&busPrevious<=static_cast<int>(project_.buses.size())?busPrevious:1,juce::dontSendNotification);
-        refreshRouteChoice(routePrevious);syncBusControls();syncAutomationValue();refreshAssist();refreshCommands();repaint();
+        const int sendTrackPrevious=sendTrackChoice_.getSelectedId(),sendBusPrevious=sendBusChoice_.getSelectedId();sendTrackChoice_.clear(juce::dontSendNotification);sendBusChoice_.clear(juce::dontSendNotification);id=1;for(auto const&t:project_.tracks)sendTrackChoice_.addItem(juce::String(t.name),id++);id=1;for(auto const&b:project_.buses)sendBusChoice_.addItem(juce::String(b.name),id++);if(!project_.tracks.empty())sendTrackChoice_.setSelectedId(sendTrackPrevious>0&&sendTrackPrevious<=static_cast<int>(project_.tracks.size())?sendTrackPrevious:1,juce::dontSendNotification);if(!project_.buses.empty())sendBusChoice_.setSelectedId(sendBusPrevious>0&&sendBusPrevious<=static_cast<int>(project_.buses.size())?sendBusPrevious:1,juce::dontSendNotification);
+        refreshRouteChoice(routePrevious);syncBusControls();syncSendControls();syncAutomationValue();refreshAssist();refreshCommands();repaint();
     }
 
     void paint(juce::Graphics&g)override{
@@ -73,6 +80,7 @@ public:
         targetChoice_.setBounds(left.removeFromTop(28));routeChoice_.setBounds(left.removeFromTop(28));value_.setBounds(left.removeFromTop(32));auto buttons=left.removeFromTop(32);writePoint_.setBounds(buttons.removeFromLeft(120).reduced(2));clearLane_.setBounds(buttons.removeFromLeft(110).reduced(2));
 
         busChoice_.setBounds(mid.removeFromTop(28));busVolume_.setBounds(mid.removeFromTop(32));busPan_.setBounds(mid.removeFromTop(32));auto busButtons=mid.removeFromTop(32);busMute_.setBounds(busButtons.removeFromLeft(70).reduced(2));busSolo_.setBounds(busButtons.removeFromLeft(70).reduced(2));createBus_.setBounds(busButtons.removeFromLeft(105).reduced(2));
+        mid.removeFromTop(4);sendTrackChoice_.setBounds(mid.removeFromTop(26));sendBusChoice_.setBounds(mid.removeFromTop(26));sendGain_.setBounds(mid.removeFromTop(30));auto sendButtons=mid.removeFromTop(30);preFader_.setBounds(sendButtons.removeFromLeft(55).reduced(2));setSend_.setBounds(sendButtons.removeFromLeft(90).reduced(2));removeSend_.setBounds(sendButtons.removeFromLeft(80).reduced(2));
 
         suggestionChoice_.setBounds(right.removeFromTop(28));auto assistButtons=right.removeFromTop(32);refreshAssist_.setBounds(assistButtons.removeFromLeft(90).reduced(2));applySuggestion_.setBounds(assistButtons.removeFromLeft(90).reduced(2));commandChoice_.setBounds(right.removeFromTop(28));executeCommand_.setBounds(right.removeFromTop(30).removeFromLeft(130).reduced(2));right.removeFromTop(4);report_.setBounds(right);
     }
@@ -126,6 +134,20 @@ private:
     void endBusGesture(){if(!busGesture_)return;busGesture_=false;if(commit_)commit_(std::move(busBefore_),"Edit bus mixer");}
     void toggleBus(bool solo){const int index=selectedBusIndex();if(index<0)return;Project before=project_;auto&b=project_.buses[static_cast<std::size_t>(index)];if(solo)b.mixer.solo=!b.mixer.solo;else b.mixer.mute=!b.mixer.mute;if(commit_)commit_(std::move(before),solo?"Toggle bus solo":"Toggle bus mute");syncBusControls();}
 
+    int selectedSendTrack()const{const int index=sendTrackChoice_.getSelectedId()-1;return index>=0&&index<static_cast<int>(project_.tracks.size())?index:-1;}
+    int selectedSendBus()const{const int index=sendBusChoice_.getSelectedId()-1;return index>=0&&index<static_cast<int>(project_.buses.size())?index:-1;}
+    void syncSendControls(){
+        suppress_=true;sendGain_.setValue(0.0,juce::dontSendNotification);preFader_.setToggleState(false,juce::dontSendNotification);const int ti=selectedSendTrack(),bi=selectedSendBus();
+        if(ti>=0&&bi>=0){const Id busId=project_.buses[static_cast<std::size_t>(bi)].id;for(auto const&send:project_.tracks[static_cast<std::size_t>(ti)].sends)if(send.busId==busId){sendGain_.setValue(send.gain,juce::dontSendNotification);preFader_.setToggleState(send.preFader,juce::dontSendNotification);break;}}
+        suppress_=false;
+    }
+    void setSend(){
+        const int ti=selectedSendTrack(),bi=selectedSendBus();if(ti<0||bi<0)return;Project before=project_;auto&track=project_.tracks[static_cast<std::size_t>(ti)];const Id busId=project_.buses[static_cast<std::size_t>(bi)].id;auto it=std::find_if(track.sends.begin(),track.sends.end(),[&](auto const&send){return send.busId==busId;});if(it==track.sends.end()){MixerSend send;send.busId=busId;send.gain=static_cast<float>(sendGain_.getValue());send.preFader=preFader_.getToggleState();track.sends.push_back(send);}else{it->gain=static_cast<float>(sendGain_.getValue());it->preFader=preFader_.getToggleState();it->enabled=true;}if(commit_)commit_(std::move(before),"Set track send");refresh();
+    }
+    void removeSend(){
+        const int ti=selectedSendTrack(),bi=selectedSendBus();if(ti<0||bi<0)return;auto&track=project_.tracks[static_cast<std::size_t>(ti)];const Id busId=project_.buses[static_cast<std::size_t>(bi)].id;auto it=std::find_if(track.sends.begin(),track.sends.end(),[&](auto const&send){return send.busId==busId;});if(it==track.sends.end())return;Project before=project_;track.sends.erase(it);if(commit_)commit_(std::move(before),"Remove track send");refresh();
+    }
+
     void refreshAssist(){
         suggestions_=analyzeProductionContext(project_);const int previous=suggestionChoice_.getSelectedId();suggestionChoice_.clear(juce::dontSendNotification);int id=1;for(auto const&s:suggestions_)suggestionChoice_.addItem(juce::String(s.title),id++);if(!suggestions_.empty())suggestionChoice_.setSelectedId(previous>0&&previous<=static_cast<int>(suggestions_.size())?previous:1,juce::dontSendNotification);syncSuggestionReport();
     }
@@ -141,9 +163,10 @@ private:
 
     Project&project_;PlayheadFn playhead_;CommitFn commit_;bool suppress_=false,busGesture_=false;Project busBefore_;
     std::vector<AssistantSuggestion>suggestions_;std::vector<WorkflowCommand>commands_;
-    juce::ComboBox targetChoice_,routeChoice_,busChoice_,suggestionChoice_,commandChoice_;
-    juce::Slider value_,busVolume_,busPan_;
-    juce::TextButton writePoint_,clearLane_,busMute_,busSolo_,createBus_,refreshAssist_,applySuggestion_,executeCommand_;
+    juce::ComboBox targetChoice_,routeChoice_,busChoice_,sendTrackChoice_,sendBusChoice_,suggestionChoice_,commandChoice_;
+    juce::Slider value_,busVolume_,busPan_,sendGain_;
+    juce::ToggleButton preFader_;
+    juce::TextButton writePoint_,clearLane_,busMute_,busSolo_,createBus_,setSend_,removeSend_,refreshAssist_,applySuggestion_,executeCommand_;
     juce::TextEditor report_;
 };
 
