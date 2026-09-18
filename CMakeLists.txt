@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(FLOWDAW VERSION 0.7.0 LANGUAGES C CXX)
+project(FLOWDAW VERSION 0.8.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +29,7 @@ add_library(flowdaw_core
     src/Automation.cpp
     src/Export.cpp
     src/PluginHost.cpp
+    src/RealtimePluginGraph.cpp
     src/ProductionAssistant.cpp
     src/Workflow.cpp
     src/AppSettings.cpp
@@ -75,7 +76,7 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
         juce_add_gui_app(flowdaw-juce PRODUCT_NAME "FLOWDAW")
         target_sources(flowdaw-juce PRIVATE app/juce_main.cpp)
         target_link_libraries(flowdaw-juce PRIVATE flowdaw_juce_runtime juce::juce_gui_extra juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
-        target_compile_definitions(flowdaw-juce PRIVATE JUCE_APPLICATION_NAME_STRING="FLOWDAW" JUCE_APPLICATION_VERSION_STRING="0.7.0" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1)
+        target_compile_definitions(flowdaw-juce PRIVATE JUCE_APPLICATION_NAME_STRING="FLOWDAW" JUCE_APPLICATION_VERSION_STRING="0.8.0" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1)
         if(APPLE)
             target_compile_definitions(flowdaw-juce PRIVATE JUCE_PLUGINHOST_AU=1)
         else()
@@ -110,6 +111,11 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
         target_link_libraries(flowdaw_phase7_juce_tests PRIVATE flowdaw_juce_runtime)
         add_dependencies(flowdaw_phase7_juce_tests flowdaw_test_plugin_VST3)
         add_test(NAME flowdaw_phase7_juce_tests COMMAND flowdaw_phase7_juce_tests $<TARGET_FILE:flowdaw_test_plugin_VST3>)
+
+        add_executable(flowdaw_phase8_juce_tests tests/test_phase8_juce.cpp)
+        target_link_libraries(flowdaw_phase8_juce_tests PRIVATE flowdaw_juce_runtime)
+        add_dependencies(flowdaw_phase8_juce_tests flowdaw_test_plugin_VST3)
+        add_test(NAME flowdaw_phase8_juce_tests COMMAND flowdaw_phase8_juce_tests $<TARGET_FILE:flowdaw_test_plugin_VST3>)
     endif()
 endif()
 
@@ -171,6 +177,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase6_tests tests/test_phase6.cpp)
     target_link_libraries(flowdaw_phase6_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase6_tests COMMAND flowdaw_phase6_tests)
+
+    add_executable(flowdaw_phase8_tests tests/test_phase8.cpp)
+    target_link_libraries(flowdaw_phase8_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase8_tests COMMAND flowdaw_phase8_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")

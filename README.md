@@ -36,7 +36,7 @@ The repository contains a runnable C++20 DAW foundation plus completed Step Sequ
 
 **Phase 0 through Phase 7 are complete. Phase 8 — Realtime Plugin Graph / PDC / JUCE Studio Migration — is now in progress.**
 
-Phase 8 is responsible for placing external VST3 processors inside the actual realtime track/bus/master graph with callback-safe lifecycle management and plugin-delay compensation, then moving the remaining editing surfaces from the X11 bootstrap to JUCE. Until that integration lands, the Phase 7 host proves real plugin execution through the host contract and integration fixture, but does not claim that arbitrary external plugins already execute on every realtime mixer route.
+Phase 8 now has its first realtime-graph submilestone: prepared external effects can execute on the AudioEngine master path, plugin latency is reported to the host, and wet/dry paths are latency-aligned with preallocated delay storage. Per-track/per-bus insertion, topology-wide PDC, offline parity, true route meters and the remaining JUCE Studio migration are still in progress; arbitrary external plugins are not yet claimed to execute on every mixer route.
 
 ## Build
 
@@ -59,9 +59,12 @@ cmake -S . -B build-juce -G Ninja \
   -DFLOWDAW_BUILD_TESTS=ON \
   -DFLOWDAW_ENABLE_JUCE_RUNTIME=ON \
   -DFLOWDAW_FETCH_JUCE=ON
-cmake --build build-juce --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests
+cmake --build build-juce --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests flowdaw_phase8_juce_tests flowdaw-doctor
 ctest --test-dir build-juce -R flowdaw_phase7_juce_tests --output-on-failure
+ctest --test-dir build-juce -R flowdaw_phase8_juce_tests --output-on-failure
 ```
+
+JUCE 9 modules are available under the upstream AGPLv3 or commercial JUCE licensing options. Enabling or fetching JUCE in this build does not by itself grant commercial distribution rights; distributors must use an applicable JUCE licence and comply with its terms.
 
 Open a WAV or project with the X11 bootstrap:
 
@@ -96,4 +99,4 @@ cmake --build build --target flowdaw_stretch_benchmark
 ./build/flowdaw_stretch_benchmark
 ```
 
-See `ARCHITECTURE.md`, `AUDIO_ENGINE.md`, `PROJECT_FORMAT.md`, `ROADMAP.md`, `PHASE1_STATUS.md` through `PHASE7_STATUS.md`, and `docs/TIME_STRETCH_EVALUATION.md`.
+See `ARCHITECTURE.md`, `AUDIO_ENGINE.md`, `PROJECT_FORMAT.md`, `ROADMAP.md`, `PHASE1_STATUS.md` through `PHASE8_STATUS.md`, and `docs/TIME_STRETCH_EVALUATION.md`.

@@ -30,14 +30,24 @@ public:
     explicit JuceProcessor(std::unique_ptr<juce::AudioPluginInstance> instance):instance_(std::move(instance)){}
     bool prepare(int sampleRate,int channels,std::string&error)override{
         if(!instance_){error="JUCE plugin instance is null";return false;}if(channels<1||channels>2){error="FLOWDAW JUCE bridge currently supports mono/stereo buffers";return false;}
-        sampleRate_=sampleRate;channels_=channels;block_.setSize(channels_,kMaxPluginBlock,false,true,false);instance_->setRateAndBufferSizeDetails(static_cast<double>(sampleRate_),512);instance_->prepareToPlay(static_cast<double>(sampleRate_),512);prepared_=true;return true;
+        sampleRate_=sampleRate;channels_=channels;block_.setSize(channels_,kMaxPluginBlock,false,true,false);instance_->setRateAndBufferSizeDetails(static_cast<double>(sampleRate_),kMaxPluginBlock);instance_->prepareToPlay(static_cast<double>(sampleRate_),kMaxPluginBlock);prepared_=true;return true;
     }
     void setState(const std::string&state)override{if(!instance_||state.empty())return;auto b=hexDecode(state);if(b.getSize())instance_->setStateInformation(b.getData(),static_cast<int>(b.getSize()));}
     std::string state()const override{if(!instance_)return{};juce::MemoryBlock b;instance_->getStateInformation(b);return hexEncode(b.getData(),b.getSize());}
-    void process(AudioBuffer&buffer)override{
-        if(!instance_||!prepared_||buffer.frames()<=0)return;SampleIndex offset=0;while(offset<buffer.frames()){const int frames=static_cast<int>(std::min<SampleIndex>(kMaxPluginBlock,buffer.frames()-offset));block_.setSize(channels_,frames,false,false,true);midi_.clear();
-            for(int c=0;c<channels_;++c)for(int f=0;f<frames;++f)block_.setSample(c,f,buffer.interleaved[static_cast<std::size_t>((offset+f)*buffer.channels+c)]);instance_->processBlock(block_,midi_);for(int c=0;c<channels_;++c)for(int f=0;f<frames;++f)buffer.interleaved[static_cast<std::size_t>((offset+f)*buffer.channels+c)]=block_.getSample(c,f);offset+=frames;}
+    void process(AudioBuffer&buffer)override{(void)processRealtime(buffer.interleaved.data(),buffer.frames(),buffer.channels);}
+    bool supportsRealtimeProcessing()const noexcept override{return true;}
+    int latencySamples()const noexcept override{return instance_?std::max(0,instance_->getLatencySamples()):0;}
+    bool processRealtime(float*interleaved,SampleIndex frameCount,int channels)noexcept override{
+        if(!instance_||!prepared_||!interleaved||frameCount<=0||channels!=channels_)return false;
+        try{
+            SampleIndex offset=0;while(offset<frameCount){const int frames=static_cast<int>(std::min<SampleIndex>(kMaxPluginBlock,frameCount-offset));block_.setSize(channels_,frames,false,false,true);midi_.clear();
+                for(int c=0;c<channels_;++c)for(int f=0;f<frames;++f)block_.setSample(c,f,interleaved[static_cast<std::size_t>((offset+f)*channels_+c)]);
+                instance_->processBlock(block_,midi_);
+                for(int c=0;c<channels_;++c)for(int f=0;f<frames;++f)interleaved[static_cast<std::size_t>((offset+f)*channels_+c)]=block_.getSample(c,f);offset+=frames;}
+            return true;
+        }catch(...){return false;}
     }
+    void resetRealtime()noexcept override{if(!instance_)return;try{instance_->reset();}catch(...){} }
 private:std::unique_ptr<juce::AudioPluginInstance> instance_;juce::AudioBuffer<float>block_;juce::MidiBuffer midi_;int sampleRate_=48000,channels_=2;bool prepared_=false;
 };
 
