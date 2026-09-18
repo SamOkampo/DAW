@@ -4,7 +4,7 @@ FLOWDAW is a hip-hop-first desktop DAW in active development. Its core principle
 
 ## Current state
 
-The repository contains a runnable C++20 DAW foundation plus completed Step Sequencer/Groove Engine, Smart Sampling/Chop Mode, Piano Roll/MIDI/Native Instruments, Recording/Automation/Advanced Mixer, Assist/Plugins/Advanced Workflow, and Production Platform/Reliability phases.
+The repository contains a runnable C++20 DAW foundation plus completed Step Sequencer/Groove Engine, Smart Sampling/Chop Mode, Piano Roll/MIDI/Native Instruments, Recording/Automation/Advanced Mixer, Assist/Plugins/Advanced Workflow, Production Platform/Reliability, and JUCE Runtime Foundation/Real VST3 Host phases.
 
 ### Working and tested
 
@@ -29,15 +29,18 @@ The repository contains a runnable C++20 DAW foundation plus completed Step Sequ
 - Crash-recovery infrastructure using a dirty-session marker plus versioned `autosave.flow` snapshot without changing the portable `.flow` schema.
 - Persistent plugin quarantine registry with failure threshold and explicit reset.
 - `flowdaw-doctor` command-line utility for runtime status, recovery export and plugin-quarantine maintenance.
-- Install rules plus CPack release packaging; CI smoke-tests both installed binaries and the generated package.
-- Optional JUCE 9 toolchain contract is exposed in CMake, but the tested Studio remains the X11 bootstrap until a JUCE shell/backend reaches feature parity.
-- GitHub Actions validates ten core/test suites, the stretch benchmark, Studio build, installation, Doctor execution and packaging.
+- Install rules plus CPack release packaging; CI smoke-tests installed binaries and the generated package.
+- Pinned optional JUCE 9.0.2 runtime with a real `flowdaw-juce` desktop target, JUCE device management and external-plugin backend registration.
+- Real VST3 discovery, instantiation, audio processing and opaque-state roundtrip validated end-to-end with a deterministic JUCE-built VST3 fixture in CI.
+- The X11 Studio remains available while editing views migrate; the JUCE runtime foundation does not yet imply full Studio feature parity.
 
-**Phase 0 through Phase 6 are complete. The next milestone is Phase 7: JUCE desktop parity + real external-plugin runtime.**
+**Phase 0 through Phase 7 are complete. Phase 8 — Realtime Plugin Graph / PDC / JUCE Studio Migration — is now in progress.**
 
-The current Linux bootstrap UI still uses X11. FLOWDAW does **not** claim that merely enabling a JUCE toolchain makes VST3/AU execution real: runtime capability reporting continues to show external plugins as `SLOTS ONLY` until an actual production backend is compiled and registered.
+Phase 8 is responsible for placing external VST3 processors inside the actual realtime track/bus/master graph with callback-safe lifecycle management and plugin-delay compensation, then moving the remaining editing surfaces from the X11 bootstrap to JUCE. Until that integration lands, the Phase 7 host proves real plugin execution through the host contract and integration fixture, but does not claim that arbitrary external plugins already execute on every realtime mixer route.
 
 ## Build
+
+Core/X11 bootstrap:
 
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
@@ -47,7 +50,20 @@ ctest --test-dir build --output-on-failure
 ./build/flowdaw-doctor status
 ```
 
-Open a WAV or project directly:
+JUCE runtime (fetches the pinned JUCE 9.0.2 source when requested):
+
+```bash
+cmake -S . -B build-juce -G Ninja \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DFLOWDAW_BUILD_APP=OFF \
+  -DFLOWDAW_BUILD_TESTS=ON \
+  -DFLOWDAW_ENABLE_JUCE_RUNTIME=ON \
+  -DFLOWDAW_FETCH_JUCE=ON
+cmake --build build-juce --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests
+ctest --test-dir build-juce -R flowdaw_phase7_juce_tests --output-on-failure
+```
+
+Open a WAV or project with the X11 bootstrap:
 
 ```bash
 ./build/flowdaw /path/to/sample.wav
@@ -80,4 +96,4 @@ cmake --build build --target flowdaw_stretch_benchmark
 ./build/flowdaw_stretch_benchmark
 ```
 
-See `ARCHITECTURE.md`, `AUDIO_ENGINE.md`, `PROJECT_FORMAT.md`, `ROADMAP.md`, `PHASE1_STATUS.md` through `PHASE6_STATUS.md`, and `docs/TIME_STRETCH_EVALUATION.md`.
+See `ARCHITECTURE.md`, `AUDIO_ENGINE.md`, `PROJECT_FORMAT.md`, `ROADMAP.md`, `PHASE1_STATUS.md` through `PHASE7_STATUS.md`, and `docs/TIME_STRETCH_EVALUATION.md`.

@@ -26,6 +26,13 @@ public:
     std::string lastError() const;
     AudioBuffer renderOffline(SampleIndex frames) const;
 
+    // Phase 7: allows JUCE (or another production device backend) to drive the
+    // same callback path without opening the legacy PortAudio stream. Call only
+    // while the external device is stopped/reconfiguring; processExternalDeviceBlock
+    // itself performs no allocation and delegates directly to the engine callback.
+    void configureExternalDevice(int sampleRate,unsigned long framesPerBuffer,bool inputAvailable){sampleRate_=sampleRate;framesPerBuffer_=framesPerBuffer;inputAvailable_.store(inputAvailable,std::memory_order_relaxed);}
+    int processExternalDeviceBlock(const float* monoInput,float* interleavedStereoOutput,unsigned long frames){return process(monoInput,interleavedStereoOutput,frames);}
+
     bool triggerPreview(std::shared_ptr<AudioBuffer> audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain=1.0f,float pan=0.0f,int chokeGroup=0);
     void stopPreviews();
 
