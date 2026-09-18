@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Configure core
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=OFF -DFLOWDAW_BUILD_TESTS=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=OFF -DFLOWDAW_BUILD_TESTS=ON -DFLOWDAW_ENABLE_JUCE_RUNTIME=OFF -DFLOWDAW_FETCH_JUCE=OFF
       - name: Build core and tests
         run: cmake --build build --parallel
       - name: Test
@@ -23,14 +23,14 @@ jobs:
       - name: Benchmark stretch backend
         run: ./build/flowdaw_stretch_benchmark
 
-  studio-build:
+  legacy-x11-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install Studio build dependencies
         run: sudo apt-get update && sudo apt-get install -y libx11-dev
       - name: Configure Studio
-        run: cmake -S . -B build-studio -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=ON -DFLOWDAW_BUILD_TESTS=OFF
+        run: cmake -S . -B build-studio -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=ON -DFLOWDAW_BUILD_TESTS=OFF -DFLOWDAW_ENABLE_JUCE_RUNTIME=OFF -DFLOWDAW_FETCH_JUCE=OFF
       - name: Build Studio executable
         run: cmake --build build-studio --parallel --target flowdaw flowdaw-doctor
       - name: Install smoke test
@@ -52,6 +52,11 @@ jobs:
         run: ctest --test-dir build-juce -R flowdaw_phase7_juce_tests --output-on-failure && ctest --test-dir build-juce -R flowdaw_phase8_juce_tests --output-on-failure
       - name: Install JUCE desktop smoke test
         run: cmake --install build-juce --prefix "$RUNNER_TEMP/flowdaw-juce-install" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/FLOWDAW" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-doctor" && "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-doctor" status
+      - name: Package Linux production build
+        run: |
+          cd build-juce
+          cpack -G TGZ
+          test -n "$(find . -maxdepth 1 -name 'FLOWDAW-*.tar.gz' -print -quit)"
 
 
   windows-juce:
