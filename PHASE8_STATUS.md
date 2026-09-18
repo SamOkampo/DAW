@@ -14,11 +14,13 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - Deterministic fake-latency tests cover exact delay, chain latency, latency-aligned wet/dry mixing and the AudioEngine master path.
 - A real JUCE-built VST3 fixture is scanned, instantiated and processed inside the AudioEngine master realtime graph in CI.
 - Project format remains v10; realtime processor state and latency metadata do not add portable project schema.
+- `RealtimePdcPlan` now computes topology-aware latency alignment for direct track outputs, track→bus paths and sends before those routes are moved into dedicated callback buffers.
+- `RealtimeStereoRouteBuffer` provides preallocated stereo storage for the upcoming per-track/per-bus callback graph.
 
 ## Still required before Phase 8 is complete
 
-- Per-track and per-bus realtime processor chains.
-- Topology-aware PDC across direct routes, track-to-bus routes, sends and the final master sum.
+- Connect per-track and per-bus realtime processor chains to dedicated route buffers inside `AudioEngine`.
+- Apply the computed topology-aware PDC delays to actual direct routes, track-to-bus paths, sends and the final master sum.
 - Explicit control-thread retirement/destruction of old external processor graphs rather than indefinite graph retention.
 - Offline render/export parity with realtime external-plugin routing.
 - Callback-safe true peak/RMS meters for track, bus and master.
