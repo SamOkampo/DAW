@@ -37,10 +37,13 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - JUCE Piano Roll now edits persistent Pattern MIDI directly: click-to-add, snapped drag, right-edge resize and Delete-to-remove, all through the shared Project/Undo/AudioEngine publication path with scale/grid rendering.
 - JUCE Sampler/Chop now renders the imported waveform and persistent slice markers, previews slices/pads through the realtime preview engine, supports 16-pad banks, non-destructive boundary dragging, double-click split and Delete-to-merge with Undo.
 - JUCE Step Sequencer now exposes 16-step paging over 16/32/64-step patterns, step activation, Velocity/Probability/Microtiming, lane Volume/Pan/Mute/Solo and pattern Swing/Humanize. Slider gestures collapse to one shared Undo entry and pattern length changes resize every lane persistently.
+- JUCE Automation/Assist now writes Track/Bus/Master volume/pan points at the actual engine playhead, visualizes the selected automation lane, clears lanes non-destructively through Undo, and exposes Bus Volume/Pan/Mute/Solo plus Mix Bus creation.
+- Production Assistant suggestions, workflow commands and Project Health validation are surfaced directly from the existing core APIs; actionable changes require an explicit Apply/Run action and enter the shared Undo stack.
 
 ## Still required before Phase 8 is complete
 
-- Remaining editing-surface migration from X11 to JUCE: automation/bus mixer depth, Assist/Project Health and remaining arrangement operations.
+- JUCE Arrangement now also supports block selection, Delete, Duplicate and Pattern repeat count edits through the shared Undo stack.
+- Remaining editing-surface migration from X11 to JUCE: deeper plugin/send editing.
 - Windows/macOS JUCE CI, AU runtime validation and platform packaging.
 
 ## Realtime invariants
