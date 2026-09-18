@@ -1,5 +1,7 @@
 #pragma once
 #include "flowdaw/Project.hpp"
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -14,6 +16,13 @@ struct PluginDescriptor {
     std::string category="effect";
     std::filesystem::path path;
     bool builtin=false;
+};
+
+struct PluginMidiEvent {
+    int sampleOffset=0;
+    std::uint8_t status=0;
+    std::uint8_t data1=0;
+    std::uint8_t data2=0;
 };
 
 float pluginParameterValue(const PluginInstance& plugin,const std::string& id,float fallback);
@@ -39,6 +48,11 @@ public:
         (void)interleaved;(void)frames;(void)channels;return false;
     }
     virtual void resetRealtime() noexcept {}
+    virtual bool supportsRealtimeMidiInput() const noexcept { return false; }
+    virtual bool processRealtimeMidi(float* interleaved,SampleIndex frames,int channels,
+                                     const PluginMidiEvent* events,std::size_t eventCount) noexcept {
+        (void)events;(void)eventCount;return processRealtime(interleaved,frames,channels);
+    }
 };
 
 class IExternalPluginBackend {
