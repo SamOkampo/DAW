@@ -42,7 +42,8 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 
 ## Still required before Phase 8 is complete
 
-- Remaining editing-surface migration from X11 to JUCE: remaining arrangement operations and deeper plugin/send editing.
+- JUCE Arrangement now also supports block selection, Delete, Duplicate and Pattern repeat count edits through the shared Undo stack.
+- Remaining editing-surface migration from X11 to JUCE: deeper plugin/send editing.
 - Windows/macOS JUCE CI, AU runtime validation and platform packaging.
 
 ## Realtime invariants
