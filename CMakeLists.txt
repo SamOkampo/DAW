@@ -93,6 +93,11 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
     endif()
 
     if(FLOWDAW_BUILD_TESTS AND FLOWDAW_BUILD_JUCE_TEST_PLUGIN)
+        set(FLOWDAW_TEST_PLUGIN_FORMATS VST3)
+        if(APPLE)
+            list(APPEND FLOWDAW_TEST_PLUGIN_FORMATS AU)
+        endif()
+
         juce_add_plugin(flowdaw_test_plugin
             COMPANY_NAME FLOWDAW
             IS_SYNTH FALSE
@@ -103,7 +108,7 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
             COPY_PLUGIN_AFTER_BUILD FALSE
             PLUGIN_MANUFACTURER_CODE Flwd
             PLUGIN_CODE Ftst
-            FORMATS VST3
+            FORMATS ${FLOWDAW_TEST_PLUGIN_FORMATS}
             PRODUCT_NAME "FLOWDAW Test Plugin")
         target_sources(flowdaw_test_plugin PRIVATE tests/juce_test_plugin.cpp)
         target_link_libraries(flowdaw_test_plugin PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
@@ -119,7 +124,7 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
             COPY_PLUGIN_AFTER_BUILD FALSE
             PLUGIN_MANUFACTURER_CODE Flwd
             PLUGIN_CODE Fsyn
-            FORMATS VST3
+            FORMATS ${FLOWDAW_TEST_PLUGIN_FORMATS}
             PRODUCT_NAME "FLOWDAW Test Instrument")
         target_sources(flowdaw_test_instrument PRIVATE tests/juce_test_instrument.cpp)
         target_link_libraries(flowdaw_test_instrument PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
@@ -134,6 +139,13 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
         target_link_libraries(flowdaw_phase8_juce_tests PRIVATE flowdaw_juce_runtime)
         add_dependencies(flowdaw_phase8_juce_tests flowdaw_test_plugin_VST3 flowdaw_test_instrument_VST3)
         add_test(NAME flowdaw_phase8_juce_tests COMMAND flowdaw_phase8_juce_tests $<TARGET_FILE:flowdaw_test_plugin_VST3> $<TARGET_FILE:flowdaw_test_instrument_VST3>)
+
+        if(APPLE)
+            add_dependencies(flowdaw_phase7_juce_tests flowdaw_test_plugin_AU)
+            add_dependencies(flowdaw_phase8_juce_tests flowdaw_test_plugin_AU flowdaw_test_instrument_AU)
+            add_test(NAME flowdaw_phase7_au_tests COMMAND flowdaw_phase7_juce_tests $<TARGET_FILE:flowdaw_test_plugin_AU>)
+            add_test(NAME flowdaw_phase8_au_tests COMMAND flowdaw_phase8_juce_tests $<TARGET_FILE:flowdaw_test_plugin_AU> $<TARGET_FILE:flowdaw_test_instrument_AU>)
+        endif()
     endif()
 endif()
 
