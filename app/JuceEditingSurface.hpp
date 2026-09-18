@@ -71,7 +71,7 @@ public:
             }
             for(std::size_t pi=0;pi<track.patternClips.size();++pi){
                 auto r=patternRect(track.patternClips[pi],ti,end);g.setColour(juce::Colour(0xffed963c));g.fillRoundedRectangle(r,4.0f);
-                auto*p=project_.findPattern(track.patternClips[pi].patternId);g.setColour(juce::Colours::white);g.drawFittedText((p?p->name:"Pattern")+juce::String(" x")+juce::String(std::max(1,track.patternClips[pi].repeats)),r.toNearestInt().reduced(5,0),juce::Justification::centredLeft,1);
+                auto*p=project_.findPattern(track.patternClips[pi].patternId);g.setColour(juce::Colours::white);g.drawFittedText(juce::String(p?p->name:std::string("Pattern"))+" x"+juce::String(std::max(1,track.patternClips[pi].repeats)),r.toNearestInt().reduced(5,0),juce::Justification::centredLeft,1);
                 if(selected_.kind==Kind::Pattern&&selected_.track==ti&&selected_.index==pi){g.setColour(juce::Colours::white);g.drawRoundedRectangle(r.reduced(1.0f),4.0f,1.5f);}
             }
         }
