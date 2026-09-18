@@ -4,7 +4,7 @@ FLOWDAW is a hip-hop-first desktop DAW built around one principle: remove techni
 
 ## Current state
 
-**Phase 0 through Phase 8 are complete.**
+**Phase 0 through Phase 8 are complete. Phase 9 workflow/browser polish is now in progress.**
 
 The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 shell remains source-available only as an explicit legacy regression/bootstrap target.
 
@@ -30,6 +30,7 @@ The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 s
 - Machine-local audio/plugin settings, crash recovery/autosave infrastructure and plugin quarantine.
 - `flowdaw-doctor` for runtime status, recovery and plugin-quarantine maintenance.
 - New sessions start with a usable native beat plus a FLOW Keys melodic Pattern.
+- Phase 9 adds a persistent left-side sample browser with library folders, WAV search, favorites, recent samples, double-click import and OS drag/drop.
 - Cross-platform CI validates Linux, Windows and macOS production builds; Windows creates a portable ZIP and macOS creates a DMG.
 
 Project format is currently **v11**.
