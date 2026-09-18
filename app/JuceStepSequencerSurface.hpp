@@ -31,6 +31,9 @@ public:
         len32_.setButtonText("32");len32_.onClick=[this]{setLength(32);};addAndMakeVisible(len32_);
         len64_.setButtonText("64");len64_.onClick=[this]{setLength(64);};addAndMakeVisible(len64_);
         int drumId=1;for(auto const&choice:nativeDrums())drumChoice_.addItem(juce::String(choice.first),drumId++);drumChoice_.setTextWhenNothingSelected("Assign FLOW drum");drumChoice_.onChange=[this]{assignNativeDrum(drumChoice_.getSelectedId()-1);};addAndMakeVisible(drumChoice_);
+        straight_.setButtonText("Straight");straight_.onClick=[this]{setGroovePreset(0.0f,0.0f,"Straight");};addAndMakeVisible(straight_);
+        boomBap_.setButtonText("Boom Bap");boomBap_.onClick=[this]{setGroovePreset(0.18f,0.10f,"Boom Bap");};addAndMakeVisible(boomBap_);
+        loose_.setButtonText("Loose");loose_.onClick=[this]{setGroovePreset(0.28f,0.22f,"Loose");};addAndMakeVisible(loose_);
     }
 
     void setPatternId(Id id){
@@ -89,7 +92,7 @@ public:
     void resized()override{
         auto r=getLocalBounds().reduced(6);
         r.removeFromTop(20);
-        auto top=r.removeFromTop(30);pagePrev_.setBounds(top.removeFromLeft(72).reduced(2));pageNext_.setBounds(top.removeFromLeft(72).reduced(2));top.removeFromLeft(8);len16_.setBounds(top.removeFromLeft(48).reduced(2));len32_.setBounds(top.removeFromLeft(48).reduced(2));len64_.setBounds(top.removeFromLeft(48).reduced(2));top.removeFromLeft(8);drumChoice_.setBounds(top.removeFromLeft(190).reduced(2));
+        auto top=r.removeFromTop(30);pagePrev_.setBounds(top.removeFromLeft(72).reduced(2));pageNext_.setBounds(top.removeFromLeft(72).reduced(2));top.removeFromLeft(8);len16_.setBounds(top.removeFromLeft(48).reduced(2));len32_.setBounds(top.removeFromLeft(48).reduced(2));len64_.setBounds(top.removeFromLeft(48).reduced(2));top.removeFromLeft(8);drumChoice_.setBounds(top.removeFromLeft(180).reduced(2));top.removeFromLeft(8);straight_.setBounds(top.removeFromLeft(82).reduced(2));boomBap_.setBounds(top.removeFromLeft(92).reduced(2));loose_.setBounds(top.removeFromLeft(72).reduced(2));
         auto controls=r.removeFromBottom(84);auto row1=controls.removeFromTop(40);layoutSlider(row1,velocity_,140);layoutSlider(row1,probability_,140);layoutSlider(row1,micro_,150);layoutSlider(row1,swing_,140);layoutSlider(row1,humanize_,140);
         auto row2=controls.removeFromTop(40);layoutSlider(row2,laneVolume_,170);layoutSlider(row2,lanePan_,170);
     }
@@ -137,6 +140,9 @@ private:
         slider.onDragStart=[this]{beginGesture();};slider.onValueChange=[this]{applyControls();};slider.onDragEnd=[this]{endGesture();};
     }
     void setPage(int page){auto*p=pattern();if(!p)return;const int pages=std::max(1,(p->stepCount+15)/16);page_=std::clamp(page,0,pages-1);repaint();}
+    void setGroovePreset(float swing,float humanize,const std::string&name){
+        auto*p=pattern();if(!p)return;Project before=project_;p->swing=swing;p->humanize=humanize;if(commit_)commit_(std::move(before),name+" groove");syncControls();repaint();
+    }
     void setLength(int count){
         auto*p=pattern();if(!p||p->stepCount==count)return;Project before=project_;p->stepCount=count;for(auto&lane:p->lanes)lane.steps.resize(static_cast<std::size_t>(count));selectedStep_=std::clamp(selectedStep_,0,count-1);page_=std::min(page_,(count-1)/16);if(commit_)commit_(std::move(before),"Change pattern length");syncControls();repaint();
     }
@@ -164,7 +170,7 @@ private:
     }
 
     Project&project_;CommitFn commit_;Id patternId_=0;int page_=0,selectedLane_=0,selectedStep_=0;bool suppress_=false,gestureActive_=false;Project before_;
-    juce::TextButton pagePrev_,pageNext_,len16_,len32_,len64_;
+    juce::TextButton pagePrev_,pageNext_,len16_,len32_,len64_,straight_,boomBap_,loose_;
     juce::ComboBox drumChoice_;
     juce::Slider velocity_,probability_,micro_,laneVolume_,lanePan_,swing_,humanize_;
 };
