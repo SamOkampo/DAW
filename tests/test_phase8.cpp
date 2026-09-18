@@ -2,10 +2,12 @@
 #include "flowdaw/PluginHost.hpp"
 #include "flowdaw/RealtimePluginGraph.hpp"
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 using namespace flowdaw;
 
@@ -39,6 +41,28 @@ public:
     }
 };
 
+class BlockingProcessor final:public IPluginProcessor{
+public:
+    inline static std::atomic<bool> entered{false};
+    inline static std::atomic<bool> release{false};
+    bool prepare(int,int,std::string&)override{return true;}
+    void setState(const std::string&)override{}
+    std::string state()const override{return{};}
+    void process(AudioBuffer&buffer)override{(void)processRealtime(buffer.interleaved.data(),buffer.frames(),buffer.channels);}
+    bool supportsRealtimeProcessing()const noexcept override{return true;}
+    bool processRealtime(float*,SampleIndex,int)noexcept override{
+        entered.store(true,std::memory_order_release);
+        while(!release.load(std::memory_order_acquire))std::this_thread::yield();
+        return true;
+    }
+};
+
+class BlockingBackend final:public IExternalPluginBackend{
+public:
+    bool supports(const std::string&format)const override{return format=="blocking";}
+    std::unique_ptr<IPluginProcessor> create(const PluginInstance&,std::string&)override{return std::make_unique<BlockingProcessor>();}
+};
+
 static PluginInstance fakePlugin(const std::string&id,float wet=1.0f){PluginInstance p;p.format="vst3";p.identifier=id;p.name="Fake Phase 8";p.enabled=true;p.bypass=false;p.wet=wet;return p;}
 
 static void testDelayLine(){
@@ -66,6 +90,28 @@ static void testBuiltinRealtimeChain(){
     auto gain=makeBuiltinPlugin("flow.gain");setPluginParameter(gain,"gain",0.25f);RealtimePluginChain chain;std::vector<RealtimePluginIssue>issues;require(chain.prepare({gain},nullptr,48000,2,8,&issues),"builtin chain should not require external host");float audio[]={1,1,-1,-1};chain.process(audio,2);require(near(audio[0],0.25f)&&near(audio[2],-0.25f),"builtin realtime chain processing changed");
 }
 
+static void testSafeGraphReclamation(){
+    BlockingProcessor::entered.store(false,std::memory_order_relaxed);BlockingProcessor::release.store(false,std::memory_order_relaxed);
+    auto host=std::make_shared<PluginHost>();host->registerBackend(std::make_shared<BlockingBackend>());
+    AudioEngine engine;engine.configureExternalDevice(48000,64,true);engine.setPluginHost(host);engine.setInputMonitoring(true);
+
+    PluginInstance blocking;blocking.format="blocking";blocking.identifier="test.blocking";blocking.name="Blocking test processor";
+    Project first;first.master.plugins.push_back(blocking);engine.publish(first);
+    AudioBuffer input;input.sampleRate=48000;input.channels=1;input.interleaved.assign(64,1.0f);
+    std::thread audioThread([&]{auto output=engine.processInputBlockForTest(input);(void)output;});
+
+    bool didEnter=false;for(int i=0;i<200000;++i){if(BlockingProcessor::entered.load(std::memory_order_acquire)){didEnter=true;break;}std::this_thread::yield();}
+    if(!didEnter){BlockingProcessor::release.store(true,std::memory_order_release);audioThread.join();require(false,"blocking processor never entered realtime callback");}
+
+    Project replacement;engine.publish(replacement);
+    require(engine.collectRetiredGraphs()==1,"active callback graph was reclaimed before reader exited");
+    BlockingProcessor::release.store(true,std::memory_order_release);audioThread.join();
+    require(engine.collectRetiredGraphs()==0,"retired graph was not reclaimed on control thread after reader exited");
+
+    for(int i=0;i<8;++i){Project p;p.master.volume=1.0f-static_cast<float>(i)*0.01f;engine.publish(p);}
+    require(engine.collectRetiredGraphs()==0,"idle repeated graph publication accumulated retired graphs");
+}
+
 static void testTrackBusRoutingPdc(){
     auto host=std::make_shared<PluginHost>();host->registerBackend(std::make_shared<FakeBackend>());
     AudioEngine engine;engine.configureExternalDevice(48000,16,false);engine.setPluginHost(host);
@@ -86,4 +132,4 @@ static void testTrackBusRoutingPdc(){
     require(near(output.interleaved[12],0.0f,0.004f),"PDC impulse smeared into the next sample");
 }
 
-int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testTrackBusRoutingPdc();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
+int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testSafeGraphReclamation();testTrackBusRoutingPdc();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
