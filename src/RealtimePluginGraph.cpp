@@ -113,4 +113,39 @@ void RealtimePluginChain::reset() noexcept{
     for(auto&slot:slots_){slot.dryDelay.reset();if(slot.processor)slot.processor->resetRealtime();}
 }
 
+bool RealtimePluginInstrument::prepare(const PluginInstance&plugin,
+                                       const PluginHost*host,
+                                       int sampleRate,
+                                       int channels,
+                                       std::vector<RealtimePluginIssue>*issues){
+    config_=plugin;processor_.reset();channels_=std::max(1,channels);latencySamples_=0;
+    auto issue=[&](std::string message){if(issues)issues->push_back({plugin.id,std::move(message)});};
+    if(!plugin.enabled||plugin.bypass)return true;
+    if(plugin.format=="builtin"){issue("External instrument slot requires a MIDI-capable plugin backend");return false;}
+    if(!host){issue("No external plugin host is attached to the realtime engine");return false;}
+    std::string error;auto processor=host->createProcessor(plugin,error);
+    if(!processor){issue(error.empty()?"External instrument processor could not be created":error);return false;}
+    if(!processor->supportsRealtimeProcessing()||!processor->supportsRealtimeMidiInput()){
+        issue("Processor backend does not expose callback-safe MIDI instrument processing");return false;
+    }
+    try{
+        if(!processor->prepare(sampleRate,channels_,error)){issue(error.empty()?"Instrument prepare failed":error);return false;}
+        processor->setState(plugin.opaqueState);
+    }catch(const std::exception&e){issue(std::string("Instrument preparation/state restore threw: ")+e.what());return false;}
+    catch(...){issue("Instrument preparation/state restore threw an unknown exception");return false;}
+    latencySamples_=std::max(0,processor->latencySamples());
+    processor_=std::move(processor);
+    return true;
+}
+
+bool RealtimePluginInstrument::process(float*interleaved,SampleIndex frames,
+                                       const PluginMidiEvent*events,std::size_t eventCount) noexcept{
+    if(!processor_||!interleaved||frames<=0)return false;
+    return processor_->processRealtimeMidi(interleaved,frames,channels_,events,eventCount);
+}
+
+void RealtimePluginInstrument::reset() noexcept{
+    if(processor_)processor_->resetRealtime();
+}
+
 } // namespace flowdaw

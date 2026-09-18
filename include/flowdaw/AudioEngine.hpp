@@ -80,6 +80,11 @@ private:
         RealtimeStereoRouteBuffer scratch;
         RealtimeDelayLine delay;
     };
+    struct ScheduledMidiEvent {
+        SampleIndex sample=0;
+        PluginMidiEvent event;
+    };
+    static constexpr std::size_t kMaxRealtimeMidiEventsPerBlock=1024;
     struct RealtimeTrackRoute {
         Id id=0;
         float volume=1.0f,pan=0.0f,legacyEffectGain=1.0f;
@@ -87,9 +92,15 @@ private:
         bool outputEnabled=true;
         bool outputToMaster=true;
         int outputBusIndex=-1;
+        RealtimePluginInstrument instrument;
         RealtimePluginChain runtime;
         RealtimeStereoRouteBuffer buffer;
+        RealtimeStereoRouteBuffer instrumentBuffer;
+        RealtimeStereoRouteBuffer alignedSourceBuffer;
+        RealtimeDelayLine sourceInstrumentDelay;
         RealtimeDelayLine outputDelay;
+        std::vector<ScheduledMidiEvent> midiEvents;
+        std::array<PluginMidiEvent,kMaxRealtimeMidiEventsPerBlock> midiScratch{};
         std::shared_ptr<RealtimeMeterState> meter;
         std::vector<RealtimeSendRoute> sends;
     };

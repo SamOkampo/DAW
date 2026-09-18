@@ -3,6 +3,7 @@
 #include "flowdaw/JucePluginBackend.hpp"
 #include "flowdaw/PluginSafety.hpp"
 #include "flowdaw/Serialization.hpp"
+#include "flowdaw/Undo.hpp"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -55,13 +56,24 @@ public:
         scan_.setButtonText("Scan VST3/AU");scan_.onClick=[this]{scanPlugins();};addAndMakeVisible(scan_);
         openEditor_.setButtonText("Open Plugin Editor");openEditor_.onClick=[this]{openSelectedEditor();};addAndMakeVisible(openEditor_);
         addAndMakeVisible(pluginChoice_);pluginChoice_.setTextWhenNothingSelected("No plugin selected");
+        addAndMakeVisible(trackChoice_);trackChoice_.setTextWhenNothingSelected("No track selected");
+        setInstrument_.setButtonText("Set Instrument");setInstrument_.onClick=[this]{assignSelectedInstrument();};addAndMakeVisible(setInstrument_);
+        clearInstrument_.setButtonText("Clear Instrument");clearInstrument_.onClick=[this]{clearSelectedInstrument();};addAndMakeVisible(clearInstrument_);
+        saveProject_.setButtonText("Save Project");saveProject_.onClick=[this]{saveProject();};addAndMakeVisible(saveProject_);
+        undoButton_.setButtonText("Undo");undoButton_.onClick=[this]{undoEdit();};addAndMakeVisible(undoButton_);
+        redoButton_.setButtonText("Redo");redoButton_.onClick=[this]{redoEdit();};addAndMakeVisible(redoButton_);
+        refreshTrackChoice();
         note_.setText("JUCE owns device I/O and registers the real VST3/AU backend with FLOWDAW's AudioEngine. Phase 8 now executes prepared track, bus and master inserts through preallocated realtime route buffers with PDC; full Studio editing parity remains in progress.",juce::dontSendNotification);note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
         meterLabel_.setText("Meters (TP estimate / sample peak / RMS): waiting for audio",juce::dontSendNotification);addAndMakeVisible(meterLabel_);
         setSize(1100,760);startTimer(100);
     }
     ~MainComponent()override{deviceManager_.removeAudioCallback(this);engine_.stop();engine_.collectRetiredGraphs();saveDeviceSettings();saveSafety();}
     void resized()override{
-        auto r=getLocalBounds().reduced(16);title_.setBounds(r.removeFromTop(38));status_.setBounds(r.removeFromTop(26));projectLabel_.setBounds(r.removeFromTop(26));note_.setBounds(r.removeFromTop(54));meterLabel_.setBounds(r.removeFromTop(28));auto transport=r.removeFromTop(38);loadProject_.setBounds(transport.removeFromLeft(130).reduced(3));play_.setBounds(transport.removeFromLeft(80).reduced(3));stop_.setBounds(transport.removeFromLeft(80).reduced(3));auto controls=r.removeFromTop(38);scan_.setBounds(controls.removeFromLeft(150).reduced(3));pluginChoice_.setBounds(controls.removeFromLeft(430).reduced(3));openEditor_.setBounds(controls.removeFromLeft(180).reduced(3));r.removeFromTop(8);selector_->setBounds(r);
+        auto r=getLocalBounds().reduced(16);title_.setBounds(r.removeFromTop(38));status_.setBounds(r.removeFromTop(26));projectLabel_.setBounds(r.removeFromTop(26));note_.setBounds(r.removeFromTop(54));meterLabel_.setBounds(r.removeFromTop(28));
+        auto transport=r.removeFromTop(38);loadProject_.setBounds(transport.removeFromLeft(130).reduced(3));saveProject_.setBounds(transport.removeFromLeft(125).reduced(3));play_.setBounds(transport.removeFromLeft(80).reduced(3));stop_.setBounds(transport.removeFromLeft(80).reduced(3));undoButton_.setBounds(transport.removeFromLeft(80).reduced(3));redoButton_.setBounds(transport.removeFromLeft(80).reduced(3));
+        auto controls=r.removeFromTop(38);scan_.setBounds(controls.removeFromLeft(150).reduced(3));pluginChoice_.setBounds(controls.removeFromLeft(430).reduced(3));openEditor_.setBounds(controls.removeFromLeft(180).reduced(3));
+        auto instrument=r.removeFromTop(38);trackChoice_.setBounds(instrument.removeFromLeft(360).reduced(3));setInstrument_.setBounds(instrument.removeFromLeft(145).reduced(3));clearInstrument_.setBounds(instrument.removeFromLeft(155).reduced(3));
+        r.removeFromTop(8);selector_->setBounds(r);
     }
 private:
     void audioDeviceAboutToStart(juce::AudioIODevice*device)override{if(!device)return;engine_.configureExternalDevice(static_cast<int>(device->getCurrentSampleRate()),static_cast<unsigned long>(device->getCurrentBufferSizeSamples()),device->getActiveInputChannels().countNumberOfSetBits()>0);engine_.publish(project_);}
@@ -73,7 +85,7 @@ private:
         for(int c=0;c<numOutputs;++c){if(!outputs[c])continue;if(c<2)for(int i=0;i<numSamples;++i)outputs[c][i]=stereoOutput_[static_cast<std::size_t>(i)*2+static_cast<std::size_t>(c)];else juce::FloatVectorOperations::clear(outputs[c],numSamples);}
     }
     void chooseProject(){chooser_=std::make_unique<juce::FileChooser>("Open FLOWDAW project",juce::File(projectPath_.string()),"*.flow");chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[this](const juce::FileChooser&fc){auto f=fc.getResult();if(f.existsAsFile())loadProjectFile(std::filesystem::path(f.getFullPathName().toStdString()));chooser_.reset();});}
-    void loadProjectFile(const std::filesystem::path&p){try{engine_.stop();project_=ProjectSerializer::load(p,true);projectPath_=p;settings_.lastProjectPath=p;engine_.publish(project_);projectLabel_.setText("Project: "+juce::String(p.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);status_.setText("Project loaded; Play uses JUCE device callback",juce::dontSendNotification);}catch(const std::exception&e){status_.setText("Open failed: "+juce::String(e.what()),juce::dontSendNotification);}}
+    void loadProjectFile(const std::filesystem::path&p){try{engine_.stop();project_=ProjectSerializer::load(p,true);projectPath_=p;settings_.lastProjectPath=p;undo_=UndoStack{};engine_.publish(project_);refreshTrackChoice();projectLabel_.setText("Project: "+juce::String(p.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);status_.setText("Project loaded; Play uses JUCE device callback",juce::dontSendNotification);}catch(const std::exception&e){status_.setText("Open failed: "+juce::String(e.what()),juce::dontSendNotification);}}
     std::vector<std::filesystem::path> pluginRoots()const{
         if(!settings_.pluginRoots.empty())return settings_.pluginRoots;std::vector<std::filesystem::path> roots;auto home=std::filesystem::path(juce::File::getSpecialLocation(juce::File::userHomeDirectory).getFullPathName().toStdString());roots.push_back(home/".vst3");roots.push_back("/usr/lib/vst3");roots.push_back("/usr/local/lib/vst3");
 #if JUCE_MAC
@@ -81,7 +93,38 @@ private:
 #endif
         return roots;
     }
-    void scanPlugins(){std::string error;plugins_=scanPluginsWithJuce(pluginRoots(),error,&safety_);saveSafety();pluginChoice_.clear(juce::dontSendNotification);int id=1;for(auto const&p:plugins_)pluginChoice_.addItem(juce::String(p.name+" ["+p.format+"]"),id++);if(!plugins_.empty())pluginChoice_.setSelectedId(1,juce::dontSendNotification);int quarantined=0;for(auto const&r:safety_.records())if(r.quarantined)++quarantined;auto base="JUCE scan: "+juce::String(static_cast<int>(plugins_.size()))+" plugin type(s), "+juce::String(quarantined)+" quarantined";status_.setText(error.empty()?base:base+" | "+juce::String(error),juce::dontSendNotification);}
+    void scanPlugins(){std::string error;plugins_=scanPluginsWithJuce(pluginRoots(),error,&safety_);saveSafety();pluginChoice_.clear(juce::dontSendNotification);int id=1;for(auto const&p:plugins_){auto label=p.name+" ["+p.format+(p.instrument?"/instrument":"/effect")+"]";pluginChoice_.addItem(juce::String(label),id++);}if(!plugins_.empty())pluginChoice_.setSelectedId(1,juce::dontSendNotification);int quarantined=0;for(auto const&r:safety_.records())if(r.quarantined)++quarantined;auto base="JUCE scan: "+juce::String(static_cast<int>(plugins_.size()))+" plugin type(s), "+juce::String(quarantined)+" quarantined";status_.setText(error.empty()?base:base+" | "+juce::String(error),juce::dontSendNotification);}
+    int selectedTrackIndex()const{const int index=trackChoice_.getSelectedId()-1;return index>=0&&index<static_cast<int>(project_.tracks.size())?index:-1;}
+    void refreshTrackChoice(){
+        const int previous=trackChoice_.getSelectedId();trackChoice_.clear(juce::dontSendNotification);int id=1;
+        for(auto const&t:project_.tracks){std::string label=t.name;if(t.externalInstrumentEnabled&&!t.externalInstrument.name.empty())label+="  •  "+t.externalInstrument.name;trackChoice_.addItem(juce::String(label),id++);}
+        if(!project_.tracks.empty())trackChoice_.setSelectedId(previous>0&&previous<=static_cast<int>(project_.tracks.size())?previous:1,juce::dontSendNotification);
+    }
+    void publishEdit(const juce::String&message){engine_.publish(project_);refreshTrackChoice();status_.setText(message,juce::dontSendNotification);}
+    void assignSelectedInstrument(){
+        const int trackIndex=selectedTrackIndex(),pluginIndex=pluginChoice_.getSelectedId()-1;
+        if(trackIndex<0){status_.setText("Select a track first",juce::dontSendNotification);return;}
+        if(pluginIndex<0||pluginIndex>=static_cast<int>(plugins_.size())){status_.setText("Scan and select an instrument first",juce::dontSendNotification);return;}
+        const auto&descriptor=plugins_[static_cast<std::size_t>(pluginIndex)];
+        if(!descriptor.instrument){status_.setText("Selected plugin is an effect, not an instrument",juce::dontSendNotification);return;}
+        Project before=project_;auto&track=project_.tracks[static_cast<std::size_t>(trackIndex)];PluginInstance instance;instance.format=descriptor.format;instance.identifier=descriptor.identifier;instance.name=descriptor.name;instance.enabled=true;instance.bypass=false;instance.wet=1.0f;track.externalInstrument=std::move(instance);track.externalInstrumentEnabled=true;undo_.commit(std::move(before),project_,"Set external instrument");publishEdit("Instrument assigned to "+juce::String(track.name));
+    }
+    void clearSelectedInstrument(){
+        const int trackIndex=selectedTrackIndex();if(trackIndex<0){status_.setText("Select a track first",juce::dontSendNotification);return;}
+        auto&track=project_.tracks[static_cast<std::size_t>(trackIndex)];if(!track.externalInstrumentEnabled){status_.setText("Selected track has no external instrument",juce::dontSendNotification);return;}
+        Project before=project_;const auto name=track.externalInstrument.name;track.externalInstrumentEnabled=false;track.externalInstrument=PluginInstance{};undo_.commit(std::move(before),project_,"Clear external instrument");publishEdit("Cleared instrument "+juce::String(name));
+    }
+    void undoEdit(){if(!undo_.undo(project_)){status_.setText("Nothing to undo",juce::dontSendNotification);return;}publishEdit("Undo");}
+    void redoEdit(){if(!undo_.redo(project_)){status_.setText("Nothing to redo",juce::dontSendNotification);return;}publishEdit("Redo");}
+    void writeProject(std::filesystem::path path){
+        try{if(path.extension()!=".flow")path+=".flow";ProjectSerializer::save(project_,path);projectPath_=path;settings_.lastProjectPath=path;projectLabel_.setText("Project: "+juce::String(path.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);status_.setText("Project saved (v11)",juce::dontSendNotification);}
+        catch(const std::exception&e){status_.setText("Save failed: "+juce::String(e.what()),juce::dontSendNotification);}
+    }
+    void saveProject(){
+        if(!projectPath_.empty()){writeProject(projectPath_);return;}
+        chooser_=std::make_unique<juce::FileChooser>("Save FLOWDAW project",juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("FLOWDAW.flow"),"*.flow");
+        chooser_->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::warnAboutOverwriting,[this](const juce::FileChooser&fc){auto file=fc.getResult();if(file!=juce::File{})writeProject(std::filesystem::path(file.getFullPathName().toStdString()));chooser_.reset();});
+    }
     juce::AudioPluginFormat* formatFor(const PluginDescriptor&p){for(auto*f:formatManager_.getFormats()){auto n=f->getName().toLowerCase();if((p.format=="vst3"&&n.contains("vst3"))||(p.format=="au"&&n.contains("audio")))return f;}return nullptr;}
     void openSelectedEditor(){const int idx=pluginChoice_.getSelectedId()-1;if(idx<0||idx>=static_cast<int>(plugins_.size())){status_.setText("Scan and select a plugin first",juce::dontSendNotification);return;}auto p=plugins_[static_cast<std::size_t>(idx)];if(safety_.isQuarantined(p.identifier)){status_.setText("Plugin is quarantined; clear it with FLOWDAW Doctor before retrying",juce::dontSendNotification);return;}auto*fmt=formatFor(p);if(!fmt){status_.setText("No JUCE format backend for selection",juce::dontSendNotification);return;}juce::OwnedArray<juce::PluginDescription> desc;fmt->findAllTypesForFile(desc,juce::String(p.identifier));if(desc.isEmpty()){safety_.noteFailure(p.identifier,"Plugin description could not be recreated");saveSafety();status_.setText("Plugin description could not be recreated",juce::dontSendNotification);return;}auto d=*desc[0];auto setup=deviceManager_.getAudioDeviceSetup();formatManager_.createPluginInstanceAsync(d,setup.sampleRate>0?setup.sampleRate:48000.0,setup.bufferSize>0?setup.bufferSize:256,[this,id=p.identifier](std::unique_ptr<juce::AudioPluginInstance>instance,const juce::String&error){if(!instance){safety_.noteFailure(id,error.toStdString());saveSafety();status_.setText("Plugin load failed: "+error,juce::dontSendNotification);return;}safety_.noteSuccess(id);saveSafety();pluginWindow_=std::make_unique<PluginEditorWindow>(std::move(instance));status_.setText("Plugin editor hosted in JUCE window",juce::dontSendNotification);});}
     void timerCallback()override{
@@ -97,7 +140,7 @@ private:
     }
     void saveSafety(){try{safety_.save(safetyPath_);}catch(...){} }
     void saveDeviceSettings(){auto s=deviceManager_.getAudioDeviceSetup();settings_.audio.preferredSampleRate=s.sampleRate>0?static_cast<int>(s.sampleRate):48000;settings_.audio.bufferSize=sanitizeBufferSize(static_cast<unsigned long>(std::max(1,s.bufferSize)));settings_.audio.inputDevice=s.inputDeviceName.toStdString();settings_.audio.outputDevice=s.outputDeviceName.toStdString();try{saveAppSettings(settings_,settingsPath_);}catch(...){} }
-    AppSettings settings_;PluginSafetyRegistry safety_;std::filesystem::path settingsPath_,safetyPath_,projectPath_;Project project_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juce::Label title_,status_,projectLabel_,note_,meterLabel_;int settingsSaveTicks_=0;juce::TextButton loadProject_,play_,stop_,scan_,openEditor_;juce::ComboBox pluginChoice_;
+    AppSettings settings_;PluginSafetyRegistry safety_;std::filesystem::path settingsPath_,safetyPath_,projectPath_;Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juce::Label title_,status_,projectLabel_,note_,meterLabel_;int settingsSaveTicks_=0;juce::TextButton loadProject_,saveProject_,play_,stop_,undoButton_,redoButton_,scan_,openEditor_,setInstrument_,clearInstrument_;juce::ComboBox pluginChoice_,trackChoice_;
 };
 
 class MainWindow final:public juce::DocumentWindow{

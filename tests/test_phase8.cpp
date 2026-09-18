@@ -2,9 +2,11 @@
 #include "flowdaw/Export.hpp"
 #include "flowdaw/PluginHost.hpp"
 #include "flowdaw/RealtimePluginGraph.hpp"
+#include "flowdaw/Serialization.hpp"
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -39,6 +41,44 @@ public:
     std::unique_ptr<IPluginProcessor> create(const PluginInstance&plugin,std::string&)override{
         const int latency=plugin.identifier.find("latency3")!=std::string::npos?3:(plugin.identifier.find("latency2")!=std::string::npos?2:0);
         return std::make_unique<FakeLatencyProcessor>(latency,0.5f);
+    }
+};
+
+class FakeMidiInstrumentProcessor final:public IPluginProcessor{
+public:
+    bool prepare(int,int channels,std::string&)override{channels_=channels;active_=false;return channels_>0;}
+    void setState(const std::string&)override{}
+    std::string state()const override{return{};}
+    void process(AudioBuffer&buffer)override{(void)processRealtime(buffer.interleaved.data(),buffer.frames(),buffer.channels);}
+    bool supportsRealtimeProcessing()const noexcept override{return true;}
+    bool supportsRealtimeMidiInput()const noexcept override{return true;}
+    bool processRealtime(float*data,SampleIndex frames,int channels)noexcept override{return processRealtimeMidi(data,frames,channels,nullptr,0);}
+    bool processRealtimeMidi(float*data,SampleIndex frames,int channels,const PluginMidiEvent*events,std::size_t eventCount)noexcept override{
+        if(!data||frames<=0||channels!=channels_)return false;
+        std::size_t eventIndex=0;
+        for(SampleIndex frame=0;frame<frames;++frame){
+            while(events&&eventIndex<eventCount&&events[eventIndex].sampleOffset==frame){
+                const auto kind=events[eventIndex].status&0xF0;
+                if(kind==0x90&&events[eventIndex].data2>0)active_=true;
+                else if(kind==0x80||(kind==0x90&&events[eventIndex].data2==0))active_=false;
+                ++eventIndex;
+            }
+            const float value=active_?0.25f:0.0f;
+            const auto base=static_cast<std::size_t>(frame)*static_cast<std::size_t>(channels_);
+            for(int c=0;c<channels_;++c)data[base+static_cast<std::size_t>(c)]+=value;
+        }
+        return true;
+    }
+    void resetRealtime()noexcept override{active_=false;}
+private:int channels_=2;bool active_=false;
+};
+
+class FakeMidiBackend final:public IExternalPluginBackend{
+public:
+    bool supports(const std::string&format)const override{return format=="vst3";}
+    std::unique_ptr<IPluginProcessor> create(const PluginInstance&plugin,std::string&error)override{
+        if(plugin.identifier!="fake.instrument"){error="Unknown fake instrument";return{};}
+        return std::make_unique<FakeMidiInstrumentProcessor>();
     }
 };
 
@@ -89,6 +129,28 @@ static void testRealtimeMasterGraph(){
 
 static void testBuiltinRealtimeChain(){
     auto gain=makeBuiltinPlugin("flow.gain");setPluginParameter(gain,"gain",0.25f);RealtimePluginChain chain;std::vector<RealtimePluginIssue>issues;require(chain.prepare({gain},nullptr,48000,2,8,&issues),"builtin chain should not require external host");float audio[]={1,1,-1,-1};chain.process(audio,2);require(near(audio[0],0.25f)&&near(audio[2],-0.25f),"builtin realtime chain processing changed");
+}
+
+static void testExternalInstrumentMidiTrack(){
+    auto host=std::make_shared<PluginHost>();host->registerBackend(std::make_shared<FakeMidiBackend>());
+    Project project;project.transport.bpm=120.0;
+    Pattern pattern;pattern.name="External instrument notes";MidiNote note;note.startTick=0;note.lengthTicks=kPPQ/2;note.pitch=60;note.velocity=1.0f;pattern.midiNotes.push_back(note);pattern.instrument.enabled=true;const Id patternId=pattern.id;project.patterns.push_back(pattern);
+    Track track;track.name="VST3 Instrument";track.externalInstrumentEnabled=true;track.externalInstrument.format="vst3";track.externalInstrument.identifier="fake.instrument";track.externalInstrument.name="Fake MIDI Instrument";PatternPlacement placement;placement.patternId=patternId;track.patternClips.push_back(placement);project.tracks.push_back(track);
+
+    AudioEngine engine;engine.configureExternalDevice(48000,256,false);engine.setPluginHost(host);engine.publish(project);
+    auto rendered=engine.renderOffline(16000);
+    double onEnergy=0.0,offEnergy=0.0;
+    for(SampleIndex f=1000;f<10000;++f)onEnergy+=std::abs(rendered.interleaved[static_cast<std::size_t>(f*2)]);
+    for(SampleIndex f=13000;f<15500;++f)offEnergy+=std::abs(rendered.interleaved[static_cast<std::size_t>(f*2)]);
+    require(onEnergy>100.0,"external MIDI instrument did not render note-on audio");
+    require(offEnergy<0.001,"external MIDI instrument did not honor note-off timing");
+
+    const auto path=std::filesystem::temp_directory_path()/"flowdaw_phase8_v11_instrument.flow";
+    ProjectSerializer::save(project,path);auto loaded=ProjectSerializer::load(path,false);
+    std::filesystem::remove(path);std::filesystem::remove(path.string()+".bak");
+    require(loaded.formatVersion==11,"external instrument project must save/load as v11");
+    require(loaded.tracks.size()==1&&loaded.tracks[0].externalInstrumentEnabled,"external instrument slot did not persist");
+    require(loaded.tracks[0].externalInstrument.identifier=="fake.instrument","external instrument identity did not persist");
 }
 
 static void testSafeGraphReclamation(){
@@ -206,4 +268,4 @@ static void testAudioEngineMeters(){
     require(near(reset.master.samplePeakLeft,0.0f)&&near(reset.master.rmsLeft,0.0f),"new master meter did not start at silence");
 }
 
-int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testSafeGraphReclamation();testTrackBusRoutingPdc();testOfflineExportParity();testRealtimeMeterPrimitive();testRealtimeTruePeakEstimate();testAudioEngineMeters();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
+int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testExternalInstrumentMidiTrack();testSafeGraphReclamation();testTrackBusRoutingPdc();testOfflineExportParity();testRealtimeMeterPrimitive();testRealtimeTruePeakEstimate();testAudioEngineMeters();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}

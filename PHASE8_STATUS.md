@@ -27,11 +27,14 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - JUCE reads meter snapshots on its UI timer and surfaces master metering while retaining route-ID readings for the upcoming Mixer UI.
 - Track, bus and master meters now include a callback-safe 4x cubic inter-sample true-peak estimate with fixed three-sample history per channel; no allocation or lock is introduced in the callback. This is an engineering estimate for peak safety, not yet a standards-certified BS.1770/EBU implementation.
 
+- Track-level external VST3/AU instrument slots now persist independently from mixer inserts; Pattern MIDI is scheduled as sample-offset note-on/note-off events during graph publication and rendered into a dedicated instrument buffer before track inserts.
+- The JUCE backend exposes callback-safe MIDI input through the backend-neutral processor contract, and CI builds a real VST3 synth fixture to verify MIDI-to-audio routing end-to-end.
+- Selecting an external instrument never silently falls back to a native FLOW instrument if the plugin fails to prepare.
+
 ## Still required before Phase 8 is complete
 
 - Remaining editing-surface migration from X11 to JUCE.
 - Windows/macOS JUCE CI, AU runtime validation and platform packaging.
-- External instrument-plugin MIDI routing; this submilestone validates external audio effects only.
 
 ## Realtime invariants
 
@@ -40,4 +43,5 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - The callback does not take the engine publish mutex.
 - Graph destruction and external processor destruction never run from the realtime callback; JUCE periodically collects safe retired graphs from its control-thread timer.
 - Unsupported realtime processors are omitted from the prepared chain and surfaced as preparation issues rather than instantiated lazily from the callback.
+- External instrument instances, opaque-state restore and MIDI capacity preparation happen before graph publication; the callback only consumes precomputed note events and fixed-capacity scratch. Project format v11 keeps this source instrument separate from track effect inserts.
 - The X11 Studio remains available until the JUCE Studio reaches functional parity.

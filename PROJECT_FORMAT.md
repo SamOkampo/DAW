@@ -1,8 +1,8 @@
 # FLOWDAW project format
 
-Current project format: **v10**.
+Current project format: **v11**.
 
-`.flow` is a versioned text format so development remains inspectable and migratable. The loader accepts v1-v10 and normalizes loaded projects to v10 in memory.
+`.flow` is a versioned text format so development remains inspectable and migratable. The loader accepts v1-v11 and normalizes loaded projects to v11 in memory.
 
 ## Sample / Smart Sampling model
 
@@ -76,3 +76,8 @@ Patterns persist step count, subdivisions, Swing, Humanize, drum lanes, Chop eve
 ## Compatibility rule
 
 Persisted schema changes increment `formatVersion` and keep explicit backward loading where practical. v10 preserves backward loading through v1. Older projects receive safe defaults for recording, buses, sends, automation and plugin racks and can be resaved as v10 without modifying their source audio.
+
+
+## External instrument slot — v11+
+
+A Track may persist one external instrument source separately from its mixer insert rack. The slot stores the same backend-neutral `PluginInstance` identity, parameters and opaque state used by effect racks. Piano Roll `MidiNote` events remain in Patterns; PatternPlacements schedule note-on/note-off events into the Track instrument at sample offsets during graph publication. Projects v1-v10 load with the external instrument slot disabled.

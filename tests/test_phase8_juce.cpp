@@ -2,6 +2,7 @@
 #include "flowdaw/Export.hpp"
 #include "flowdaw/JucePluginBackend.hpp"
 #include "flowdaw/PluginHost.hpp"
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <iostream>
@@ -13,9 +14,12 @@ static void require(bool value,const char*message){if(!value)throw std::runtime_
 static std::filesystem::path bundleFromBinary(std::filesystem::path p){for(int i=0;i<8&&!p.empty();++i){if(p.extension()==".vst3")return p;p=p.parent_path();}return{};}
 
 int main(int argc,char**argv){try{
-    require(argc>1,"test VST3 binary path argument missing");auto bundle=bundleFromBinary(argv[1]);require(!bundle.empty(),"could not locate enclosing .vst3 bundle");
-    std::string error;auto found=scanPluginsWithJuce({bundle.parent_path()},error);require(error.empty(),"JUCE scan returned error");require(!found.empty(),"JUCE did not discover Phase 8 fixture");
-    PluginInstance plugin;plugin.format="vst3";plugin.identifier=found.front().identifier;plugin.name=found.front().name;plugin.enabled=true;plugin.bypass=false;plugin.wet=1.0f;
+    require(argc>2,"effect + instrument VST3 binary path arguments missing");auto bundle=bundleFromBinary(argv[1]);auto instrumentBundle=bundleFromBinary(argv[2]);require(!bundle.empty()&&!instrumentBundle.empty(),"could not locate enclosing .vst3 bundles");
+    std::string error;auto found=scanPluginsWithJuce({bundle.parent_path(),instrumentBundle.parent_path()},error);require(error.empty(),"JUCE scan returned error");require(found.size()>=2,"JUCE did not discover both Phase 8 fixtures");
+    auto effectIt=std::find_if(found.begin(),found.end(),[](auto const&d){return d.name=="FLOWDAW Test Plugin";});
+    auto instrumentIt=std::find_if(found.begin(),found.end(),[](auto const&d){return d.name=="FLOWDAW Test Instrument";});
+    require(effectIt!=found.end(),"JUCE effect fixture missing");require(instrumentIt!=found.end(),"JUCE instrument fixture missing");require(!effectIt->instrument,"effect fixture misclassified as instrument");require(instrumentIt->instrument,"synth fixture was not classified as instrument");
+    PluginInstance plugin;plugin.format="vst3";plugin.identifier=effectIt->identifier;plugin.name=effectIt->name;plugin.enabled=true;plugin.bypass=false;plugin.wet=1.0f;
     auto host=std::make_shared<PluginHost>();host->registerBackend(makeJucePluginBackend());AudioEngine engine;engine.configureExternalDevice(48000,128,true);engine.setPluginHost(host);engine.setInputMonitoring(true);
     Project project;project.master.plugins.push_back(plugin);engine.publish(project);
     AudioBuffer input;input.sampleRate=48000;input.channels=1;input.interleaved.assign(256,1.0f);auto output=engine.processInputBlockForTest(input);require(output.frames()==256,"JUCE engine graph output length mismatch");
@@ -36,5 +40,13 @@ int main(int argc,char**argv){try{
     require(std::abs(bounced.interleaved[0]-routedExpected)<0.02f,"real VST3 was not executed during project export");
     require(std::abs(bounced.interleaved[100]-routedExpected)<0.02f,"real VST3 export did not preserve track->bus processing");
 
-    std::cout<<"Phase 8 real VST3 realtime + offline graph OK: "<<plugin.name<<"\\n";return 0;
+    Project instrumentProject;instrumentProject.transport.bpm=120.0;
+    Pattern midiPattern;midiPattern.name="Real VST3 MIDI";MidiNote midiNote;midiNote.startTick=0;midiNote.lengthTicks=kPPQ/2;midiNote.pitch=60;midiNote.velocity=1.0f;midiPattern.midiNotes.push_back(midiNote);const Id midiPatternId=midiPattern.id;instrumentProject.patterns.push_back(midiPattern);
+    Track instrumentTrack;instrumentTrack.name="Real VST3 Instrument";instrumentTrack.externalInstrumentEnabled=true;instrumentTrack.externalInstrument.format="vst3";instrumentTrack.externalInstrument.identifier=instrumentIt->identifier;instrumentTrack.externalInstrument.name=instrumentIt->name;PatternPlacement midiPlacement;midiPlacement.patternId=midiPatternId;instrumentTrack.patternClips.push_back(midiPlacement);instrumentProject.tracks.push_back(instrumentTrack);
+    engine.stop();engine.publish(instrumentProject);auto instrumentBounce=engine.renderOffline(16000);
+    double noteEnergy=0.0,afterEnergy=0.0;for(SampleIndex f=1000;f<10000;++f)noteEnergy+=std::abs(instrumentBounce.interleaved[static_cast<std::size_t>(f*2)]);for(SampleIndex f=13000;f<15500;++f)afterEnergy+=std::abs(instrumentBounce.interleaved[static_cast<std::size_t>(f*2)]);
+    require(noteEnergy>100.0,"real VST3 instrument did not receive note-on MIDI from Pattern");
+    require(afterEnergy<0.001,"real VST3 instrument did not receive sample-accurate note-off MIDI");
+
+    std::cout<<"Phase 8 real VST3 realtime + offline graph + instrument MIDI OK: "<<plugin.name<<" / "<<instrumentIt->name<<"\\n";return 0;
 }catch(const std::exception&e){std::cerr<<"Phase 8 JUCE graph test failed: "<<e.what()<<"\n";return 1;}}
