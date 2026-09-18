@@ -54,20 +54,20 @@ Completed:
 11. Realtime external-plugin insertion in the project track/bus/master graph is intentionally deferred to Phase 8 rather than faked.
 12. Project format remains v10; the real host uses the backend-independent plugin state already established in Phase 5.
 
-## Phase 8 — Realtime Plugin Graph / PDC / JUCE Studio Migration [IN PROGRESS]
+## Phase 8 — Realtime Plugin Graph / PDC / JUCE Studio Migration [DONE]
 
-Target completion criteria:
-1. Prepare and instantiate external plugin processors entirely off the audio callback.
-2. Publish immutable/realtime-safe processor chains for track, bus and master routes without allocating or locking in the callback.
-3. Guarantee that retired external processors are destroyed on the control thread rather than when the audio callback drops the last graph reference.
-4. Execute real VST3 effects in the realtime track/bus/master graph while preserving bypass, wet/dry and opaque state behavior.
-5. Add current-topology plugin delay compensation using reported processor latency and preallocated delay storage.
-6. Add deterministic fake-latency tests proving aligned direct, track→bus and master summing paths.
-7. Extend the JUCE VST3 fixture test so at least one real external plugin passes through the AudioEngine realtime graph.
-8. Keep offline render/export behavior consistent with realtime plugin routing.
-9. Add callback-safe true peak/RMS metering for track, bus and master routes.
-10. Migrate core editing surfaces incrementally from X11 to JUCE: transport/arrangement, sequencer/sampler, piano roll, mixer/automation, Assist/Project Health.
-11. Retire the X11 bootstrap only after functional parity exists; no premature replacement.
-12. Add Windows/macOS JUCE CI and platform packaging before claiming cross-platform production readiness.
+Completed:
+1. External VST3/AU processors are created, prepared and state-restored off the audio callback.
+2. Immutable prepared track/bus/master plugin chains execute through preallocated realtime buffers.
+3. Retired plugin graphs are reclaimed safely from the control thread.
+4. Persistent bypass, wet/dry and opaque state work across realtime and offline paths.
+5. Topology-aware PDC aligns direct, routed and send paths using reported plugin latency.
+6. Deterministic latency/reclamation tests cover graph safety and alignment.
+7. Real JUCE VST3 fixtures execute through the AudioEngine realtime graph; macOS also validates AU.
+8. Offline bounce, master WAV export and stems use the production PluginHost/routing graph.
+9. Track, bus and master routes expose callback-safe sample peak, RMS and true-peak estimates.
+10. Core production editing/workflows are available in JUCE: Arrangement, Sequencer, Smart Sampling/REC CHOPS, Piano Roll, recording/takes, mixer/routing/automation, Assist/Health and plugin racks/editors.
+11. The X11 shell is retired from the default product path and remains only as an opt-in CI-covered legacy regression/bootstrap target.
+12. Linux, Windows and macOS CI validate JUCE; Windows produces a portable ZIP and macOS produces a DMG.
 
-Phase 8 does not require a new `.flow` schema merely for runtime latency/PDC metadata. Any future project-format bump must be justified by genuinely persistent musical/session state.
+**Production desktop path: JUCE. Project format remains v11.**
