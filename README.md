@@ -1,81 +1,99 @@
 # FLOWDAW
 
-FLOWDAW is a hip-hop-first desktop DAW in active development. Its core principle is simple: remove technical friction without removing creative control.
+FLOWDAW is a hip-hop-first desktop DAW built around one principle: remove technical friction without removing creative control.
 
 ## Current state
 
-The repository contains a runnable C++20 DAW foundation plus completed Step Sequencer/Groove Engine, Smart Sampling/Chop Mode, Piano Roll/MIDI/Native Instruments, Recording/Automation/Advanced Mixer, Assist/Plugins/Advanced Workflow, Production Platform/Reliability, and JUCE Runtime Foundation/Real VST3 Host phases.
+**Phase 0 through Phase 8 are complete.**
+
+The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 shell remains source-available only as an explicit legacy regression/bootstrap target.
 
 ### Working and tested
 
-- C++20 domain/audio core separated from UI and device backends.
-- 960 PPQ musical clock and deterministic Bars/Beats/Ticks ↔ seconds ↔ samples conversion.
-- Versioned `.flow` project model with non-destructive source references and backward loading through v1.
-- WAV import, waveform display, draggable audio clips and Pattern blocks.
-- Play / Pause / Stop, BPM and Undo/Redo.
-- 16/32/64-step drums with native sounds, Velocity, Probability, Microtiming, Swing/Humanize and lane mixer controls.
-- Smart Sampling with BPM/transient analysis, beat/downbeat grid, Equal/Auto/Beat/Bar Chop, editable slices, multi-bank pads, Gain/Pan/Choke and REC CHOPS.
-- WSOLA Match BPM baseline with original-source preservation, quality tests and performance benchmark.
-- Piano Roll with note creation, selection, delete, drag, pitch movement, resize, velocity/length editing, 1/8–1/32 grids and scale highlighting.
-- Native melodic instruments: FLOW Keys, FLOW 808, FLOW Bass and FLOW Lead, with envelope/tone, Drive and tempo-synced Delay.
-- MIDI notes render through the same Arrangement scheduler used by drums and chops.
-- Audio input capture using a preallocated realtime-safe recording buffer.
-- Persistent non-destructive recording takes with active-take comp selection.
-- Advanced mixer routing, buses, sends, automation, master export and stems.
-- Project format v11 persists Smart Sampling, MIDI/native instruments, track external-instrument slots, recording, mixer-routing, automation and plugin-rack state while loading v1-v10.
-- Built-in FLOW Gain, FLOW Soft Clip and FLOW Width processors plus an SDK-neutral external-plugin backend contract.
-- Context-aware production assistant, Project Health and Undoable advanced-workflow commands.
-- Machine-local application settings for preferred sample rate, buffer size, input/output names, plugin roots and autosave policy.
-- Crash-recovery infrastructure using a dirty-session marker plus versioned `autosave.flow` snapshot without changing the portable `.flow` schema.
-- Persistent plugin quarantine registry with failure threshold and explicit reset.
-- `flowdaw-doctor` command-line utility for runtime status, recovery export and plugin-quarantine maintenance.
-- Install rules plus CPack release packaging; CI smoke-tests installed binaries and the generated package.
-- Pinned optional JUCE 9.0.2 runtime with a real `flowdaw-juce` desktop target, JUCE device management and external-plugin backend registration.
-- Real VST3 discovery, instantiation, audio processing and opaque-state roundtrip validated end-to-end with a deterministic JUCE-built VST3 fixture in CI.
-- The X11 Studio remains available while editing views migrate; the JUCE runtime foundation does not yet imply full Studio feature parity.
+- C++20 domain/audio core separated from UI/device/plugin backends.
+- 960 PPQ musical clock and versioned non-destructive `.flow` projects with backward loading through v1.
+- Arrangement editing for audio and Pattern blocks, transport, BPM and Undo/Redo.
+- 16/32/64-step drum sequencer with native FLOW drums, Velocity, Probability, Microtiming, lane Volume/Pan/Mute/Solo, Swing/Humanize and Straight/Boom Bap/Loose presets.
+- Smart Sampling with WAV import, BPM/beat-grid analysis, Equal/Auto/Beat/Bar Chop, editable slices, multi-bank pads, Rename/Gain/Pan/Choke, keyboard performance and non-destructive Match BPM.
+- REC CHOPS with persistent performances, 1/8–1/32 grids, Quantize 0–100%, Humanize 0–100% and Reset Feel.
+- Piano Roll with note add/move/resize/delete, velocity/length, 1/8–1/32 grid, root/scale guidance, keyboard preview and octave navigation.
+- Native FLOW Keys, FLOW 808, FLOW Bass and FLOW Lead with gain, pan, envelope, tone, Drive and tempo-aware Delay.
+- Realtime-safe audio recording, input monitoring, persistent takes and active-take selection.
+- Mixer routing with buses, sends, pre/post-fader mode, Track/Bus/Master automation and route metering.
+- Realtime Track/Bus/Master plugin graph with topology-aware plugin delay compensation.
+- Callback-safe sample peak, RMS and 4x inter-sample true-peak estimates for Track/Bus/Master routes.
+- Real VST3 execution through JUCE on Linux/Windows/macOS and AU runtime validation on macOS.
+- Persistent Track/Master plugin racks with FLOW Gain/Soft Clip/Width, bypass, wet mix, native parameters and external-plugin editor state roundtrip.
+- External instrument slots driven by Pattern MIDI before Track inserts.
+- Realtime/offline routing parity, master WAV export and per-track stem export through the production PluginHost.
+- Production Assistant, Project Health and explicit Undoable workflow commands.
+- Machine-local audio/plugin settings, crash recovery/autosave infrastructure and plugin quarantine.
+- `flowdaw-doctor` for runtime status, recovery and plugin-quarantine maintenance.
+- New sessions start with a usable native beat plus a FLOW Keys melodic Pattern.
+- Cross-platform CI validates Linux, Windows and macOS production builds; Windows creates a portable ZIP and macOS creates a DMG.
 
-**Phase 0 through Phase 7 are complete. Phase 8 — Realtime Plugin Graph / PDC / JUCE Studio Migration — is now in progress.**
+Project format is currently **v11**.
 
-Phase 8 now has its first realtime-graph submilestone: prepared external effects can execute on the AudioEngine master path, plugin latency is reported to the host, and wet/dry paths are latency-aligned with preallocated delay storage. Per-track/per-bus insertion, topology-wide PDC, offline parity, true route meters and the remaining JUCE Studio migration are still in progress; arbitrary external plugins are not yet claimed to execute on every mixer route.
+## Build the production Studio
 
-## Build
-
-Core/X11 bootstrap:
+JUCE 9.0.2 is pinned and fetched by default for the production build:
 
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build --parallel
+cmake --build build --parallel 2 --target flowdaw-juce flowdaw-doctor
 ctest --test-dir build --output-on-failure
-./build/flowdaw
-./build/flowdaw-doctor status
 ```
 
-JUCE runtime (fetches the pinned JUCE 9.0.2 source when requested):
+The installed JUCE application is named **FLOWDAW**.
+
+Package the production build on Linux:
 
 ```bash
-cmake -S . -B build-juce -G Ninja \
+cmake --install build --prefix ./install
+cd build
+cpack -G TGZ
+```
+
+Windows ZIP and macOS DMG generation are validated in CI.
+
+JUCE modules are distributed under JUCE's upstream licensing terms. Commercial distribution requires an applicable JUCE licence and compliance with its terms.
+
+## Core-only development
+
+The domain/audio core remains toolkit-independent. Because JUCE is enabled by default for production builds, disable it explicitly for a core-only build:
+
+```bash
+cmake -S . -B build-core -G Ninja \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DFLOWDAW_BUILD_APP=OFF \
   -DFLOWDAW_BUILD_TESTS=ON \
-  -DFLOWDAW_ENABLE_JUCE_RUNTIME=ON \
-  -DFLOWDAW_FETCH_JUCE=ON
-cmake --build build-juce --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests flowdaw_phase8_juce_tests flowdaw-doctor
-ctest --test-dir build-juce -R flowdaw_phase7_juce_tests --output-on-failure
-ctest --test-dir build-juce -R flowdaw_phase8_juce_tests --output-on-failure
+  -DFLOWDAW_ENABLE_JUCE_RUNTIME=OFF \
+  -DFLOWDAW_FETCH_JUCE=OFF
+
+cmake --build build-core --parallel
+ctest --test-dir build-core --output-on-failure
+./build-core/flowdaw-doctor status
 ```
 
-JUCE 9 modules are available under the upstream AGPLv3 or commercial JUCE licensing options. Enabling or fetching JUCE in this build does not by itself grant commercial distribution rights; distributors must use an applicable JUCE licence and comply with its terms.
+## Legacy X11 regression shell
 
-Open a WAV or project with the X11 bootstrap:
+The X11 bootstrap is **not** the production Studio and is disabled by default. It remains available for regression/bootstrap coverage:
 
 ```bash
-./build/flowdaw /path/to/sample.wav
-./build/flowdaw projects/StepSequencer_90BPM.flow
+cmake -S . -B build-x11 -G Ninja \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DFLOWDAW_BUILD_APP=ON \
+  -DFLOWDAW_BUILD_TESTS=OFF \
+  -DFLOWDAW_ENABLE_JUCE_RUNTIME=OFF \
+  -DFLOWDAW_FETCH_JUCE=OFF
+
+cmake --build build-x11 --parallel --target flowdaw flowdaw-doctor
+./build-x11/flowdaw
 ```
 
-Open the Piano Roll with `P`. Open the mixer with `M`; `F9` toggles audio recording when an input device is available. Open Phase 5 with `I` to access Assist, Project Health, plugin discovery/racks and advanced workflow commands.
+CI keeps this legacy target smoke-tested while JUCE remains the single production desktop path.
 
-Recovery/diagnostics:
+## Diagnostics and recovery
 
 ```bash
 flowdaw-doctor status
@@ -84,19 +102,20 @@ flowdaw-doctor clear-recovery
 flowdaw-doctor clear-quarantine <plugin-id>
 ```
 
-Package locally:
+## Stretch benchmark
 
 ```bash
-cmake --build build --parallel
-cmake --install build --prefix ./install
-cd build && cpack -G TGZ
+cmake --build build-core --target flowdaw_stretch_benchmark
+./build-core/flowdaw_stretch_benchmark
 ```
 
-Run the stretch benchmark:
+## Project documentation
 
-```bash
-cmake --build build --target flowdaw_stretch_benchmark
-./build/flowdaw_stretch_benchmark
-```
+See:
 
-See `ARCHITECTURE.md`, `AUDIO_ENGINE.md`, `PROJECT_FORMAT.md`, `ROADMAP.md`, `PHASE1_STATUS.md` through `PHASE8_STATUS.md`, and `docs/TIME_STRETCH_EVALUATION.md`.
+- `ARCHITECTURE.md`
+- `AUDIO_ENGINE.md`
+- `PROJECT_FORMAT.md`
+- `ROADMAP.md`
+- `PHASE1_STATUS.md` through `PHASE8_STATUS.md`
+- `docs/TIME_STRETCH_EVALUATION.md`
