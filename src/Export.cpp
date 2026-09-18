@@ -1,6 +1,7 @@
 #include "flowdaw/Export.hpp"
 #include "flowdaw/AudioEngine.hpp"
-#include "flowdaw/MusicalTime.hpp"\n#include "flowdaw/PluginHost.hpp"
+#include "flowdaw/MusicalTime.hpp"
+#include "flowdaw/PluginHost.hpp"
 #include "flowdaw/Wav.hpp"
 #include <algorithm>
 #include <cctype>
