@@ -19,10 +19,11 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - `AudioEngine` now renders project sources into dedicated track buffers, executes prepared track inserts, routes pre/post-fader sends and track outputs into bus buffers, executes prepared bus inserts, and then sums latency-aligned routes into the master.
 - Topology-aware PDC is applied to direct track outputs, track→bus routes, sends and bus→master paths; a deterministic impulse test verifies differently latent routes land on the same sample.
 - JUCE CI now validates real VST3 processing not only on master but across a real track→bus insert chain.
+- Graph ownership now separates the currently published graph from retired graphs; realtime/offline readers are counted atomically and retired plugin graphs are reclaimed only from the control thread when no reader can still reference them.
+- A concurrent test holds a processor inside the realtime callback while a replacement graph is published, proving the old graph is retained until the callback exits; repeated idle publications are also verified not to accumulate retired graphs.
 
 ## Still required before Phase 8 is complete
 
-- Explicit control-thread retirement/destruction of old external processor graphs rather than indefinite graph retention.
 - Offline render/export parity with realtime external-plugin routing.
 - Callback-safe true peak/RMS meters for track, bus and master.
 - Remaining editing-surface migration from X11 to JUCE.
@@ -34,5 +35,6 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - FLOWDAW does not create plugin processors from the audio callback.
 - FLOWDAW host scratch/delay buffers used by this submilestone are allocated during graph preparation.
 - The callback does not take the engine publish mutex.
+- Graph destruction and external processor destruction never run from the realtime callback; JUCE periodically collects safe retired graphs from its control-thread timer.
 - Unsupported realtime processors are omitted from the prepared chain and surfaced as preparation issues rather than instantiated lazily from the callback.
 - The X11 Studio remains available until the JUCE Studio reaches functional parity.
