@@ -43,4 +43,5 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - The callback does not take the engine publish mutex.
 - Graph destruction and external processor destruction never run from the realtime callback; JUCE periodically collects safe retired graphs from its control-thread timer.
 - Unsupported realtime processors are omitted from the prepared chain and surfaced as preparation issues rather than instantiated lazily from the callback.
+- External instrument instances, opaque-state restore and MIDI capacity preparation happen before graph publication; the callback only consumes precomputed note events and fixed-capacity scratch. Project format v11 keeps this source instrument separate from track effect inserts.
 - The X11 Studio remains available until the JUCE Studio reaches functional parity.
