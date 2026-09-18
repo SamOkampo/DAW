@@ -71,3 +71,18 @@ Completed:
 12. Linux, Windows and macOS CI validate the production JUCE runtime; Linux packages TGZ, Windows packages ZIP and macOS packages DMG.
 
 **Production desktop path: JUCE 9.0.2. Project format remains v11.**
+
+
+## Phase 9 — Workflow / Browser / Polish / Recovery [IN PROGRESS]
+
+Target completion criteria:
+1. A persistent left-side sample browser is available in the JUCE production Studio.
+2. Users can add sample-library folders, search WAV files, keep favorites and revisit recent samples.
+3. Browser imports support double-click and operating-system drag/drop without changing the portable `.flow` schema.
+4. Browser state remains machine-local and loads settings v1 safely into the current settings format.
+5. Add project/sample drag/drop polish, templates and first-run workflow.
+6. Wire autosave/recovery into the normal Studio session lifecycle with visible recovery UX.
+7. Add production keyboard shortcuts and a discoverable command palette.
+8. Finish workflow polish only with Linux/Windows/macOS JUCE CI green.
+
+First milestone is the production sample-browser workflow; advanced audio editing remains a later phase so workflow UX does not destabilize the realtime engine.
