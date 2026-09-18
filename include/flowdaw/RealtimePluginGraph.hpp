@@ -63,4 +63,27 @@ private:
     int latencySamples_=0;
 };
 
+// Dedicated source instrument slot. Unlike RealtimePluginChain, this processor
+// receives MIDI and renders into a zeroed track-local buffer before mixer
+// inserts. Construction/state restore/prepare are control-thread only.
+class RealtimePluginInstrument {
+public:
+    bool prepare(const PluginInstance& plugin,
+                 const PluginHost* host,
+                 int sampleRate,
+                 int channels,
+                 std::vector<RealtimePluginIssue>* issues=nullptr);
+    bool process(float* interleaved,SampleIndex frames,
+                 const PluginMidiEvent* events,std::size_t eventCount) noexcept;
+    void reset() noexcept;
+    bool ready() const noexcept { return processor_!=nullptr; }
+    int latencySamples() const noexcept { return latencySamples_; }
+
+private:
+    PluginInstance config_;
+    std::unique_ptr<IPluginProcessor> processor_;
+    int channels_=2;
+    int latencySamples_=0;
+};
+
 } // namespace flowdaw
