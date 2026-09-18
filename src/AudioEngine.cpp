@@ -39,6 +39,15 @@ void mixRangeSimple(float*out,unsigned long frames,const AudioBuffer&audio,Sampl
     if(frames==0||sourceLength<=0||audio.frames()<=0||audio.channels<=0)return;const double ratio=static_cast<double>(audio.sampleRate)/deviceRate;const int ch=audio.channels;pan=std::clamp(pan,-1.0f,1.0f);const float lpan=std::sqrt((1.0f-pan)*0.5f),rpan=std::sqrt((1.0f+pan)*0.5f);
     for(unsigned long i=0;i<frames;++i){const SampleIndex rel=outputOffset+static_cast<SampleIndex>(i);if(rel<0)continue;const double srcPos=static_cast<double>(sourceStart)+static_cast<double>(rel)*ratio;if(srcPos>=static_cast<double>(sourceStart+sourceLength)||srcPos>=static_cast<double>(audio.frames()-1))break;const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);auto get=[&](SampleIndex idx,int cc){return audio.interleaved[static_cast<std::size_t>(idx*ch+std::min(cc,ch-1))];};const float sl=get(i0,0)+(get(i1,0)-get(i0,0))*frac;const float sr=ch>1?get(i0,1)+(get(i1,1)-get(i0,1))*frac:sl;out[i*2]+=sl*gain*lpan;out[i*2+1]+=sr*gain*rpan;}
 }
+
+class GraphReadScope {
+public:
+    explicit GraphReadScope(std::atomic<unsigned int>& readers) noexcept:readers_(readers){readers_.fetch_add(1,std::memory_order_seq_cst);}
+    ~GraphReadScope(){readers_.fetch_sub(1,std::memory_order_seq_cst);}
+    GraphReadScope(const GraphReadScope&)=delete;GraphReadScope&operator=(const GraphReadScope&)=delete;
+private:
+    std::atomic<unsigned int>& readers_;
+};
 }
 
 AudioEngine::AudioEngine()=default;
@@ -155,7 +164,17 @@ void AudioEngine::publish(const Project&p){
             }
         }
     }
-    std::lock_guard lk(publishMutex_);Graph*raw=g.get();retired_.push_back(std::move(g));current_.store(raw,std::memory_order_release);
+    std::lock_guard lk(publishMutex_);
+    if(currentOwned_)retired_.push_back(std::move(currentOwned_));
+    currentOwned_=std::move(g);
+    current_.store(currentOwned_.get(),std::memory_order_seq_cst);
+    if(graphReaders_.load(std::memory_order_seq_cst)==0)retired_.clear();
+}
+
+std::size_t AudioEngine::collectRetiredGraphs(){
+    std::lock_guard lk(publishMutex_);
+    if(graphReaders_.load(std::memory_order_seq_cst)==0)retired_.clear();
+    return retired_.size();
 }
 void AudioEngine::play(){playing_.store(true,std::memory_order_release);}void AudioEngine::pause(){playing_.store(false,std::memory_order_release);}void AudioEngine::stop(){playing_.store(false,std::memory_order_release);playhead_.store(0,std::memory_order_release);}
 
@@ -169,7 +188,7 @@ void AudioEngine::captureInput(const float*in,unsigned long frames){if(!in||!rec
 AudioBuffer AudioEngine::finishRecording(){recording_.store(false,std::memory_order_release);while(recordingWriters_.load(std::memory_order_acquire)>0)std::this_thread::yield();AudioBuffer out;out.sampleRate=sampleRate_;out.channels=1;const auto n=std::clamp<SampleIndex>(recordingWrite_.load(std::memory_order_acquire),0,static_cast<SampleIndex>(recordingBuffer_.size()));out.interleaved.assign(recordingBuffer_.begin(),recordingBuffer_.begin()+n);return out;}
 
 int AudioEngine::process(const float*in,float*out,unsigned long frames){
-    std::fill(out,out+frames*2,0.0f);captureInput(in,frames);consumePreviewCommands();const bool transport=playing_.load(std::memory_order_acquire);auto*g=current_.load(std::memory_order_acquire);const auto base=playhead_.load(std::memory_order_relaxed);
+    GraphReadScope graphRead(graphReaders_);std::fill(out,out+frames*2,0.0f);captureInput(in,frames);consumePreviewCommands();const bool transport=playing_.load(std::memory_order_acquire);auto*g=current_.load(std::memory_order_seq_cst);const auto base=playhead_.load(std::memory_order_relaxed);
     auto automationAt=[&](int idx,Tick tick,float fallback){return g&&idx>=0&&idx<static_cast<int>(g->automation.size())?automationValueAt(g->automation[static_cast<std::size_t>(idx)],tick,fallback):fallback;};
     auto mixClip=[&](float*dst,unsigned long count,const RenderClip&c,SampleIndex localOffset,SampleIndex absoluteStart){if(!c.audio||count==0||!g)return;const double ratio=static_cast<double>(c.audio->sampleRate)/sampleRate_;const int ch=c.audio->channels;for(unsigned long i=0;i<count;++i){const SampleIndex rel=localOffset+static_cast<SampleIndex>(i);if(rel<0)continue;const double srcPos=static_cast<double>(c.sourceStart)+static_cast<double>(rel)*ratio;if(srcPos>=static_cast<double>(c.sourceStart+c.length)||srcPos>=static_cast<double>(c.audio->frames()-1))break;const Tick tick=MusicalTime::samplesToTicks(absoluteStart+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float tv=automationAt(c.trackVolumeAutomation,tick,c.trackVolume),tp=automationAt(c.trackPanAutomation,tick,c.trackPan),bv=automationAt(c.busVolumeAutomation,tick,c.busVolume),bp=automationAt(c.busPanAutomation,tick,c.busPan),sg=automationAt(c.sendAutomation,tick,c.sendGain),mv=automationAt(g->masterVolumeAutomation,tick,g->master);const float gain=c.gain*tv*bv*sg*mv*g->masterEffectGain;const float pan=std::clamp(c.pan+tp+bp,-1.0f,1.0f);const float lp=std::sqrt((1.0f-pan)*0.5f),rp=std::sqrt((1.0f+pan)*0.5f);const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);auto get=[&](SampleIndex idx,int cc){return c.audio->interleaved[static_cast<std::size_t>(idx*ch+std::min(cc,ch-1))];};const float sl=get(i0,0)+(get(i1,0)-get(i0,0))*frac,sr=ch>1?get(i0,1)+(get(i1,1)-get(i0,1))*frac:sl;dst[i*2]+=sl*gain*lp;dst[i*2+1]+=sr*gain*rp;}};
 
@@ -240,7 +259,7 @@ int AudioEngine::process(const float*in,float*out,unsigned long frames){
 int AudioEngine::paCallback(const void*input,void*output,unsigned long frames,const void*,unsigned long,void*user){return static_cast<AudioEngine*>(user)->process(static_cast<const float*>(input),static_cast<float*>(output),frames);}
 
 AudioBuffer AudioEngine::renderOffline(SampleIndex frames)const{
-    AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,frames)*2),0.0f);auto*g=current_.load(std::memory_order_acquire);if(!g)return out;
+    AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,frames)*2),0.0f);GraphReadScope graphRead(graphReaders_);auto*g=current_.load(std::memory_order_seq_cst);if(!g)return out;
     auto automationAt=[&](int idx,Tick tick,float fallback){return idx>=0&&idx<static_cast<int>(g->automation.size())?automationValueAt(g->automation[static_cast<std::size_t>(idx)],tick,fallback):fallback;};
     for(auto const&c:g->clips){const SampleIndex start=std::max<SampleIndex>(0,c.start);if(start>=frames||!c.audio)continue;const SampleIndex localOffset=std::max<SampleIndex>(0,-c.start);const double ratio=static_cast<double>(c.audio->sampleRate)/sampleRate_;const int ch=c.audio->channels;for(SampleIndex i=start;i<frames;++i){const SampleIndex rel=localOffset+(i-start);const double srcPos=static_cast<double>(c.sourceStart)+static_cast<double>(rel)*ratio;if(srcPos>=static_cast<double>(c.sourceStart+c.length)||srcPos>=static_cast<double>(c.audio->frames()-1))break;const Tick tick=MusicalTime::samplesToTicks(i,g->bpm,sampleRate_);const float gain=c.gain*automationAt(c.trackVolumeAutomation,tick,c.trackVolume)*automationAt(c.busVolumeAutomation,tick,c.busVolume)*automationAt(c.sendAutomation,tick,c.sendGain)*automationAt(g->masterVolumeAutomation,tick,g->master)*g->masterEffectGain;const float pan=std::clamp(c.pan+automationAt(c.trackPanAutomation,tick,c.trackPan)+automationAt(c.busPanAutomation,tick,c.busPan),-1.0f,1.0f);const float lp=std::sqrt((1.0f-pan)*0.5f),rp=std::sqrt((1.0f+pan)*0.5f);const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);auto get=[&](SampleIndex idx,int cc){return c.audio->interleaved[static_cast<std::size_t>(idx*ch+std::min(cc,ch-1))];};const float sl=get(i0,0)+(get(i1,0)-get(i0,0))*frac,sr=ch>1?get(i0,1)+(get(i1,1)-get(i0,1))*frac:sl;out.interleaved[static_cast<std::size_t>(i*2)]+=sl*gain*lp;out.interleaved[static_cast<std::size_t>(i*2+1)]+=sr*gain*rp;}}
     for(SampleIndex i=0;i<out.frames();++i){float&l=out.interleaved[static_cast<std::size_t>(i*2)],&r=out.interleaved[static_cast<std::size_t>(i*2+1)];for(auto const&pl:g->masterPlugins)processRealtimeBuiltinSample(pl,l,r);l=std::clamp(l,-1.0f,1.0f);r=std::clamp(r,-1.0f,1.0f);}return out;
