@@ -26,7 +26,6 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 
 ## Still required before Phase 8 is complete
 
-- Offline render/export parity with realtime external-plugin routing.
 - Callback-safe true peak/RMS meters for track, bus and master.
 - Remaining editing-surface migration from X11 to JUCE.
 - Windows/macOS JUCE CI, AU runtime validation and platform packaging.
