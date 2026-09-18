@@ -71,3 +71,20 @@ Completed:
 12. Linux, Windows and macOS CI validate the production JUCE runtime; Linux packages TGZ, Windows packages ZIP and macOS packages DMG.
 
 **Production desktop path: JUCE 9.0.2. Project format remains v11.**
+
+## Phase 9 — Workflow / Browser / Polish / Autosave [IN PROGRESS]
+
+First milestone:
+1. Wire the existing `SessionRecovery` lifecycle into the production JUCE Studio.
+2. Restore a dirty autosave at startup when `restoreLastSession` is enabled.
+3. Refresh recovery snapshots after New/Open/Save transitions.
+4. Run periodic autosave from the JUCE message/control thread using `autosaveSeconds`; never from the audio callback.
+5. Clear recovery state on clean shutdown.
+6. Keep regression coverage for repeated snapshots and latest-project metadata.
+
+Next product work:
+- sample/file Browser with search, favorites and recent samples;
+- drag/drop into the production workspace;
+- project templates and stronger first-run/onboarding flow;
+- keyboard shortcuts and command palette;
+- continued visual hierarchy/polish without changing DSP architecture.
