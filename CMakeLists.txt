@@ -12,6 +12,14 @@ option(FLOWDAW_FETCH_JUCE "Fetch pinned JUCE 9.0.2 when the JUCE runtime is enab
 option(FLOWDAW_BUILD_JUCE_APP "Build flowdaw-juce production desktop shell" ON)
 option(FLOWDAW_BUILD_JUCE_TEST_PLUGIN "Build a real VST3 fixture and end-to-end host test" ON)
 
+function(flowdaw_enable_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+endfunction()
+
 add_library(flowdaw_core
     src/MusicalTime.cpp
     src/Midi.cpp
@@ -41,7 +49,7 @@ add_library(flowdaw_core
     src/AudioEngine.cpp
 )
 target_include_directories(flowdaw_core PUBLIC include)
-target_compile_options(flowdaw_core PRIVATE -Wall -Wextra -Wpedantic)
+flowdaw_enable_warnings(flowdaw_core)
 
 find_library(PORTAUDIO_RUNTIME NAMES portaudio libportaudio.so.2)
 if(PORTAUDIO_RUNTIME)
@@ -72,7 +80,7 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
     else()
         target_compile_definitions(flowdaw_juce_runtime PUBLIC JUCE_PLUGINHOST_AU=0)
     endif()
-    target_compile_options(flowdaw_juce_runtime PRIVATE -Wall -Wextra -Wpedantic)
+    flowdaw_enable_warnings(flowdaw_juce_runtime)
 
     if(FLOWDAW_BUILD_JUCE_APP)
         juce_add_gui_app(flowdaw-juce PRODUCT_NAME "FLOWDAW")
@@ -151,18 +159,18 @@ endif()
 
 add_executable(flowdaw_stretch_benchmark EXCLUDE_FROM_ALL tools/stretch_benchmark.cpp)
 target_link_libraries(flowdaw_stretch_benchmark PRIVATE flowdaw_core)
-target_compile_options(flowdaw_stretch_benchmark PRIVATE -Wall -Wextra -Wpedantic)
+flowdaw_enable_warnings(flowdaw_stretch_benchmark)
 
 add_executable(flowdaw-doctor tools/flowdaw_doctor.cpp)
 target_link_libraries(flowdaw-doctor PRIVATE flowdaw_core)
-target_compile_options(flowdaw-doctor PRIVATE -Wall -Wextra -Wpedantic)
+flowdaw_enable_warnings(flowdaw-doctor)
 install(TARGETS flowdaw-doctor RUNTIME DESTINATION bin)
 
 if(FLOWDAW_BUILD_APP)
     find_package(X11 REQUIRED)
     add_executable(flowdaw app/main_phase5.cpp)
     target_link_libraries(flowdaw PRIVATE flowdaw_core X11::X11)
-    target_compile_options(flowdaw PRIVATE -Wall -Wextra -Wpedantic)
+    flowdaw_enable_warnings(flowdaw)
     install(TARGETS flowdaw RUNTIME DESTINATION bin)
 endif()
 
