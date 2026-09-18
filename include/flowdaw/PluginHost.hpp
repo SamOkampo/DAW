@@ -16,6 +16,7 @@ struct PluginDescriptor {
     std::string category="effect";
     std::filesystem::path path;
     bool builtin=false;
+    bool instrument=false;
 };
 
 struct PluginMidiEvent {
