@@ -59,7 +59,7 @@ public:
 
 class BlockingBackend final:public IExternalPluginBackend{
 public:
-    bool supports(const std::string&format)const override{return format=="blocking";}
+    bool supports(const std::string&format)const override{return format=="vst3";}
     std::unique_ptr<IPluginProcessor> create(const PluginInstance&,std::string&)override{return std::make_unique<BlockingProcessor>();}
 };
 
@@ -95,7 +95,7 @@ static void testSafeGraphReclamation(){
     auto host=std::make_shared<PluginHost>();host->registerBackend(std::make_shared<BlockingBackend>());
     AudioEngine engine;engine.configureExternalDevice(48000,64,true);engine.setPluginHost(host);engine.setInputMonitoring(true);
 
-    PluginInstance blocking;blocking.format="blocking";blocking.identifier="test.blocking";blocking.name="Blocking test processor";
+    PluginInstance blocking;blocking.format="vst3";blocking.identifier="test.blocking";blocking.name="Blocking test processor";
     Project first;first.master.plugins.push_back(blocking);engine.publish(first);
     AudioBuffer input;input.sampleRate=48000;input.channels=1;input.interleaved.assign(64,1.0f);
     std::thread audioThread([&]{auto output=engine.processInputBlockForTest(input);(void)output;});
