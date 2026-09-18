@@ -7,6 +7,7 @@
 #include "JuceEditingSurface.hpp"
 #include "JucePianoSamplerSurface.hpp"
 #include "JuceStepSequencerSurface.hpp"
+#include "JuceAutomationAssistSurface.hpp"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -65,6 +66,8 @@ public:
         addAndMakeVisible(trackChoice_);trackChoice_.setTextWhenNothingSelected("No track selected");
         setInstrument_.setButtonText("Set Instrument");setInstrument_.onClick=[this]{assignSelectedInstrument();};addAndMakeVisible(setInstrument_);
         clearInstrument_.setButtonText("Clear Instrument");clearInstrument_.onClick=[this]{clearSelectedInstrument();};addAndMakeVisible(clearInstrument_);
+        addTrackFx_.setButtonText("Add Track FX");addTrackFx_.onClick=[this]{addSelectedEffect(false);};addAndMakeVisible(addTrackFx_);
+        addMasterFx_.setButtonText("Add Master FX");addMasterFx_.onClick=[this]{addSelectedEffect(true);};addAndMakeVisible(addMasterFx_);
         saveProject_.setButtonText("Save Project");saveProject_.onClick=[this]{saveProject();};addAndMakeVisible(saveProject_);
         undoButton_.setButtonText("Undo");undoButton_.onClick=[this]{undoEdit();};addAndMakeVisible(undoButton_);
         redoButton_.setButtonText("Redo");redoButton_.onClick=[this]{redoEdit();};addAndMakeVisible(redoButton_);
@@ -80,9 +83,11 @@ public:
         piano_=std::make_unique<juceui::PianoRollComponent>(project_,commitEdit);addChildComponent(*piano_);
         sampler_=std::make_unique<juceui::SamplerComponent>(project_,engine_,commitEdit);addChildComponent(*sampler_);
         sequencer_=std::make_unique<juceui::StepSequencerComponent>(project_,commitEdit);addChildComponent(*sequencer_);
+        automationAssist_=std::make_unique<juceui::AutomationAssistComponent>(project_,[this]{return MusicalTime::samplesToTicks(engine_.playheadSamples(),project_.transport.bpm,engine_.sampleRate());},commitEdit);addChildComponent(*automationAssist_);
         arrangementTab_.setButtonText("Arrangement");arrangementTab_.onClick=[this]{setEditorMode(EditorMode::Arrangement);};addAndMakeVisible(arrangementTab_);
         pianoTab_.setButtonText("Piano Roll");pianoTab_.onClick=[this]{setEditorMode(EditorMode::Piano);};addAndMakeVisible(pianoTab_);
         sequencerTab_.setButtonText("Sequencer");sequencerTab_.onClick=[this]{setEditorMode(EditorMode::Step);};addAndMakeVisible(sequencerTab_);
+        automationTab_.setButtonText("Automation");automationTab_.onClick=[this]{setEditorMode(EditorMode::Automation);};addAndMakeVisible(automationTab_);
         samplerTab_.setButtonText("Sampler");samplerTab_.onClick=[this]{setEditorMode(EditorMode::Sampler);};addAndMakeVisible(samplerTab_);
         addAndMakeVisible(patternChoice_);patternChoice_.setTextWhenNothingSelected("No MIDI pattern");patternChoice_.onChange=[this]{syncPatternEditors();};
         addAndMakeVisible(sampleChoice_);sampleChoice_.setTextWhenNothingSelected("No audio sample");sampleChoice_.onChange=[this]{syncSamplerSample();};
@@ -98,9 +103,9 @@ public:
         auto r=getLocalBounds().reduced(16);title_.setBounds(r.removeFromTop(38));status_.setBounds(r.removeFromTop(26));projectLabel_.setBounds(r.removeFromTop(26));note_.setBounds(r.removeFromTop(54));meterLabel_.setBounds(r.removeFromTop(28));
         auto transport=r.removeFromTop(38);loadProject_.setBounds(transport.removeFromLeft(120).reduced(3));saveProject_.setBounds(transport.removeFromLeft(120).reduced(3));play_.setBounds(transport.removeFromLeft(76).reduced(3));stop_.setBounds(transport.removeFromLeft(76).reduced(3));bpmMinus_.setBounds(transport.removeFromLeft(68).reduced(3));bpmLabel_.setBounds(transport.removeFromLeft(90).reduced(3));bpmPlus_.setBounds(transport.removeFromLeft(68).reduced(3));undoButton_.setBounds(transport.removeFromLeft(76).reduced(3));redoButton_.setBounds(transport.removeFromLeft(76).reduced(3));
         auto controls=r.removeFromTop(38);scan_.setBounds(controls.removeFromLeft(150).reduced(3));pluginChoice_.setBounds(controls.removeFromLeft(430).reduced(3));openEditor_.setBounds(controls.removeFromLeft(180).reduced(3));
-        auto instrument=r.removeFromTop(38);trackChoice_.setBounds(instrument.removeFromLeft(360).reduced(3));setInstrument_.setBounds(instrument.removeFromLeft(145).reduced(3));clearInstrument_.setBounds(instrument.removeFromLeft(155).reduced(3));
-        auto editorBar=r.removeFromTop(38);arrangementTab_.setBounds(editorBar.removeFromLeft(105).reduced(3));pianoTab_.setBounds(editorBar.removeFromLeft(95).reduced(3));sequencerTab_.setBounds(editorBar.removeFromLeft(95).reduced(3));samplerTab_.setBounds(editorBar.removeFromLeft(85).reduced(3));patternChoice_.setBounds(editorBar.removeFromLeft(245).reduced(3));sampleChoice_.setBounds(editorBar.removeFromLeft(255).reduced(3));bankPrev_.setBounds(editorBar.removeFromLeft(72).reduced(3));bankNext_.setBounds(editorBar.removeFromLeft(72).reduced(3));
-        r.removeFromTop(4);auto editorArea=r.removeFromTop(320);if(arrangement_)arrangement_->setBounds(editorArea);if(piano_)piano_->setBounds(editorArea);if(sampler_)sampler_->setBounds(editorArea);if(sequencer_)sequencer_->setBounds(editorArea);
+        auto instrument=r.removeFromTop(38);trackChoice_.setBounds(instrument.removeFromLeft(300).reduced(3));setInstrument_.setBounds(instrument.removeFromLeft(130).reduced(3));clearInstrument_.setBounds(instrument.removeFromLeft(135).reduced(3));addTrackFx_.setBounds(instrument.removeFromLeft(120).reduced(3));addMasterFx_.setBounds(instrument.removeFromLeft(125).reduced(3));
+        auto editorBar=r.removeFromTop(38);arrangementTab_.setBounds(editorBar.removeFromLeft(105).reduced(3));pianoTab_.setBounds(editorBar.removeFromLeft(95).reduced(3));sequencerTab_.setBounds(editorBar.removeFromLeft(95).reduced(3));automationTab_.setBounds(editorBar.removeFromLeft(100).reduced(3));samplerTab_.setBounds(editorBar.removeFromLeft(85).reduced(3));patternChoice_.setBounds(editorBar.removeFromLeft(245).reduced(3));sampleChoice_.setBounds(editorBar.removeFromLeft(255).reduced(3));bankPrev_.setBounds(editorBar.removeFromLeft(72).reduced(3));bankNext_.setBounds(editorBar.removeFromLeft(72).reduced(3));
+        r.removeFromTop(4);auto editorArea=r.removeFromTop(320);if(arrangement_)arrangement_->setBounds(editorArea);if(piano_)piano_->setBounds(editorArea);if(sampler_)sampler_->setBounds(editorArea);if(sequencer_)sequencer_->setBounds(editorArea);if(automationAssist_)automationAssist_->setBounds(editorArea);
         auto mixer=r.removeFromTop(118);mixerVolumeLabel_.setBounds(mixer.removeFromLeft(95).reduced(3));mixerVolume_.setBounds(mixer.removeFromLeft(245).reduced(3));mixerPanLabel_.setBounds(mixer.removeFromLeft(45).reduced(3));mixerPan_.setBounds(mixer.removeFromLeft(220).reduced(3));muteTrack_.setBounds(mixer.removeFromLeft(70).reduced(3));soloTrack_.setBounds(mixer.removeFromLeft(70).reduced(3));trackMeterLabel_.setBounds(mixer.removeFromLeft(120).reduced(3));trackMeter_.setBounds(mixer.reduced(3));
         r.removeFromTop(6);selector_->setBounds(r);
     }
@@ -114,7 +119,7 @@ private:
         for(int c=0;c<numOutputs;++c){if(!outputs[c])continue;if(c<2)for(int i=0;i<numSamples;++i)outputs[c][i]=stereoOutput_[static_cast<std::size_t>(i)*2+static_cast<std::size_t>(c)];else juce::FloatVectorOperations::clear(outputs[c],numSamples);}
     }
     void chooseProject(){chooser_=std::make_unique<juce::FileChooser>("Open FLOWDAW project",juce::File(projectPath_.string()),"*.flow");chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[this](const juce::FileChooser&fc){auto f=fc.getResult();if(f.existsAsFile())loadProjectFile(std::filesystem::path(f.getFullPathName().toStdString()));chooser_.reset();});}
-    void loadProjectFile(const std::filesystem::path&p){try{engine_.stop();project_=ProjectSerializer::load(p,true);projectPath_=p;settings_.lastProjectPath=p;undo_=UndoStack{};engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();projectLabel_.setText("Project: "+juce::String(p.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);status_.setText("Project loaded; Play uses JUCE device callback",juce::dontSendNotification);}catch(const std::exception&e){status_.setText("Open failed: "+juce::String(e.what()),juce::dontSendNotification);}}
+    void loadProjectFile(const std::filesystem::path&p){try{engine_.stop();project_=ProjectSerializer::load(p,true);projectPath_=p;settings_.lastProjectPath=p;undo_=UndoStack{};engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();projectLabel_.setText("Project: "+juce::String(p.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);status_.setText("Project loaded; Play uses JUCE device callback",juce::dontSendNotification);}catch(const std::exception&e){status_.setText("Open failed: "+juce::String(e.what()),juce::dontSendNotification);}}
     std::vector<std::filesystem::path> pluginRoots()const{
         if(!settings_.pluginRoots.empty())return settings_.pluginRoots;std::vector<std::filesystem::path> roots;auto home=std::filesystem::path(juce::File::getSpecialLocation(juce::File::userHomeDirectory).getFullPathName().toStdString());roots.push_back(home/".vst3");roots.push_back("/usr/lib/vst3");roots.push_back("/usr/local/lib/vst3");
 #if JUCE_MAC
@@ -129,14 +134,14 @@ private:
         for(auto const&t:project_.tracks){std::string label=t.name;if(t.externalInstrumentEnabled&&!t.externalInstrument.name.empty())label+="  •  "+t.externalInstrument.name;trackChoice_.addItem(juce::String(label),id++);}
         if(!project_.tracks.empty())trackChoice_.setSelectedId(previous>0&&previous<=static_cast<int>(project_.tracks.size())?previous:1,juce::dontSendNotification);
     }
-    void publishEdit(const juce::String&message){engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();status_.setText(message,juce::dontSendNotification);}
-    enum class EditorMode{Arrangement,Piano,Step,Sampler};
+    void publishEdit(const juce::String&message){engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();status_.setText(message,juce::dontSendNotification);}
+    enum class EditorMode{Arrangement,Piano,Step,Automation,Sampler};
     void setEditorMode(EditorMode mode){
-        editorMode_=mode;const bool arrangement=mode==EditorMode::Arrangement,piano=mode==EditorMode::Piano,step=mode==EditorMode::Step,sampler=mode==EditorMode::Sampler;
-        if(arrangement_)arrangement_->setVisible(arrangement);if(piano_)piano_->setVisible(piano);if(sequencer_)sequencer_->setVisible(step);if(sampler_)sampler_->setVisible(sampler);
+        editorMode_=mode;const bool arrangement=mode==EditorMode::Arrangement,piano=mode==EditorMode::Piano,step=mode==EditorMode::Step,automation=mode==EditorMode::Automation,sampler=mode==EditorMode::Sampler;
+        if(arrangement_)arrangement_->setVisible(arrangement);if(piano_)piano_->setVisible(piano);if(sequencer_)sequencer_->setVisible(step);if(automationAssist_)automationAssist_->setVisible(automation);if(sampler_)sampler_->setVisible(sampler);
         patternChoice_.setVisible(piano||step);sampleChoice_.setVisible(sampler);bankPrev_.setVisible(sampler);bankNext_.setVisible(sampler);
-        arrangementTab_.setEnabled(!arrangement);pianoTab_.setEnabled(!piano);sequencerTab_.setEnabled(!step);samplerTab_.setEnabled(!sampler);
-        if(piano||step)syncPatternEditors();if(sampler)syncSamplerSample();
+        arrangementTab_.setEnabled(!arrangement);pianoTab_.setEnabled(!piano);sequencerTab_.setEnabled(!step);automationTab_.setEnabled(!automation);samplerTab_.setEnabled(!sampler);
+        if(piano||step)syncPatternEditors();if(automation&&automationAssist_)automationAssist_->refresh();if(sampler)syncSamplerSample();
     }
     void refreshPatternChoice(){
         const int previous=patternChoice_.getSelectedId();patternChoice_.clear(juce::dontSendNotification);int id=1;
@@ -182,6 +187,14 @@ private:
         auto&track=project_.tracks[static_cast<std::size_t>(trackIndex)];if(!track.externalInstrumentEnabled){status_.setText("Selected track has no external instrument",juce::dontSendNotification);return;}
         Project before=project_;const auto name=track.externalInstrument.name;track.externalInstrumentEnabled=false;track.externalInstrument=PluginInstance{};undo_.commit(std::move(before),project_,"Clear external instrument");publishEdit("Cleared instrument "+juce::String(name));
     }
+    void addSelectedEffect(bool master){
+        const int pluginIndex=pluginChoice_.getSelectedId()-1;if(pluginIndex<0||pluginIndex>=static_cast<int>(plugins_.size())){status_.setText("Scan and select an effect first",juce::dontSendNotification);return;}
+        const auto&descriptor=plugins_[static_cast<std::size_t>(pluginIndex)];if(descriptor.instrument){status_.setText("Selected plugin is an instrument, not an effect insert",juce::dontSendNotification);return;}
+        if(!master&&selectedTrackIndex()<0){status_.setText("Select a track first",juce::dontSendNotification);return;}
+        PluginInstance instance;instance.format=descriptor.format;instance.identifier=descriptor.identifier;instance.name=descriptor.name;instance.enabled=true;instance.bypass=false;instance.wet=1.0f;
+        Project before=project_;if(master)project_.master.plugins.push_back(instance);else project_.tracks[static_cast<std::size_t>(selectedTrackIndex())].mixer.plugins.push_back(instance);
+        undo_.commit(std::move(before),project_,master?"Add master insert":"Add track insert");publishEdit((master?"Master FX: ":"Track FX: ")+juce::String(descriptor.name));
+    }
     void undoEdit(){if(!undo_.undo(project_)){status_.setText("Nothing to undo",juce::dontSendNotification);return;}publishEdit("Undo");}
     void redoEdit(){if(!undo_.redo(project_)){status_.setText("Nothing to redo",juce::dontSendNotification);return;}publishEdit("Redo");}
     void writeProject(std::filesystem::path path){
@@ -211,7 +224,7 @@ private:
     }
     void saveSafety(){try{safety_.save(safetyPath_);}catch(...){} }
     void saveDeviceSettings(){auto s=deviceManager_.getAudioDeviceSetup();settings_.audio.preferredSampleRate=s.sampleRate>0?static_cast<int>(s.sampleRate):48000;settings_.audio.bufferSize=sanitizeBufferSize(static_cast<unsigned long>(std::max(1,s.bufferSize)));settings_.audio.inputDevice=s.inputDeviceName.toStdString();settings_.audio.outputDevice=s.outputDeviceName.toStdString();try{saveAppSettings(settings_,settingsPath_);}catch(...){} }
-    AppSettings settings_;PluginSafetyRegistry safety_;std::filesystem::path settingsPath_,safetyPath_,projectPath_;Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::unique_ptr<juceui::ArrangementComponent> arrangement_;std::unique_ptr<juceui::PianoRollComponent> piano_;std::unique_ptr<juceui::SamplerComponent> sampler_;std::unique_ptr<juceui::StepSequencerComponent> sequencer_;EditorMode editorMode_=EditorMode::Arrangement;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juce::Label title_,status_,projectLabel_,note_,meterLabel_,bpmLabel_,mixerVolumeLabel_,mixerPanLabel_,trackMeterLabel_;int settingsSaveTicks_=0;bool suppressMixerCallbacks_=false,mixerGestureActive_=false;Project mixerBefore_;juce::TextButton loadProject_,saveProject_,play_,stop_,bpmMinus_,bpmPlus_,undoButton_,redoButton_,scan_,openEditor_,setInstrument_,clearInstrument_,muteTrack_,soloTrack_,arrangementTab_,pianoTab_,sequencerTab_,samplerTab_,bankPrev_,bankNext_;juce::ComboBox pluginChoice_,trackChoice_,patternChoice_,sampleChoice_;juce::Slider mixerVolume_,mixerPan_;juceui::StereoMeterComponent trackMeter_;
+    AppSettings settings_;PluginSafetyRegistry safety_;std::filesystem::path settingsPath_,safetyPath_,projectPath_;Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::unique_ptr<juceui::ArrangementComponent> arrangement_;std::unique_ptr<juceui::PianoRollComponent> piano_;std::unique_ptr<juceui::SamplerComponent> sampler_;std::unique_ptr<juceui::StepSequencerComponent> sequencer_;std::unique_ptr<juceui::AutomationAssistComponent> automationAssist_;EditorMode editorMode_=EditorMode::Arrangement;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juce::Label title_,status_,projectLabel_,note_,meterLabel_,bpmLabel_,mixerVolumeLabel_,mixerPanLabel_,trackMeterLabel_;int settingsSaveTicks_=0;bool suppressMixerCallbacks_=false,mixerGestureActive_=false;Project mixerBefore_;juce::TextButton loadProject_,saveProject_,play_,stop_,bpmMinus_,bpmPlus_,undoButton_,redoButton_,scan_,openEditor_,setInstrument_,clearInstrument_,addTrackFx_,addMasterFx_,muteTrack_,soloTrack_,arrangementTab_,pianoTab_,sequencerTab_,automationTab_,samplerTab_,bankPrev_,bankNext_;juce::ComboBox pluginChoice_,trackChoice_,patternChoice_,sampleChoice_;juce::Slider mixerVolume_,mixerPan_;juceui::StereoMeterComponent trackMeter_;
 };
 
 class MainWindow final:public juce::DocumentWindow{
