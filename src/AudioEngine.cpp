@@ -258,11 +258,45 @@ int AudioEngine::process(const float*in,float*out,unsigned long frames){
 }
 int AudioEngine::paCallback(const void*input,void*output,unsigned long frames,const void*,unsigned long,void*user){return static_cast<AudioEngine*>(user)->process(static_cast<const float*>(input),static_cast<float*>(output),frames);}
 
-AudioBuffer AudioEngine::renderOffline(SampleIndex frames)const{
-    AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,frames)*2),0.0f);GraphReadScope graphRead(graphReaders_);auto*g=current_.load(std::memory_order_seq_cst);if(!g)return out;
-    auto automationAt=[&](int idx,Tick tick,float fallback){return idx>=0&&idx<static_cast<int>(g->automation.size())?automationValueAt(g->automation[static_cast<std::size_t>(idx)],tick,fallback):fallback;};
-    for(auto const&c:g->clips){const SampleIndex start=std::max<SampleIndex>(0,c.start);if(start>=frames||!c.audio)continue;const SampleIndex localOffset=std::max<SampleIndex>(0,-c.start);const double ratio=static_cast<double>(c.audio->sampleRate)/sampleRate_;const int ch=c.audio->channels;for(SampleIndex i=start;i<frames;++i){const SampleIndex rel=localOffset+(i-start);const double srcPos=static_cast<double>(c.sourceStart)+static_cast<double>(rel)*ratio;if(srcPos>=static_cast<double>(c.sourceStart+c.length)||srcPos>=static_cast<double>(c.audio->frames()-1))break;const Tick tick=MusicalTime::samplesToTicks(i,g->bpm,sampleRate_);const float gain=c.gain*automationAt(c.trackVolumeAutomation,tick,c.trackVolume)*automationAt(c.busVolumeAutomation,tick,c.busVolume)*automationAt(c.sendAutomation,tick,c.sendGain)*automationAt(g->masterVolumeAutomation,tick,g->master)*g->masterEffectGain;const float pan=std::clamp(c.pan+automationAt(c.trackPanAutomation,tick,c.trackPan)+automationAt(c.busPanAutomation,tick,c.busPan),-1.0f,1.0f);const float lp=std::sqrt((1.0f-pan)*0.5f),rp=std::sqrt((1.0f+pan)*0.5f);const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);auto get=[&](SampleIndex idx,int cc){return c.audio->interleaved[static_cast<std::size_t>(idx*ch+std::min(cc,ch-1))];};const float sl=get(i0,0)+(get(i1,0)-get(i0,0))*frac,sr=ch>1?get(i0,1)+(get(i1,1)-get(i0,1))*frac:sl;out.interleaved[static_cast<std::size_t>(i*2)]+=sl*gain*lp;out.interleaved[static_cast<std::size_t>(i*2+1)]+=sr*gain*rp;}}
-    for(SampleIndex i=0;i<out.frames();++i){float&l=out.interleaved[static_cast<std::size_t>(i*2)],&r=out.interleaved[static_cast<std::size_t>(i*2+1)];for(auto const&pl:g->masterPlugins)processRealtimeBuiltinSample(pl,l,r);l=std::clamp(l,-1.0f,1.0f);r=std::clamp(r,-1.0f,1.0f);}return out;
+AudioBuffer AudioEngine::renderOffline(SampleIndex frames){
+    AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,frames)*2),0.0f);if(frames<=0)return out;
+
+    // Export is intentionally serialized against graph publication so every
+    // block sees one immutable prepared graph. Production export creates a
+    // dedicated AudioEngine, so this never blocks the device callback.
+    std::unique_lock publishLock(publishMutex_);
+    auto*g=current_.load(std::memory_order_seq_cst);if(!g)return out;
+
+    auto resetGraph=[&]{
+        g->masterRuntime.reset();
+        for(auto&track:g->realtimeTracks){
+            track.runtime.reset();track.outputDelay.reset();
+            for(auto&send:track.sends)send.delay.reset();
+        }
+        for(auto&bus:g->realtimeBuses){bus.runtime.reset();bus.masterDelay.reset();}
+    };
+
+    resetGraph();
+    const bool previousPlaying=playing_.load(std::memory_order_acquire);
+    const SampleIndex previousPlayhead=playhead_.load(std::memory_order_relaxed);
+    playhead_.store(0,std::memory_order_release);playing_.store(true,std::memory_order_release);
+
+    const unsigned long requested=framesPerBuffer_>0?framesPerBuffer_:512UL;
+    const unsigned long blockFrames=std::max<unsigned long>(1UL,std::min<unsigned long>(requested,static_cast<unsigned long>(kMaxRealtimeRouteFrames)));
+    std::vector<float> scratch(static_cast<std::size_t>(blockFrames)*2U,0.0f);
+    SampleIndex offset=0;
+    while(offset<frames){
+        const auto remaining=frames-offset;
+        const unsigned long count=static_cast<unsigned long>(std::min<SampleIndex>(remaining,static_cast<SampleIndex>(blockFrames)));
+        process(nullptr,scratch.data(),count);
+        std::copy_n(scratch.data(),static_cast<std::size_t>(count)*2U,out.interleaved.data()+static_cast<std::size_t>(offset)*2U);
+        offset+=static_cast<SampleIndex>(count);
+    }
+
+    playing_.store(previousPlaying,std::memory_order_release);
+    playhead_.store(previousPlayhead,std::memory_order_release);
+    resetGraph();
+    return out;
 }
 AudioBuffer AudioEngine::renderDeviceBlockForTest(SampleIndex frames){AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,frames)*2),0.0f);if(frames>0)process(nullptr,out.interleaved.data(),static_cast<unsigned long>(frames));return out;}
 AudioBuffer AudioEngine::processInputBlockForTest(const AudioBuffer&monoInput){AudioBuffer out;out.sampleRate=sampleRate_;out.channels=2;out.interleaved.assign(static_cast<std::size_t>(std::max<SampleIndex>(0,monoInput.frames())*2),0.0f);if(monoInput.channels!=1||monoInput.frames()<=0)return out;process(monoInput.interleaved.data(),out.interleaved.data(),static_cast<unsigned long>(monoInput.frames()));return out;}
