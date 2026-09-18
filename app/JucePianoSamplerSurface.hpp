@@ -1,6 +1,7 @@
 #pragma once
 #include "flowdaw/AudioEngine.hpp"
 #include "flowdaw/Midi.hpp"
+#include "flowdaw/NativeInstruments.hpp"
 #include "flowdaw/Project.hpp"
 #include "flowdaw/SampleEditing.hpp"
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -8,6 +9,7 @@
 #include <cmath>
 #include <cctype>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -17,105 +19,101 @@ class PianoRollComponent final:public juce::Component {
 public:
     using CommitFn=std::function<void(Project,std::string)>;
 
-    PianoRollComponent(Project&project,CommitFn commit):project_(project),commit_(std::move(commit)){
+    PianoRollComponent(Project&project,AudioEngine&engine,CommitFn commit):project_(project),engine_(engine),commit_(std::move(commit)){
         setWantsKeyboardFocus(true);
+        gridChoice_.addItem("1/8",1);gridChoice_.addItem("1/16",2);gridChoice_.addItem("1/32",3);gridChoice_.onChange=[this]{changeGrid();};addAndMakeVisible(gridChoice_);
+        static const char*roots[]={"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};for(int i=0;i<12;++i)rootChoice_.addItem(roots[i],i+1);rootChoice_.onChange=[this]{changeRoot();};addAndMakeVisible(rootChoice_);
+        scaleChoice_.addItem("Major",1);scaleChoice_.addItem("Minor",2);scaleChoice_.addItem("Major Pentatonic",3);scaleChoice_.addItem("Minor Pentatonic",4);scaleChoice_.onChange=[this]{changeScale();};addAndMakeVisible(scaleChoice_);
+        instrumentChoice_.addItem("FLOW Keys",1);instrumentChoice_.addItem("FLOW 808",2);instrumentChoice_.addItem("FLOW Bass",3);instrumentChoice_.addItem("FLOW Lead",4);instrumentChoice_.onChange=[this]{changeInstrument();};addAndMakeVisible(instrumentChoice_);
+        octaveDown_.setButtonText("Oct -");octaveDown_.onClick=[this]{previewBasePitch_=std::max(12,previewBasePitch_-12);repaint();};addAndMakeVisible(octaveDown_);
+        octaveUp_.setButtonText("Oct +");octaveUp_.onClick=[this]{previewBasePitch_=std::min(108,previewBasePitch_+12);repaint();};addAndMakeVisible(octaveUp_);
+        configureSlider(velocity_,0.05,1.5,0.01," vel");configureSlider(length_,kPPQ/8,kPPQ*4,kPPQ/8," len");
+        configureSlider(instGain_,0.0,2.0,0.01," gain");configureSlider(instPan_,-1.0,1.0,0.01," pan");configureSlider(instTone_,0.0,1.0,0.01," tone");
+        configureSlider(instAttack_,0.0,500.0,1.0," atk");configureSlider(instRelease_,10.0,3000.0,5.0," rel");configureSlider(instDrive_,0.0,1.0,0.01," drive");configureSlider(instDelayMix_,0.0,1.0,0.01," dly");configureSlider(instDelayTicks_,0.0,kPPQ*4,kPPQ/8," dt");
     }
 
-    void setPatternId(Id id){patternId_=id;selectedNoteId_=0;dragging_=false;repaint();}
+    void setPatternId(Id id){if(patternId_==id){syncControls();repaint();return;}patternId_=id;selectedNoteId_=0;dragging_=false;syncControls();repaint();}
     Id patternId()const{return patternId_;}
 
     void paint(juce::Graphics&g)override{
-        g.fillAll(juce::Colour(0xff0f1115));
-        auto*p=pattern();
+        g.fillAll(juce::Colour(0xff0f1115));auto*p=pattern();
         if(!p){g.setColour(juce::Colour(0xff9aa0ad));g.drawText("Select a MIDI pattern",getLocalBounds(),juce::Justification::centred);return;}
-        const auto grid=gridBounds();const Tick total=visibleTicks(*p);
-        g.setColour(juce::Colour(0xff171a20));g.fillRect(grid);
-
+        const auto grid=gridBounds();const Tick total=visibleTicks(*p);g.setColour(juce::Colour(0xff171a20));g.fillRect(grid);
         for(int row=0;row<kRows;++row){
-            const int pitch=kHighPitch-row;const int y=grid.getY()+row*grid.getHeight()/kRows;const int y2=grid.getY()+(row+1)*grid.getHeight()/kRows;
-            const bool inScale=pitchInScale(pitch,p->scaleRoot,p->scaleType);
-            g.setColour(inScale?juce::Colour(0xff1d2424):juce::Colour(0xff181a20));g.fillRect(grid.getX(),y,grid.getWidth(),std::max(1,y2-y-1));
-            g.setColour(juce::Colour(0xff2a2d34));g.drawHorizontalLine(y,static_cast<float>(grid.getX()),static_cast<float>(grid.getRight()));
-            if((pitch%12)==0){g.setColour(juce::Colour(0xffdfe2e8));g.setFont(10.5f);g.drawFittedText(midiNoteName(pitch),4,y,kKeyboardWidth-8,std::max(1,y2-y),juce::Justification::centredLeft,1);}
+            const int pitch=highPitch()-row;const int y=grid.getY()+row*grid.getHeight()/kRows;const int y2=grid.getY()+(row+1)*grid.getHeight()/kRows;const bool root=(pitch%12+12)%12==p->scaleRoot;const bool inScale=pitchInScale(pitch,p->scaleRoot,p->scaleType);
+            g.setColour(root?juce::Colour(0xff253033):(inScale?juce::Colour(0xff1d2424):juce::Colour(0xff181a20)));g.fillRect(grid.getX(),y,grid.getWidth(),std::max(1,y2-y-1));g.setColour(juce::Colour(0xff2a2d34));g.drawHorizontalLine(y,static_cast<float>(grid.getX()),static_cast<float>(grid.getRight()));if((pitch%12)==0){g.setColour(juce::Colour(0xffdfe2e8));g.setFont(10.0f);g.drawFittedText(midiNoteName(pitch),4,y,kKeyboardWidth-8,std::max(1,y2-y),juce::Justification::centredLeft,1);}
         }
+        const Tick step=std::max<Tick>(1,p->midiGridTicks);for(Tick tick=0;tick<=total;tick+=step){const int x=xForTick(tick,total);const bool beat=(tick%kPPQ)==0;g.setColour(beat?juce::Colour(0xff414650):juce::Colour(0xff292d35));g.drawVerticalLine(x,static_cast<float>(grid.getY()),static_cast<float>(grid.getBottom()));}
+        for(auto const&note:p->midiNotes){auto r=noteRect(note,*p);const bool selected=note.id==selectedNoteId_;g.setColour(selected?juce::Colour(0xff8e78ff):juce::Colour(0xff6550dc));g.fillRoundedRectangle(r,3.0f);g.setColour(juce::Colours::white.withAlpha(0.9f));g.setFont(9.5f);g.drawFittedText(midiNoteName(note.pitch),r.toNearestInt().reduced(3,0),juce::Justification::centredLeft,1);if(selected){g.setColour(juce::Colour(0xffffc06a));g.drawRoundedRectangle(r,3.0f,1.5f);}}
+        g.setColour(juce::Colour(0xffaeb4c0));g.setFont(10.5f);g.drawText(juce::String(p->name)+" • "+juce::String(p->scaleType)+" • "+gridLabel(step)+" • preview "+midiNoteName(previewBasePitch_),kKeyboardWidth,2,std::max(1,getWidth()-kKeyboardWidth),18,juce::Justification::centredLeft,false);
+        g.drawText("A W S E D F T G Y H U J preview • Arrows nudge • Shift+Up/Down velocity • [ ] octave • Delete remove",4,getHeight()-18,getWidth()-8,16,juce::Justification::centredLeft,false);
+    }
 
-        const Tick step=std::max<Tick>(1,p->midiGridTicks);
-        for(Tick tick=0;tick<=total;tick+=step){
-            const int x=xForTick(tick,total);const bool beat=(tick%kPPQ)==0;
-            g.setColour(beat?juce::Colour(0xff414650):juce::Colour(0xff292d35));g.drawVerticalLine(x,static_cast<float>(grid.getY()),static_cast<float>(grid.getBottom()));
-        }
-
-        for(auto const&note:p->midiNotes){
-            auto r=noteRect(note,*p);const bool selected=note.id==selectedNoteId_;
-            g.setColour(selected?juce::Colour(0xff8e78ff):juce::Colour(0xff6550dc));g.fillRoundedRectangle(r,3.0f);
-            g.setColour(juce::Colours::white.withAlpha(0.9f));g.setFont(10.0f);g.drawFittedText(midiNoteName(note.pitch),r.toNearestInt().reduced(4,0),juce::Justification::centredLeft,1);
-            if(selected){g.setColour(juce::Colour(0xffffc06a));g.drawRoundedRectangle(r,3.0f,1.5f);}
-        }
-
-        g.setColour(juce::Colour(0xffaeb4c0));g.setFont(11.0f);
-        g.drawText(juce::String(p->name)+"  •  "+juce::String(p->scaleType)+"  •  grid "+gridLabel(step),kKeyboardWidth,2,std::max(1,getWidth()-kKeyboardWidth),18,juce::Justification::centredLeft,false);
-        g.drawText("Click empty: add • Drag: move • Drag right edge: resize • Delete: remove",4,getHeight()-18,getWidth()-8,16,juce::Justification::centredLeft,false);
+    void resized()override{
+        auto r=getLocalBounds().reduced(4);r.removeFromTop(20);auto selectors=r.removeFromTop(28);gridChoice_.setBounds(selectors.removeFromLeft(78).reduced(2));rootChoice_.setBounds(selectors.removeFromLeft(70).reduced(2));scaleChoice_.setBounds(selectors.removeFromLeft(145).reduced(2));instrumentChoice_.setBounds(selectors.removeFromLeft(125).reduced(2));octaveDown_.setBounds(selectors.removeFromLeft(62).reduced(2));octaveUp_.setBounds(selectors.removeFromLeft(62).reduced(2));
+        auto row1=r.removeFromTop(28);layoutSlider(row1,velocity_,118);layoutSlider(row1,length_,130);layoutSlider(row1,instGain_,118);layoutSlider(row1,instPan_,118);layoutSlider(row1,instTone_,118);
+        auto row2=r.removeFromTop(28);layoutSlider(row2,instAttack_,118);layoutSlider(row2,instRelease_,128);layoutSlider(row2,instDrive_,118);layoutSlider(row2,instDelayMix_,118);layoutSlider(row2,instDelayTicks_,130);
     }
 
     void mouseDown(const juce::MouseEvent&e)override{
-        grabKeyboardFocus();auto*p=pattern();if(!p||!gridBounds().contains(e.getPosition()))return;
-        const Id hit=noteAt(e.position,*p);
-        if(hit==0){
-            Project before=project_;MidiNote note;note.startTick=tickAtX(e.x,*p);note.lengthTicks=std::max<Tick>(1,p->midiDefaultLengthTicks);note.pitch=pitchAtY(e.y);note.velocity=0.9f;p->midiNotes.push_back(note);selectedNoteId_=note.id;
-            if(commit_)commit_(std::move(before),"Add MIDI note");repaint();return;
-        }
-        selectedNoteId_=hit;auto*note=selectedNote();if(!note)return;
-        before_=project_;dragging_=true;dragStartX_=e.x;dragStartY_=e.y;originalStart_=note->startTick;originalLength_=note->lengthTicks;originalPitch_=note->pitch;
-        const auto r=noteRect(*note,*p);resizing_=e.position.x>=r.getRight()-7.0f;repaint();
+        grabKeyboardFocus();auto*p=pattern();if(!p||!gridBounds().contains(e.getPosition()))return;const Id hit=noteAt(e.position,*p);
+        if(hit!=0&&e.mods.isRightButtonDown()){selectedNoteId_=hit;deleteSelected();return;}
+        if(hit==0){Project before=project_;MidiNote note;note.startTick=tickAtX(e.x,*p);note.lengthTicks=std::max<Tick>(1,p->midiDefaultLengthTicks);note.pitch=pitchAtY(e.y);note.velocity=0.9f;p->midiNotes.push_back(note);selectedNoteId_=note.id;if(commit_)commit_(std::move(before),"Add MIDI note");syncControls();previewPitch(note.pitch);repaint();return;}
+        selectedNoteId_=hit;auto*note=selectedNote();if(!note)return;before_=project_;dragging_=true;dragStartX_=e.x;dragStartY_=e.y;originalStart_=note->startTick;originalLength_=note->lengthTicks;originalPitch_=note->pitch;const auto nr=noteRect(*note,*p);resizing_=e.position.x>=nr.getRight()-7.0f;syncControls();repaint();
     }
 
     void mouseDrag(const juce::MouseEvent&e)override{
-        if(!dragging_)return;auto*p=pattern();auto*note=selectedNote();if(!p||!note)return;
-        const Tick total=visibleTicks(*p);const int width=std::max(1,gridBounds().getWidth());
-        const Tick deltaRaw=static_cast<Tick>(std::llround(static_cast<double>(e.x-dragStartX_)*static_cast<double>(total)/width));
-        const Tick grid=std::max<Tick>(1,p->midiGridTicks);
-        const Tick delta=static_cast<Tick>(std::llround(static_cast<double>(deltaRaw)/grid))*grid;
-        if(resizing_)note->lengthTicks=std::max<Tick>(grid,originalLength_+delta);
-        else{
-            note->startTick=std::max<Tick>(0,originalStart_+delta);
-            const int rowHeight=std::max(1,gridBounds().getHeight()/kRows);const int pitchDelta=-(e.y-dragStartY_)/rowHeight;
-            note->pitch=std::clamp(originalPitch_+pitchDelta,kLowPitch,kHighPitch);
-        }
-        repaint();
+        if(!dragging_)return;auto*p=pattern();auto*note=selectedNote();if(!p||!note)return;const Tick total=visibleTicks(*p);const int width=std::max(1,gridBounds().getWidth());const Tick deltaRaw=static_cast<Tick>(std::llround(static_cast<double>(e.x-dragStartX_)*static_cast<double>(total)/width));const Tick grid=std::max<Tick>(1,p->midiGridTicks);const Tick delta=static_cast<Tick>(std::llround(static_cast<double>(deltaRaw)/grid))*grid;
+        if(resizing_)note->lengthTicks=std::max<Tick>(grid/2,originalLength_+delta);else{note->startTick=snapMidiTick(std::max<Tick>(0,originalStart_+delta),grid);const int rowHeight=std::max(1,gridBounds().getHeight()/kRows);const int pitchDelta=-(e.y-dragStartY_)/rowHeight;note->pitch=std::clamp(originalPitch_+pitchDelta,0,127);}syncControls();repaint();
     }
 
     void mouseUp(const juce::MouseEvent&)override{
-        if(!dragging_)return;dragging_=false;auto*note=selectedNote();bool changed=false;
-        if(note)changed=note->startTick!=originalStart_||note->lengthTicks!=originalLength_||note->pitch!=originalPitch_;
-        if(changed&&commit_)commit_(std::move(before_),resizing_?"Resize MIDI note":"Move MIDI note");resizing_=false;repaint();
+        if(!dragging_)return;dragging_=false;auto*note=selectedNote();bool changed=false;if(note)changed=note->startTick!=originalStart_||note->lengthTicks!=originalLength_||note->pitch!=originalPitch_;if(changed&&commit_)commit_(std::move(before_),resizing_?"Resize MIDI note":"Move MIDI note");resizing_=false;syncControls();repaint();
     }
 
     bool keyPressed(const juce::KeyPress&key)override{
-        if(key!=juce::KeyPress::deleteKey&&key!=juce::KeyPress::backspaceKey)return false;
-        auto*p=pattern();if(!p||selectedNoteId_==0)return false;
-        auto it=std::find_if(p->midiNotes.begin(),p->midiNotes.end(),[&](auto const&n){return n.id==selectedNoteId_;});if(it==p->midiNotes.end())return false;
-        Project before=project_;p->midiNotes.erase(it);selectedNoteId_=0;if(commit_)commit_(std::move(before),"Delete MIDI note");repaint();return true;
+        auto*p=pattern();if(!p)return false;const auto mods=key.getModifiers();
+        if(key==juce::KeyPress::deleteKey||key==juce::KeyPress::backspaceKey)return deleteSelected();
+        if(key.getKeyCode()==juce::KeyPress::leftKey)return nudgeSelected(-std::max<Tick>(1,p->midiGridTicks),0);
+        if(key.getKeyCode()==juce::KeyPress::rightKey)return nudgeSelected(std::max<Tick>(1,p->midiGridTicks),0);
+        if(key.getKeyCode()==juce::KeyPress::upKey)return mods.isShiftDown()?adjustSelectedNote(0.05f,0):nudgeSelected(0,1);
+        if(key.getKeyCode()==juce::KeyPress::downKey)return mods.isShiftDown()?adjustSelectedNote(-0.05f,0):nudgeSelected(0,-1);
+        const auto ch=static_cast<char>(std::tolower(static_cast<unsigned char>(key.getTextCharacter())));if(ch=='['){previewBasePitch_=std::max(12,previewBasePitch_-12);repaint();return true;}if(ch==']'){previewBasePitch_=std::min(108,previewBasePitch_+12);repaint();return true;}
+        const std::string keys="awsedftgyhuj";const auto pos=keys.find(ch);if(pos!=std::string::npos){static const int semis[]={0,1,2,3,4,5,6,7,8,9,10,11};previewPitch(std::clamp(previewBasePitch_+semis[pos],0,127));return true;}return false;
     }
 
 private:
-    static constexpr int kKeyboardWidth=64,kHeader=22,kFooter=20,kLowPitch=36,kHighPitch=83,kRows=kHighPitch-kLowPitch+1;
-
-    Pattern*pattern(){return project_.findPattern(patternId_);}
-    const Pattern*pattern()const{return project_.findPattern(patternId_);}
+    static constexpr int kKeyboardWidth=64,kHeader=104,kFooter=20,kRows=48;
+    Pattern*pattern(){return project_.findPattern(patternId_);}const Pattern*pattern()const{return project_.findPattern(patternId_);}
     MidiNote*selectedNote(){auto*p=pattern();if(!p)return nullptr;for(auto&n:p->midiNotes)if(n.id==selectedNoteId_)return &n;return nullptr;}
+    const MidiNote*selectedNote()const{auto*p=pattern();if(!p)return nullptr;for(auto const&n:p->midiNotes)if(n.id==selectedNoteId_)return &n;return nullptr;}
+    int lowPitch()const{return std::clamp(previewBasePitch_-24,0,127-kRows+1);}int highPitch()const{return lowPitch()+kRows-1;}
     juce::Rectangle<int>gridBounds()const{return{kKeyboardWidth,kHeader,std::max(1,getWidth()-kKeyboardWidth),std::max(1,getHeight()-kHeader-kFooter)};}
     static Tick visibleTicks(const Pattern&p){return std::max<Tick>(p.lengthTicks(),kPPQ*4);}
     int xForTick(Tick tick,Tick total)const{auto r=gridBounds();return r.getX()+static_cast<int>(std::llround(static_cast<double>(tick)/std::max<Tick>(1,total)*r.getWidth()));}
     Tick tickAtX(int x,const Pattern&p)const{auto r=gridBounds();const double u=std::clamp(static_cast<double>(x-r.getX())/std::max(1,r.getWidth()),0.0,1.0);return snapMidiTick(static_cast<Tick>(std::llround(u*visibleTicks(p))),std::max<Tick>(1,p.midiGridTicks));}
-    int pitchAtY(int y)const{auto r=gridBounds();const double u=std::clamp(static_cast<double>(y-r.getY())/std::max(1,r.getHeight()),0.0,0.999999);return std::clamp(kHighPitch-static_cast<int>(u*kRows),kLowPitch,kHighPitch);}
-    juce::Rectangle<float>noteRect(const MidiNote&n,const Pattern&p)const{
-        auto r=gridBounds();const Tick total=visibleTicks(p);const int row=kHighPitch-std::clamp(n.pitch,kLowPitch,kHighPitch);const int y=r.getY()+row*r.getHeight()/kRows;const int y2=r.getY()+(row+1)*r.getHeight()/kRows;const int x=xForTick(n.startTick,total);const int x2=xForTick(n.startTick+std::max<Tick>(1,n.lengthTicks),total);
-        return{static_cast<float>(x+1),static_cast<float>(y+1),static_cast<float>(std::max(5,x2-x-2)),static_cast<float>(std::max(5,y2-y-2))};
-    }
-    Id noteAt(juce::Point<float>point,const Pattern&p)const{for(auto it=p.midiNotes.rbegin();it!=p.midiNotes.rend();++it)if(noteRect(*it,p).contains(point))return it->id;return 0;}
+    int pitchAtY(int y)const{auto r=gridBounds();const double u=std::clamp(static_cast<double>(y-r.getY())/std::max(1,r.getHeight()),0.0,0.999999);return std::clamp(highPitch()-static_cast<int>(u*kRows),0,127);}
+    juce::Rectangle<float>noteRect(const MidiNote&n,const Pattern&p)const{auto r=gridBounds();const Tick total=visibleTicks(p);const int row=highPitch()-std::clamp(n.pitch,lowPitch(),highPitch());const int y=r.getY()+row*r.getHeight()/kRows;const int y2=r.getY()+(row+1)*r.getHeight()/kRows;const int x=xForTick(n.startTick,total);const int x2=xForTick(n.startTick+std::max<Tick>(1,n.lengthTicks),total);return{static_cast<float>(x+1),static_cast<float>(y+1),static_cast<float>(std::max(5,x2-x-2)),static_cast<float>(std::max(4,y2-y-2))};}
+    Id noteAt(juce::Point<float>point,const Pattern&p)const{for(auto it=p.midiNotes.rbegin();it!=p.midiNotes.rend();++it)if(it->pitch>=lowPitch()&&it->pitch<=highPitch()&&noteRect(*it,p).contains(point))return it->id;return 0;}
     static juce::String gridLabel(Tick grid){if(grid==kPPQ/2)return"1/8";if(grid==kPPQ/4)return"1/16";if(grid==kPPQ/8)return"1/32";return juce::String(static_cast<int>(grid));}
+    static void layoutSlider(juce::Rectangle<int>&row,juce::Slider&slider,int width){slider.setBounds(row.removeFromLeft(width).reduced(1));row.removeFromLeft(3);}
+    void configureSlider(juce::Slider&slider,double min,double max,double step,const juce::String&suffix){slider.setRange(min,max,step);slider.setSliderStyle(juce::Slider::LinearHorizontal);slider.setTextBoxStyle(juce::Slider::TextBoxRight,false,66,20);slider.setTextValueSuffix(suffix);slider.onDragStart=[this]{beginControlGesture();};slider.onValueChange=[this]{applyControlValues();};slider.onDragEnd=[this]{endControlGesture();};addAndMakeVisible(slider);}
+    void beginControlGesture(){if(suppressControls_||controlGesture_)return;controlBefore_=project_;controlGesture_=true;}
+    void applyControlValues(){if(suppressControls_)return;auto*p=pattern();if(!p)return;if(!controlGesture_)beginControlGesture();if(auto*n=selectedNote()){n->velocity=static_cast<float>(velocity_.getValue());n->lengthTicks=std::max<Tick>(1,static_cast<Tick>(std::llround(length_.getValue())));}auto&i=p->instrument;i.gain=static_cast<float>(instGain_.getValue());i.pan=static_cast<float>(instPan_.getValue());i.tone=static_cast<float>(instTone_.getValue());i.attackMs=static_cast<float>(instAttack_.getValue());i.releaseMs=static_cast<float>(instRelease_.getValue());i.drive=static_cast<float>(instDrive_.getValue());i.delayMix=static_cast<float>(instDelayMix_.getValue());i.delayTicks=static_cast<Tick>(std::llround(instDelayTicks_.getValue()));repaint();}
+    void endControlGesture(){if(!controlGesture_)return;controlGesture_=false;if(commit_)commit_(std::move(controlBefore_),"Edit Piano Roll controls");syncControls();repaint();}
+    void syncControls(){suppressControls_=true;auto*p=pattern();auto*n=selectedNote();velocity_.setValue(n?n->velocity:0.9,juce::dontSendNotification);length_.setValue(n?n->lengthTicks:(p?p->midiDefaultLengthTicks:kPPQ/2),juce::dontSendNotification);if(p){gridChoice_.setSelectedId(p->midiGridTicks==kPPQ/2?1:(p->midiGridTicks==kPPQ/4?2:3),juce::dontSendNotification);rootChoice_.setSelectedId(std::clamp(p->scaleRoot,0,11)+1,juce::dontSendNotification);int scale=2;if(p->scaleType=="major")scale=1;else if(p->scaleType=="major_pentatonic")scale=3;else if(p->scaleType=="minor_pentatonic")scale=4;scaleChoice_.setSelectedId(scale,juce::dontSendNotification);int inst=1;if(p->instrument.type=="flow_808")inst=2;else if(p->instrument.type=="flow_bass")inst=3;else if(p->instrument.type=="flow_lead")inst=4;instrumentChoice_.setSelectedId(inst,juce::dontSendNotification);const auto&i=p->instrument;instGain_.setValue(i.gain,juce::dontSendNotification);instPan_.setValue(i.pan,juce::dontSendNotification);instTone_.setValue(i.tone,juce::dontSendNotification);instAttack_.setValue(i.attackMs,juce::dontSendNotification);instRelease_.setValue(i.releaseMs,juce::dontSendNotification);instDrive_.setValue(i.drive,juce::dontSendNotification);instDelayMix_.setValue(i.delayMix,juce::dontSendNotification);instDelayTicks_.setValue(i.delayTicks,juce::dontSendNotification);}suppressControls_=false;}
+    void changeGrid(){if(suppressControls_)return;auto*p=pattern();if(!p)return;Project before=project_;const int id=gridChoice_.getSelectedId();p->midiGridTicks=id==1?kPPQ/2:(id==2?kPPQ/4:kPPQ/8);if(commit_)commit_(std::move(before),"Change MIDI grid");repaint();}
+    void changeRoot(){if(suppressControls_)return;auto*p=pattern();if(!p||rootChoice_.getSelectedId()<=0)return;Project before=project_;p->scaleRoot=rootChoice_.getSelectedId()-1;if(commit_)commit_(std::move(before),"Change scale root");repaint();}
+    void changeScale(){if(suppressControls_)return;auto*p=pattern();if(!p)return;static const char*types[]={"major","minor","major_pentatonic","minor_pentatonic"};const int index=std::clamp(scaleChoice_.getSelectedId()-1,0,3);Project before=project_;p->scaleType=types[index];if(commit_)commit_(std::move(before),"Change scale");repaint();}
+    void changeInstrument(){if(suppressControls_)return;auto*p=pattern();if(!p)return;static const char*types[]={"flow_keys","flow_808","flow_bass","flow_lead"};const int index=std::clamp(instrumentChoice_.getSelectedId()-1,0,3);Project before=project_;p->instrument.enabled=true;p->instrument.type=types[index];if(commit_)commit_(std::move(before),"Change native instrument");syncControls();repaint();}
+    bool deleteSelected(){auto*p=pattern();if(!p||selectedNoteId_==0)return false;auto it=std::find_if(p->midiNotes.begin(),p->midiNotes.end(),[&](auto const&n){return n.id==selectedNoteId_;});if(it==p->midiNotes.end())return false;Project before=project_;p->midiNotes.erase(it);selectedNoteId_=0;if(commit_)commit_(std::move(before),"Delete MIDI note");syncControls();repaint();return true;}
+    bool adjustSelectedNote(float velocityDelta,Tick lengthDelta){auto*n=selectedNote();auto*p=pattern();if(!n||!p)return false;Project before=project_;n->velocity=std::clamp(n->velocity+velocityDelta,0.05f,1.5f);n->lengthTicks=std::max<Tick>(p->midiGridTicks/2,n->lengthTicks+lengthDelta);if(commit_)commit_(std::move(before),"Edit MIDI note");syncControls();repaint();return true;}
+    bool nudgeSelected(Tick dt,int dp){auto*n=selectedNote();auto*p=pattern();if(!n||!p)return false;Project before=project_;n->startTick=snapMidiTick(std::max<Tick>(0,n->startTick+dt),std::max<Tick>(1,p->midiGridTicks));n->pitch=std::clamp(n->pitch+dp,0,127);const int pitch=n->pitch;if(commit_)commit_(std::move(before),"Nudge MIDI note");previewPitch(pitch);syncControls();repaint();return true;}
+    void previewPitch(int pitch){auto*p=pattern();if(!p)return;InstrumentState state=p->instrument;if(!state.enabled){state.enabled=true;state.type="flow_keys";}const auto frames=std::max<SampleIndex>(256,static_cast<SampleIndex>(engine_.sampleRate()*0.35));auto audio=std::make_shared<AudioBuffer>(renderNativeInstrumentNote(state,pitch,0.9f,frames,engine_.sampleRate(),project_.transport.bpm));engine_.triggerPreview(audio,0,audio->frames(),std::clamp(state.gain,0.0f,2.0f),std::clamp(state.pan,-1.0f,1.0f),0);}
 
-    Project&project_;CommitFn commit_;Id patternId_=0,selectedNoteId_=0;bool dragging_=false,resizing_=false;int dragStartX_=0,dragStartY_=0;Tick originalStart_=0,originalLength_=0;int originalPitch_=60;Project before_;
+    Project&project_;AudioEngine&engine_;CommitFn commit_;Id patternId_=0,selectedNoteId_=0;bool dragging_=false,resizing_=false,suppressControls_=false,controlGesture_=false;int dragStartX_=0,dragStartY_=0;Tick originalStart_=0,originalLength_=0;int originalPitch_=60,previewBasePitch_=60;Project before_,controlBefore_;
+    juce::ComboBox gridChoice_,rootChoice_,scaleChoice_,instrumentChoice_;juce::TextButton octaveDown_,octaveUp_;
+    juce::Slider velocity_,length_,instGain_,instPan_,instTone_,instAttack_,instRelease_,instDrive_,instDelayMix_,instDelayTicks_;
 };
 
 class SamplerComponent final:public juce::Component {
