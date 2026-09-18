@@ -16,6 +16,7 @@ struct RealtimeTrackLatencyInput {
     Id trackId=0;
     int pluginLatencySamples=0;
     Id outputBusId=0;
+    bool outputEnabled=true;
     std::vector<RealtimeSendLatencyInput> sends;
 };
 
@@ -39,6 +40,7 @@ struct RealtimeTrackPdcPlan {
     Id trackId=0;
     int pluginLatencySamples=0;
     Id outputBusId=0;
+    bool outputEnabled=true;
     bool outputsToMaster=true;
     int outputDelaySamples=0;
     std::vector<RealtimeSendPdcPlan> sends;
