@@ -30,6 +30,7 @@ add_library(flowdaw_core
     src/Export.cpp
     src/PluginHost.cpp
     src/RealtimePluginGraph.cpp
+    src/RealtimeRouting.cpp
     src/ProductionAssistant.cpp
     src/Workflow.cpp
     src/AppSettings.cpp
@@ -181,6 +182,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase8_tests tests/test_phase8.cpp)
     target_link_libraries(flowdaw_phase8_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase8_tests COMMAND flowdaw_phase8_tests)
+
+    add_executable(flowdaw_phase8_routing_tests tests/test_phase8_routing.cpp)
+    target_link_libraries(flowdaw_phase8_routing_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase8_routing_tests COMMAND flowdaw_phase8_routing_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
