@@ -20,6 +20,7 @@
 #include <array>
 #include <cmath>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -56,15 +57,28 @@ Project makeStarterProject(){
     return p;
 }
 
-class PluginEditorWindow final:public juce::DocumentWindow{
+std::string pluginStateHex(juce::AudioProcessor&processor){
+    juce::MemoryBlock block;processor.getStateInformation(block);static constexpr char hex[]="0123456789ABCDEF";const auto*bytes=static_cast<const unsigned char*>(block.getData());std::string out(block.getSize()*2,'0');for(std::size_t i=0;i<block.getSize();++i){out[i*2]=hex[bytes[i]>>4];out[i*2+1]=hex[bytes[i]&15];}return out;
+}
+juce::MemoryBlock decodePluginStateHex(const std::string&state){
+    auto nibble=[](char c)->int{if(c>='0'&&c<='9')return c-'0';if(c>='a'&&c<='f')return c-'a'+10;if(c>='A'&&c<='F')return c-'A'+10;return-1;};juce::MemoryBlock block;if(state.empty()||state.size()%2)return block;block.setSize(state.size()/2,false);auto*out=static_cast<unsigned char*>(block.getData());for(std::size_t i=0;i<state.size()/2;++i){const int hi=nibble(state[i*2]),lo=nibble(state[i*2+1]);if(hi<0||lo<0){block.reset();return block;}out[i]=static_cast<unsigned char>((hi<<4)|lo);}return block;
+}
+
+class PluginEditorWindow final:public juce::DocumentWindow,private juce::Timer{
 public:
-    explicit PluginEditorWindow(std::unique_ptr<juce::AudioPluginInstance> p)
-        :DocumentWindow("FLOWDAW Plugin - "+p->getName(),juce::Colours::darkgrey,DocumentWindow::closeButton),plugin_(std::move(p)){
+    using StateFn=std::function<void(const std::string&)>;
+    using CloseFn=std::function<void()>;
+    explicit PluginEditorWindow(std::unique_ptr<juce::AudioPluginInstance> p,StateFn stateFn={},CloseFn closeFn={})
+        :DocumentWindow("FLOWDAW Plugin - "+p->getName(),juce::Colours::darkgrey,DocumentWindow::closeButton),plugin_(std::move(p)),stateFn_(std::move(stateFn)),closeFn_(std::move(closeFn)){
         auto*editor=plugin_->createEditorIfNeeded();if(editor==nullptr)editor=new juce::GenericAudioProcessorEditor(*plugin_);
-        setUsingNativeTitleBar(true);setResizable(true,true);setContentOwned(editor,true);centreWithSize(std::max(420,getWidth()),std::max(300,getHeight()));setVisible(true);
+        setUsingNativeTitleBar(true);setResizable(true,true);setContentOwned(editor,true);centreWithSize(std::max(420,getWidth()),std::max(300,getHeight()));lastState_=pluginStateHex(*plugin_);if(stateFn_)startTimer(150);setVisible(true);
     }
-    void closeButtonPressed()override{setVisible(false);}
-private:std::unique_ptr<juce::AudioPluginInstance> plugin_;
+    ~PluginEditorWindow()override{finishSession();}
+    void closeButtonPressed()override{finishSession();setVisible(false);}
+private:
+    void timerCallback()override{if(!plugin_||!stateFn_||closed_)return;auto state=pluginStateHex(*plugin_);if(state!=lastState_){lastState_=state;stateFn_(state);}}
+    void finishSession(){if(closed_)return;timerCallback();closed_=true;stopTimer();if(closeFn_)closeFn_();}
+    std::unique_ptr<juce::AudioPluginInstance>plugin_;StateFn stateFn_;CloseFn closeFn_;std::string lastState_;bool closed_=false;
 };
 
 class MainComponent final:public juce::Component,private juce::Timer,private juce::AudioIODeviceCallback{
