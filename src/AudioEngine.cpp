@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <thread>
+#include <unordered_map>
 
 #ifdef FLOWDAW_HAS_PORTAUDIO
 extern "C" {
@@ -32,6 +33,7 @@ bool deterministicHit(float probability,Id p,std::size_t lane,int step,int repea
 double signedVariation(Id p,std::size_t lane,int step,int repeat,std::uint64_t salt){return deterministicUnit(p,lane,step,repeat,salt)*2.0-1.0;}
 float effectsGain(const std::vector<Effect>&fx){float g=1.0f;for(auto const&e:fx)if(e.enabled&&e.type=="gain")g*=std::clamp(e.value,0.0f,4.0f);return g;}
 float pluginStaticGain(const std::vector<PluginInstance>&plugins){float g=1.0f;for(auto const&p:plugins)if(p.enabled&&!p.bypass&&p.format=="builtin"&&p.identifier=="flow.gain")g*=std::clamp(pluginParameterValue(p,"gain",1.0f),0.0f,4.0f);return g;}
+constexpr SampleIndex kMaxRealtimeRouteFrames=16384;
 
 void mixRangeSimple(float*out,unsigned long frames,const AudioBuffer&audio,SampleIndex sourceStart,SampleIndex sourceLength,SampleIndex outputOffset,float gain,float pan,int deviceRate){
     if(frames==0||sourceLength<=0||audio.frames()<=0||audio.channels<=0)return;const double ratio=static_cast<double>(audio.sampleRate)/deviceRate;const int ch=audio.channels;pan=std::clamp(pan,-1.0f,1.0f);const float lpan=std::sqrt((1.0f-pan)*0.5f),rpan=std::sqrt((1.0f+pan)*0.5f);
@@ -66,22 +68,81 @@ void AudioEngine::setPluginHost(std::shared_ptr<PluginHost>host){std::lock_guard
 void AudioEngine::publish(const Project&p){
     std::shared_ptr<PluginHost>host;{std::lock_guard lk(publishMutex_);host=pluginHost_;}
     auto g=std::make_unique<Graph>();g->master=p.master.volume;g->masterEffectGain=effectsGain(p.master.effects);g->bpm=p.transport.bpm;g->automation=p.automation;g->masterPlugins=p.master.plugins;
-    std::vector<RealtimePluginIssue>pluginIssues;g->masterRuntime.prepare(p.master.plugins,host.get(),sampleRate_,2,std::max<SampleIndex>(1,static_cast<SampleIndex>(framesPerBuffer_)),&pluginIssues);
     auto automationIndex=[&](const std::string&target,Id targetId,Id sub=0){for(int i=0;i<static_cast<int>(g->automation.size());++i){auto const&l=g->automation[static_cast<std::size_t>(i)];if(l.target==target&&l.targetId==targetId&&l.subTargetId==sub)return i;}return-1;};
     g->masterVolumeAutomation=automationIndex("master.volume",0);
-    bool anySolo=false;for(auto const&t:p.tracks)anySolo=anySolo||t.mixer.solo;bool anyBusSolo=false;for(auto const&b:p.buses)anyBusSolo=anyBusSolo||b.mixer.solo;
-    auto appendRoute=[&](const Track&t,const Bus*bus,const MixerSend*send,SampleIndex start,SampleIndex sourceStart,SampleIndex length,float sourceGain,float sourcePan,std::shared_ptr<AudioBuffer>audio,int chokeGroup){
+    std::vector<RealtimePluginIssue>masterIssues;g->masterRuntime.prepare(p.master.plugins,host.get(),sampleRate_,2,kMaxRealtimeRouteFrames,&masterIssues);
+
+    bool anySolo=false;for(auto const&t:p.tracks)anySolo=anySolo||t.mixer.solo;
+    bool anyBusSolo=false;for(auto const&b:p.buses)anyBusSolo=anyBusSolo||b.mixer.solo;
+
+    std::unordered_map<Id,int>busRouteIndex;
+    std::vector<RealtimeBusLatencyInput>pdcBuses;
+    for(auto const&b:p.buses){
+        const bool audible=!b.mixer.mute&&(!anyBusSolo||b.mixer.solo);
+        if(!audible)continue;
+        RealtimeBusRoute route;route.id=b.id;route.volume=b.mixer.volume;route.pan=b.mixer.pan;route.legacyEffectGain=effectsGain(b.mixer.effects);
+        route.volumeAutomation=automationIndex("bus.volume",b.id);route.panAutomation=automationIndex("bus.pan",b.id);
+        std::vector<RealtimePluginIssue>issues;route.runtime.prepare(b.mixer.plugins,host.get(),sampleRate_,2,kMaxRealtimeRouteFrames,&issues);route.buffer.prepare(kMaxRealtimeRouteFrames);
+        const int index=static_cast<int>(g->realtimeBuses.size());busRouteIndex.emplace(b.id,index);
+        pdcBuses.push_back({b.id,route.runtime.latencySamples()});g->realtimeBuses.push_back(std::move(route));
+    }
+
+    std::unordered_map<Id,int>trackRouteIndex;
+    std::vector<RealtimeTrackLatencyInput>pdcTracks;
+    for(auto const&t:p.tracks){
+        if(t.mixer.mute||(anySolo&&!t.mixer.solo))continue;
+        RealtimeTrackRoute route;route.id=t.id;route.volume=t.mixer.volume;route.pan=t.mixer.pan;route.legacyEffectGain=effectsGain(t.mixer.effects);
+        route.volumeAutomation=automationIndex("track.volume",t.id);route.panAutomation=automationIndex("track.pan",t.id);
+        std::vector<RealtimePluginIssue>issues;route.runtime.prepare(t.mixer.plugins,host.get(),sampleRate_,2,kMaxRealtimeRouteFrames,&issues);route.buffer.prepare(kMaxRealtimeRouteFrames);
+
+        RealtimeTrackLatencyInput latencyInput;latencyInput.trackId=t.id;latencyInput.pluginLatencySamples=route.runtime.latencySamples();
+        if(t.outputBusId==0){
+            route.outputEnabled=!anyBusSolo;route.outputToMaster=true;latencyInput.outputBusId=0;latencyInput.outputEnabled=route.outputEnabled;
+        }else{
+            const Bus*requested=p.findBus(t.outputBusId);auto busIt=busRouteIndex.find(t.outputBusId);
+            if(!requested){
+                route.outputEnabled=!anyBusSolo;route.outputToMaster=true;latencyInput.outputBusId=0;latencyInput.outputEnabled=route.outputEnabled;
+            }else if(busIt==busRouteIndex.end()){
+                route.outputEnabled=false;route.outputToMaster=false;latencyInput.outputBusId=t.outputBusId;latencyInput.outputEnabled=false;
+            }else{
+                route.outputEnabled=true;route.outputToMaster=false;route.outputBusIndex=busIt->second;latencyInput.outputBusId=t.outputBusId;latencyInput.outputEnabled=true;
+            }
+        }
+
+        for(auto const&s:t.sends){
+            if(!s.enabled||s.gain<=0.0f)continue;auto busIt=busRouteIndex.find(s.busId);if(busIt==busRouteIndex.end())continue;
+            RealtimeSendRoute send;send.id=s.id;send.busIndex=busIt->second;send.gain=s.gain;send.preFader=s.preFader;send.automation=automationIndex("send.gain",t.id,s.id);send.scratch.prepare(kMaxRealtimeRouteFrames);
+            route.sends.push_back(std::move(send));latencyInput.sends.push_back({s.id,s.busId,true});
+        }
+
+        const int index=static_cast<int>(g->realtimeTracks.size());trackRouteIndex.emplace(t.id,index);
+        pdcTracks.push_back(std::move(latencyInput));g->realtimeTracks.push_back(std::move(route));
+    }
+
+    auto pdc=buildRealtimePdcPlan(pdcTracks,pdcBuses);g->preMasterLatencySamples=pdc.preMasterLatencySamples;
+    for(auto&track:g->realtimeTracks){
+        auto const*plan=pdc.findTrack(track.id);track.outputDelay.prepare(plan&&plan->outputEnabled?plan->outputDelaySamples:0,2);
+        for(auto&send:track.sends){
+            int delay=0;if(plan){auto it=std::find_if(plan->sends.begin(),plan->sends.end(),[&](auto const&sp){return sp.sendId==send.id;});if(it!=plan->sends.end())delay=it->delaySamples;}
+            send.delay.prepare(delay,2);
+        }
+    }
+    for(auto&bus:g->realtimeBuses){auto const*plan=pdc.findBus(bus.id);bus.masterDelay.prepare(plan?plan->masterDelaySamples:0,2);}
+
+    auto appendRoute=[&](const Track&t,const Bus*bus,const MixerSend*send,SampleIndex startSample,SampleIndex sourceStart,SampleIndex length,float sourceGain,float sourcePan,std::shared_ptr<AudioBuffer>audio,int chokeGroup){
         if(!audio||audio->frames()==0||length<=0||sourceGain<=0.0f)return;if(bus&&(bus->mixer.mute||(anyBusSolo&&!bus->mixer.solo)))return;if(!bus&&anyBusSolo)return;
-        RenderClip r;r.start=start;r.sourceStart=sourceStart;r.length=length;r.gain=sourceGain*effectsGain(t.mixer.effects)*pluginStaticGain(t.mixer.plugins)*(bus?effectsGain(bus->mixer.effects)*pluginStaticGain(bus->mixer.plugins):1.0f);r.pan=sourcePan;r.chokeGroup=std::max(0,chokeGroup);r.audio=std::move(audio);
+        RenderClip r;r.start=startSample;r.sourceStart=sourceStart;r.length=length;r.gain=sourceGain*effectsGain(t.mixer.effects)*pluginStaticGain(t.mixer.plugins)*(bus?effectsGain(bus->mixer.effects)*pluginStaticGain(bus->mixer.plugins):1.0f);r.pan=sourcePan;r.chokeGroup=std::max(0,chokeGroup);r.audio=std::move(audio);
         const bool pre=send&&send->preFader;r.trackVolume=pre?1.0f:t.mixer.volume;r.trackPan=t.mixer.pan;r.busVolume=bus?bus->mixer.volume:1.0f;r.busPan=bus?bus->mixer.pan:0.0f;r.sendGain=send?send->gain:1.0f;
         r.trackVolumeAutomation=pre?-1:automationIndex("track.volume",t.id);r.trackPanAutomation=automationIndex("track.pan",t.id);if(bus){r.busVolumeAutomation=automationIndex("bus.volume",bus->id);r.busPanAutomation=automationIndex("bus.pan",bus->id);}if(send)r.sendAutomation=automationIndex("send.gain",t.id,send->id);g->clips.push_back(std::move(r));
     };
-    auto appendEvent=[&](const Track&t,SampleIndex start,SampleIndex sourceStart,SampleIndex length,float gain,float pan,std::shared_ptr<AudioBuffer>audio,int chokeGroup){
-        const Bus*mainBus=t.outputBusId?p.findBus(t.outputBusId):nullptr;appendRoute(t,mainBus,nullptr,start,sourceStart,length,gain,pan,audio,chokeGroup);
-        for(auto const&s:t.sends){if(!s.enabled||s.gain<=0.0f)continue;auto const*b=p.findBus(s.busId);if(!b)continue;appendRoute(t,b,&s,start,sourceStart,length,gain,pan,audio,chokeGroup);}
+    auto appendEvent=[&](const Track&t,SampleIndex startSample,SampleIndex sourceStart,SampleIndex length,float gain,float pan,std::shared_ptr<AudioBuffer>audio,int chokeGroup){
+        auto rt=trackRouteIndex.find(t.id);if(rt!=trackRouteIndex.end()&&audio&&audio->frames()>0&&length>0&&gain>0.0f){RealtimeSourceClip src;src.trackIndex=rt->second;src.start=startSample;src.sourceStart=sourceStart;src.length=length;src.gain=gain;src.pan=pan;src.chokeGroup=std::max(0,chokeGroup);src.audio=audio;g->realtimeClips.push_back(std::move(src));}
+        const Bus*mainBus=t.outputBusId?p.findBus(t.outputBusId):nullptr;appendRoute(t,mainBus,nullptr,startSample,sourceStart,length,gain,pan,audio,chokeGroup);
+        for(auto const&s:t.sends){if(!s.enabled||s.gain<=0.0f)continue;auto const*b=p.findBus(s.busId);if(!b)continue;appendRoute(t,b,&s,startSample,sourceStart,length,gain,pan,audio,chokeGroup);}
     };
+
     for(auto const&t:p.tracks){
-        if(t.mixer.mute||(anySolo&&!t.mixer.solo))continue;const std::size_t trackClipBase=g->clips.size();
+        if(t.mixer.mute||(anySolo&&!t.mixer.solo))continue;const std::size_t trackClipBase=g->clips.size();const std::size_t trackRealtimeClipBase=g->realtimeClips.size();const auto rtIt=trackRouteIndex.find(t.id);const int rtIndex=rtIt==trackRouteIndex.end()?-1:rtIt->second;
         for(auto const&c:t.clips){auto const*s=p.findSample(c.sampleId);if(!s||!s->audio)continue;const auto sourceStart=std::max<SampleIndex>(0,c.sourceStart);const auto requested=c.sourceLength>0?c.sourceLength:s->audio->frames()-sourceStart;appendEvent(t,MusicalTime::ticksToSamples(c.startTick,p.transport.bpm,sampleRate_),sourceStart,std::max<SampleIndex>(0,requested),c.gain,0.0f,s->audio,0);}
         if(t.activeTakeId){auto it=std::find_if(t.takes.begin(),t.takes.end(),[&](auto const&take){return take.id==t.activeTakeId;});if(it!=t.takes.end()){auto const*s=p.findSample(it->sampleId);if(s&&s->audio)appendEvent(t,MusicalTime::ticksToSamples(it->startTick,p.transport.bpm,sampleRate_),0,s->audio->frames(),1.0f,0.0f,s->audio,0);}}
         for(auto const&placement:t.patternClips){
@@ -89,7 +150,7 @@ void AudioEngine::publish(const Project&p){
             for(int rep=0;rep<std::max(1,placement.repeats);++rep){
                 for(std::size_t li=0;li<pat->lanes.size();++li){auto const&lane=pat->lanes[li];if(lane.mute||(anyLaneSolo&&!lane.solo))continue;auto const*s=p.findSample(lane.sampleId);if(!s||!s->audio)continue;for(int step=0;step<std::min<int>(pat->stepCount,static_cast<int>(lane.steps.size()));++step){auto const&ev=lane.steps[static_cast<std::size_t>(step)];if(!ev.active||!deterministicHit(ev.probability,pat->id,li,step,rep))continue;const Tick swingTicks=(step%2==1)?static_cast<Tick>(std::llround(swing*stepTicks*0.5)):0;const Tick humanTicks=static_cast<Tick>(std::llround(signedVariation(pat->id,li,step,rep,0xA51ULL)*human*stepTicks*0.12));const float humanVelocity=static_cast<float>(signedVariation(pat->id,li,step,rep,0xB73ULL)*human*0.12);Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+static_cast<Tick>(step)*stepTicks+swingTicks+humanTicks+ev.microTicks;if(tick<0)tick=0;const float velocity=std::clamp(ev.velocity+humanVelocity,0.0f,1.5f);appendEvent(t,MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,s->audio->frames(),velocity*lane.volume,lane.pan,s->audio,0);}}
                 if(pat->instrument.enabled){for(auto const&note:pat->midiNotes){if(note.lengthTicks<=0||note.velocity<=0.0f)continue;const Tick tick=std::max<Tick>(0,placement.startTick+static_cast<Tick>(rep)*patTicks+note.startTick);const SampleIndex noteFrames=std::max<SampleIndex>(1,MusicalTime::ticksToSamples(note.lengthTicks,p.transport.bpm,sampleRate_));auto synth=std::make_shared<AudioBuffer>(renderNativeInstrumentNote(pat->instrument,note.pitch,note.velocity,noteFrames,sampleRate_,p.transport.bpm));const auto synthFrames=synth->frames();appendEvent(t,MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_),0,synthFrames,std::clamp(pat->instrument.gain,0.0f,2.0f),pat->instrument.pan,std::move(synth),0);}}
-                for(auto const&ev:pat->chopEvents){auto const*s=p.findSample(ev.sampleId);if(!s||!s->audio)continue;auto slice=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==ev.sliceId;});if(slice==s->slices.end())continue;const auto sourceStart=std::clamp<SampleIndex>(slice->startFrame,0,s->audio->frames());const auto sourceEnd=std::clamp<SampleIndex>(slice->endFrame,sourceStart,s->audio->frames());if(sourceEnd<=sourceStart)continue;Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+ev.tick;if(tick<0)tick=0;const SampleIndex startSamples=MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_);const int choke=std::max(0,slice->chokeGroup);if(choke>0){for(std::size_t idx=g->clips.size();idx>trackClipBase;--idx){auto&previous=g->clips[idx-1];if(previous.chokeGroup!=choke||previous.start>startSamples||!previous.audio)continue;const SampleIndex outputGap=std::max<SampleIndex>(0,startSamples-previous.start);const double sourcePerDevice=static_cast<double>(previous.audio->sampleRate)/static_cast<double>(sampleRate_);const SampleIndex cutFrames=std::max<SampleIndex>(1,static_cast<SampleIndex>(std::llround(static_cast<double>(outputGap)*sourcePerDevice)));previous.length=std::min(previous.length,cutFrames);}}
+                for(auto const&ev:pat->chopEvents){auto const*s=p.findSample(ev.sampleId);if(!s||!s->audio)continue;auto slice=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==ev.sliceId;});if(slice==s->slices.end())continue;const auto sourceStart=std::clamp<SampleIndex>(slice->startFrame,0,s->audio->frames());const auto sourceEnd=std::clamp<SampleIndex>(slice->endFrame,sourceStart,s->audio->frames());if(sourceEnd<=sourceStart)continue;Tick tick=placement.startTick+static_cast<Tick>(rep)*patTicks+ev.tick;if(tick<0)tick=0;const SampleIndex startSamples=MusicalTime::ticksToSamples(tick,p.transport.bpm,sampleRate_);const int choke=std::max(0,slice->chokeGroup);if(choke>0){for(std::size_t idx=g->clips.size();idx>trackClipBase;--idx){auto&previous=g->clips[idx-1];if(previous.chokeGroup!=choke||previous.start>startSamples||!previous.audio)continue;const SampleIndex outputGap=std::max<SampleIndex>(0,startSamples-previous.start);const double sourcePerDevice=static_cast<double>(previous.audio->sampleRate)/static_cast<double>(sampleRate_);const SampleIndex cutFrames=std::max<SampleIndex>(1,static_cast<SampleIndex>(std::llround(static_cast<double>(outputGap)*sourcePerDevice)));previous.length=std::min(previous.length,cutFrames);}for(std::size_t idx=g->realtimeClips.size();idx>trackRealtimeClipBase;--idx){auto&previous=g->realtimeClips[idx-1];if(previous.trackIndex!=rtIndex||previous.chokeGroup!=choke||previous.start>startSamples||!previous.audio)continue;const SampleIndex outputGap=std::max<SampleIndex>(0,startSamples-previous.start);const double sourcePerDevice=static_cast<double>(previous.audio->sampleRate)/static_cast<double>(sampleRate_);const SampleIndex cutFrames=std::max<SampleIndex>(1,static_cast<SampleIndex>(std::llround(static_cast<double>(outputGap)*sourcePerDevice)));previous.length=std::min(previous.length,cutFrames);}}
                     appendEvent(t,startSamples,sourceStart,sourceEnd-sourceStart,std::clamp(ev.velocity,0.0f,1.5f)*std::clamp(slice->gain,0.0f,2.0f),ev.pan+slice->pan,s->audio,choke);}
             }
         }
@@ -111,7 +172,68 @@ int AudioEngine::process(const float*in,float*out,unsigned long frames){
     std::fill(out,out+frames*2,0.0f);captureInput(in,frames);consumePreviewCommands();const bool transport=playing_.load(std::memory_order_acquire);auto*g=current_.load(std::memory_order_acquire);const auto base=playhead_.load(std::memory_order_relaxed);
     auto automationAt=[&](int idx,Tick tick,float fallback){return g&&idx>=0&&idx<static_cast<int>(g->automation.size())?automationValueAt(g->automation[static_cast<std::size_t>(idx)],tick,fallback):fallback;};
     auto mixClip=[&](float*dst,unsigned long count,const RenderClip&c,SampleIndex localOffset,SampleIndex absoluteStart){if(!c.audio||count==0||!g)return;const double ratio=static_cast<double>(c.audio->sampleRate)/sampleRate_;const int ch=c.audio->channels;for(unsigned long i=0;i<count;++i){const SampleIndex rel=localOffset+static_cast<SampleIndex>(i);if(rel<0)continue;const double srcPos=static_cast<double>(c.sourceStart)+static_cast<double>(rel)*ratio;if(srcPos>=static_cast<double>(c.sourceStart+c.length)||srcPos>=static_cast<double>(c.audio->frames()-1))break;const Tick tick=MusicalTime::samplesToTicks(absoluteStart+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float tv=automationAt(c.trackVolumeAutomation,tick,c.trackVolume),tp=automationAt(c.trackPanAutomation,tick,c.trackPan),bv=automationAt(c.busVolumeAutomation,tick,c.busVolume),bp=automationAt(c.busPanAutomation,tick,c.busPan),sg=automationAt(c.sendAutomation,tick,c.sendGain),mv=automationAt(g->masterVolumeAutomation,tick,g->master);const float gain=c.gain*tv*bv*sg*mv*g->masterEffectGain;const float pan=std::clamp(c.pan+tp+bp,-1.0f,1.0f);const float lp=std::sqrt((1.0f-pan)*0.5f),rp=std::sqrt((1.0f+pan)*0.5f);const auto i0=static_cast<SampleIndex>(srcPos),i1=i0+1;const float frac=static_cast<float>(srcPos-i0);auto get=[&](SampleIndex idx,int cc){return c.audio->interleaved[static_cast<std::size_t>(idx*ch+std::min(cc,ch-1))];};const float sl=get(i0,0)+(get(i1,0)-get(i0,0))*frac,sr=ch>1?get(i0,1)+(get(i1,1)-get(i0,1))*frac:sl;dst[i*2]+=sl*gain*lp;dst[i*2+1]+=sr*gain*rp;}};
-    if(transport&&g){for(auto const&c:g->clips){if(base+static_cast<SampleIndex>(frames)<=c.start)continue;const SampleIndex localOffset=std::max<SampleIndex>(0,base-c.start);const unsigned long outOffset=base<c.start?static_cast<unsigned long>(c.start-base):0;if(outOffset>=frames)continue;mixClip(out+outOffset*2,frames-outOffset,c,localOffset,base+static_cast<SampleIndex>(outOffset));}}
+
+    const bool routeGraphReady=transport&&g&&static_cast<SampleIndex>(frames)<=kMaxRealtimeRouteFrames;
+    if(routeGraphReady){
+        for(auto&track:g->realtimeTracks)track.buffer.clear(static_cast<SampleIndex>(frames));
+        for(auto&bus:g->realtimeBuses)bus.buffer.clear(static_cast<SampleIndex>(frames));
+
+        for(auto const&c:g->realtimeClips){
+            if(c.trackIndex<0||c.trackIndex>=static_cast<int>(g->realtimeTracks.size())||!c.audio)continue;
+            if(base+static_cast<SampleIndex>(frames)<=c.start)continue;
+            const SampleIndex localOffset=std::max<SampleIndex>(0,base-c.start);const unsigned long outOffset=base<c.start?static_cast<unsigned long>(c.start-base):0;if(outOffset>=frames)continue;
+            auto&track=g->realtimeTracks[static_cast<std::size_t>(c.trackIndex)];
+            mixRangeSimple(track.buffer.data()+static_cast<std::size_t>(outOffset)*2U,frames-outOffset,*c.audio,c.sourceStart,c.length,localOffset,c.gain,c.pan,sampleRate_);
+        }
+
+        for(auto&track:g->realtimeTracks){
+            float*trackData=track.buffer.data();const auto sampleCount=static_cast<std::size_t>(frames)*2U;
+            if(track.legacyEffectGain!=1.0f)for(std::size_t i=0;i<sampleCount;++i)trackData[i]*=track.legacyEffectGain;
+            track.runtime.process(trackData,static_cast<SampleIndex>(frames));
+
+            for(auto&send:track.sends){
+                if(!send.preFader||send.busIndex<0||send.busIndex>=static_cast<int>(g->realtimeBuses.size()))continue;
+                send.scratch.clear(static_cast<SampleIndex>(frames));float*scratch=send.scratch.data();
+                for(unsigned long i=0;i<frames;++i){
+                    const Tick tick=MusicalTime::samplesToTicks(base+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float pan=std::clamp(automationAt(track.panAutomation,tick,track.pan),-1.0f,1.0f);const float sg=automationAt(send.automation,tick,send.gain);const float lg=std::sqrt(std::max(0.0f,1.0f-pan)),rg=std::sqrt(std::max(0.0f,1.0f+pan));const auto o=static_cast<std::size_t>(i)*2U;scratch[o]=trackData[o]*lg*sg;scratch[o+1]=trackData[o+1]*rg*sg;
+                }
+                send.delay.addDelayed(scratch,g->realtimeBuses[static_cast<std::size_t>(send.busIndex)].buffer.data(),static_cast<SampleIndex>(frames));
+            }
+
+            for(unsigned long i=0;i<frames;++i){
+                const Tick tick=MusicalTime::samplesToTicks(base+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float volume=automationAt(track.volumeAutomation,tick,track.volume);const float pan=std::clamp(automationAt(track.panAutomation,tick,track.pan),-1.0f,1.0f);const float lg=std::sqrt(std::max(0.0f,1.0f-pan)),rg=std::sqrt(std::max(0.0f,1.0f+pan));const auto o=static_cast<std::size_t>(i)*2U;trackData[o]*=volume*lg;trackData[o+1]*=volume*rg;
+            }
+
+            for(auto&send:track.sends){
+                if(send.preFader||send.busIndex<0||send.busIndex>=static_cast<int>(g->realtimeBuses.size()))continue;
+                send.scratch.clear(static_cast<SampleIndex>(frames));float*scratch=send.scratch.data();
+                for(unsigned long i=0;i<frames;++i){const Tick tick=MusicalTime::samplesToTicks(base+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float sg=automationAt(send.automation,tick,send.gain);const auto o=static_cast<std::size_t>(i)*2U;scratch[o]=trackData[o]*sg;scratch[o+1]=trackData[o+1]*sg;}
+                send.delay.addDelayed(scratch,g->realtimeBuses[static_cast<std::size_t>(send.busIndex)].buffer.data(),static_cast<SampleIndex>(frames));
+            }
+
+            if(track.outputEnabled){
+                float*destination=nullptr;
+                if(track.outputToMaster)destination=out;
+                else if(track.outputBusIndex>=0&&track.outputBusIndex<static_cast<int>(g->realtimeBuses.size()))destination=g->realtimeBuses[static_cast<std::size_t>(track.outputBusIndex)].buffer.data();
+                if(destination)track.outputDelay.addDelayed(trackData,destination,static_cast<SampleIndex>(frames));
+            }
+        }
+
+        for(auto&bus:g->realtimeBuses){
+            float*busData=bus.buffer.data();const auto sampleCount=static_cast<std::size_t>(frames)*2U;
+            if(bus.legacyEffectGain!=1.0f)for(std::size_t i=0;i<sampleCount;++i)busData[i]*=bus.legacyEffectGain;
+            bus.runtime.process(busData,static_cast<SampleIndex>(frames));
+            for(unsigned long i=0;i<frames;++i){
+                const Tick tick=MusicalTime::samplesToTicks(base+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float volume=automationAt(bus.volumeAutomation,tick,bus.volume);const float pan=std::clamp(automationAt(bus.panAutomation,tick,bus.pan),-1.0f,1.0f);const float lg=std::sqrt(std::max(0.0f,1.0f-pan)),rg=std::sqrt(std::max(0.0f,1.0f+pan));const auto o=static_cast<std::size_t>(i)*2U;busData[o]*=volume*lg;busData[o+1]*=volume*rg;
+            }
+            bus.masterDelay.addDelayed(busData,out,static_cast<SampleIndex>(frames));
+        }
+
+        for(unsigned long i=0;i<frames;++i){const Tick tick=MusicalTime::samplesToTicks(base+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float gain=automationAt(g->masterVolumeAutomation,tick,g->master)*g->masterEffectGain;const auto o=static_cast<std::size_t>(i)*2U;out[o]*=gain;out[o+1]*=gain;}
+    }else if(transport&&g){
+        for(auto const&c:g->clips){if(base+static_cast<SampleIndex>(frames)<=c.start)continue;const SampleIndex localOffset=std::max<SampleIndex>(0,base-c.start);const unsigned long outOffset=base<c.start?static_cast<unsigned long>(c.start-base):0;if(outOffset>=frames)continue;mixClip(out+outOffset*2,frames-outOffset,c,localOffset,base+static_cast<SampleIndex>(outOffset));}
+    }
+
     mixPreviewVoices(out,frames);if(in&&inputMonitoring_.load(std::memory_order_relaxed)){for(unsigned long i=0;i<frames;++i){out[i*2]+=in[i]*0.7071f;out[i*2+1]+=in[i]*0.7071f;}}
     if(g)g->masterRuntime.process(out,static_cast<SampleIndex>(frames));for(unsigned long i=0;i<frames;++i){float&l=out[i*2];float&r=out[i*2+1];l=std::clamp(l,-1.0f,1.0f);r=std::clamp(r,-1.0f,1.0f);}if(transport)playhead_.store(base+static_cast<SampleIndex>(frames),std::memory_order_release);return 0;
 }

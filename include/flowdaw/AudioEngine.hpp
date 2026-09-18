@@ -1,6 +1,7 @@
 #pragma once
 #include "flowdaw/Project.hpp"
 #include "flowdaw/RealtimePluginGraph.hpp"
+#include "flowdaw/RealtimeRouting.hpp"
 #include <array>
 #include <atomic>
 #include <memory>
@@ -57,15 +58,55 @@ private:
         float trackVolume=1.0f,trackPan=0.0f,busVolume=1.0f,busPan=0.0f,sendGain=1.0f;
         int trackVolumeAutomation=-1,trackPanAutomation=-1,busVolumeAutomation=-1,busPanAutomation=-1,sendAutomation=-1;
     };
+    struct RealtimeSourceClip {
+        int trackIndex=-1;
+        SampleIndex start=0,sourceStart=0,length=0;
+        float gain=1.0f,pan=0.0f;
+        int chokeGroup=0;
+        std::shared_ptr<AudioBuffer> audio;
+    };
+    struct RealtimeSendRoute {
+        Id id=0;
+        int busIndex=-1;
+        float gain=0.0f;
+        bool preFader=false;
+        int automation=-1;
+        RealtimeStereoRouteBuffer scratch;
+        RealtimeDelayLine delay;
+    };
+    struct RealtimeTrackRoute {
+        Id id=0;
+        float volume=1.0f,pan=0.0f,legacyEffectGain=1.0f;
+        int volumeAutomation=-1,panAutomation=-1;
+        bool outputEnabled=true;
+        bool outputToMaster=true;
+        int outputBusIndex=-1;
+        RealtimePluginChain runtime;
+        RealtimeStereoRouteBuffer buffer;
+        RealtimeDelayLine outputDelay;
+        std::vector<RealtimeSendRoute> sends;
+    };
+    struct RealtimeBusRoute {
+        Id id=0;
+        float volume=1.0f,pan=0.0f,legacyEffectGain=1.0f;
+        int volumeAutomation=-1,panAutomation=-1;
+        RealtimePluginChain runtime;
+        RealtimeStereoRouteBuffer buffer;
+        RealtimeDelayLine masterDelay;
+    };
     struct Graph {
         float master=1;
         float masterEffectGain=1;
         double bpm=90.0;
         int masterVolumeAutomation=-1;
+        int preMasterLatencySamples=0;
         std::vector<AutomationLane> automation;
         std::vector<PluginInstance> masterPlugins;
         RealtimePluginChain masterRuntime;
         std::vector<RenderClip> clips;
+        std::vector<RealtimeSourceClip> realtimeClips;
+        std::vector<RealtimeTrackRoute> realtimeTracks;
+        std::vector<RealtimeBusRoute> realtimeBuses;
     };
     struct PreviewCommand { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0; float gain=1,pan=0; int chokeGroup=0; bool stopAll=false; };
     struct PreviewVoice { const AudioBuffer* audio=nullptr; SampleIndex start=0,length=0,position=0; float gain=1,pan=0; int chokeGroup=0; bool active=false; };

@@ -49,11 +49,13 @@ RealtimePdcPlan buildRealtimePdcPlan(const std::vector<RealtimeTrackLatencyInput
 
     for(auto const& track:tracks) {
         const int latency=std::max(0,track.pluginLatencySamples);
-        if(track.outputBusId==0) directMasterLatency=std::max(directMasterLatency,latency);
-        else if(!noteBusInput(track.outputBusId,latency,track.trackId,"Track output")) {
-            // Match the AudioEngine's historical behavior: a missing output bus
-            // falls back to the master rather than dropping the track.
-            directMasterLatency=std::max(directMasterLatency,latency);
+        if(track.outputEnabled) {
+            if(track.outputBusId==0) directMasterLatency=std::max(directMasterLatency,latency);
+            else if(!noteBusInput(track.outputBusId,latency,track.trackId,"Track output")) {
+                // Match the AudioEngine's historical behavior: a missing output bus
+                // falls back to the master rather than dropping the track.
+                directMasterLatency=std::max(directMasterLatency,latency);
+            }
         }
 
         for(auto const& send:track.sends) {
@@ -83,9 +85,13 @@ RealtimePdcPlan buildRealtimePdcPlan(const std::vector<RealtimeTrackLatencyInput
         out.trackId=track.trackId;
         out.pluginLatencySamples=std::max(0,track.pluginLatencySamples);
         out.outputBusId=track.outputBusId;
+        out.outputEnabled=track.outputEnabled;
 
         auto busIt=track.outputBusId==0?busIndex.end():busIndex.find(track.outputBusId);
-        if(track.outputBusId==0 || busIt==busIndex.end()) {
+        if(!track.outputEnabled) {
+            out.outputsToMaster=false;
+            out.outputDelaySamples=0;
+        } else if(track.outputBusId==0 || busIt==busIndex.end()) {
             out.outputsToMaster=true;
             out.outputDelaySamples=std::max(0,preMaster-out.pluginLatencySamples);
         } else {
