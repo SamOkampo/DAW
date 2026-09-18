@@ -76,7 +76,7 @@ void AudioEngine::setPluginHost(std::shared_ptr<PluginHost>host){std::lock_guard
 
 void AudioEngine::publish(const Project&p){
     std::shared_ptr<PluginHost>host;{std::lock_guard lk(publishMutex_);host=pluginHost_;}
-    auto g=std::make_unique<Graph>();g->master=p.master.volume;g->masterEffectGain=effectsGain(p.master.effects);g->bpm=p.transport.bpm;g->automation=p.automation;g->masterPlugins=p.master.plugins;
+    auto g=std::make_unique<Graph>();g->master=p.master.volume;g->masterEffectGain=effectsGain(p.master.effects);g->bpm=p.transport.bpm;g->automation=p.automation;g->masterPlugins=p.master.plugins;g->masterMeter=std::make_shared<RealtimeMeterState>();
     auto automationIndex=[&](const std::string&target,Id targetId,Id sub=0){for(int i=0;i<static_cast<int>(g->automation.size());++i){auto const&l=g->automation[static_cast<std::size_t>(i)];if(l.target==target&&l.targetId==targetId&&l.subTargetId==sub)return i;}return-1;};
     g->masterVolumeAutomation=automationIndex("master.volume",0);
     std::vector<RealtimePluginIssue>masterIssues;g->masterRuntime.prepare(p.master.plugins,host.get(),sampleRate_,2,kMaxRealtimeRouteFrames,&masterIssues);
@@ -91,7 +91,7 @@ void AudioEngine::publish(const Project&p){
         if(!audible)continue;
         RealtimeBusRoute route;route.id=b.id;route.volume=b.mixer.volume;route.pan=b.mixer.pan;route.legacyEffectGain=effectsGain(b.mixer.effects);
         route.volumeAutomation=automationIndex("bus.volume",b.id);route.panAutomation=automationIndex("bus.pan",b.id);
-        std::vector<RealtimePluginIssue>issues;route.runtime.prepare(b.mixer.plugins,host.get(),sampleRate_,2,kMaxRealtimeRouteFrames,&issues);route.buffer.prepare(kMaxRealtimeRouteFrames);
+        std::vector<RealtimePluginIssue>issues;route.runtime.prepare(b.mixer.plugins,host.get(),sampleRate_,2,kMaxRealtimeRouteFrames,&issues);route.buffer.prepare(kMaxRealtimeRouteFrames);route.meter=std::make_shared<RealtimeMeterState>();
         const int index=static_cast<int>(g->realtimeBuses.size());busRouteIndex.emplace(b.id,index);
         pdcBuses.push_back({b.id,route.runtime.latencySamples()});g->realtimeBuses.push_back(std::move(route));
     }
@@ -102,7 +102,7 @@ void AudioEngine::publish(const Project&p){
         if(t.mixer.mute||(anySolo&&!t.mixer.solo))continue;
         RealtimeTrackRoute route;route.id=t.id;route.volume=t.mixer.volume;route.pan=t.mixer.pan;route.legacyEffectGain=effectsGain(t.mixer.effects);
         route.volumeAutomation=automationIndex("track.volume",t.id);route.panAutomation=automationIndex("track.pan",t.id);
-        std::vector<RealtimePluginIssue>issues;route.runtime.prepare(t.mixer.plugins,host.get(),sampleRate_,2,kMaxRealtimeRouteFrames,&issues);route.buffer.prepare(kMaxRealtimeRouteFrames);
+        std::vector<RealtimePluginIssue>issues;route.runtime.prepare(t.mixer.plugins,host.get(),sampleRate_,2,kMaxRealtimeRouteFrames,&issues);route.buffer.prepare(kMaxRealtimeRouteFrames);route.meter=std::make_shared<RealtimeMeterState>();
 
         RealtimeTrackLatencyInput latencyInput;latencyInput.trackId=t.id;latencyInput.pluginLatencySamples=route.runtime.latencySamples();
         if(t.outputBusId==0){
@@ -176,6 +176,19 @@ std::size_t AudioEngine::collectRetiredGraphs(){
     if(graphReaders_.load(std::memory_order_seq_cst)==0)retired_.clear();
     return retired_.size();
 }
+
+AudioMeterSnapshot AudioEngine::meterSnapshot() const{
+    AudioMeterSnapshot out;
+    GraphReadScope graphRead(graphReaders_);
+    auto*g=current_.load(std::memory_order_seq_cst);
+    if(!g)return out;
+    if(g->masterMeter)out.master=g->masterMeter->snapshot();
+    out.tracks.reserve(g->realtimeTracks.size());
+    for(auto const&track:g->realtimeTracks)if(track.meter)out.tracks.push_back({track.id,track.meter->snapshot()});
+    out.buses.reserve(g->realtimeBuses.size());
+    for(auto const&bus:g->realtimeBuses)if(bus.meter)out.buses.push_back({bus.id,bus.meter->snapshot()});
+    return out;
+}
 void AudioEngine::play(){playing_.store(true,std::memory_order_release);}void AudioEngine::pause(){playing_.store(false,std::memory_order_release);}void AudioEngine::stop(){playing_.store(false,std::memory_order_release);playhead_.store(0,std::memory_order_release);}
 
 bool AudioEngine::triggerPreview(std::shared_ptr<AudioBuffer>audio,SampleIndex sourceStart,SampleIndex sourceLength,float gain,float pan,int chokeGroup){if(!audio||audio->frames()<2)return false;sourceStart=std::clamp<SampleIndex>(sourceStart,0,audio->frames()-1);sourceLength=std::min<SampleIndex>(std::max<SampleIndex>(1,sourceLength),audio->frames()-sourceStart);{std::lock_guard lk(previewLifetimeMutex_);bool seen=false;for(auto const&p:previewKeepAlive_)if(p.get()==audio.get()){seen=true;break;}if(!seen)previewKeepAlive_.push_back(audio);}const std::uint32_t w=previewWrite_.load(std::memory_order_relaxed),r=previewRead_.load(std::memory_order_acquire),next=static_cast<std::uint32_t>((w+1U)%static_cast<std::uint32_t>(kPreviewQueueSize));if(next==r)return false;previewQueue_[w]={audio.get(),sourceStart,sourceLength,gain,std::clamp(pan,-1.0f,1.0f),std::max(0,chokeGroup),false};previewWrite_.store(next,std::memory_order_release);return true;}
@@ -222,6 +235,7 @@ int AudioEngine::process(const float*in,float*out,unsigned long frames){
             for(unsigned long i=0;i<frames;++i){
                 const Tick tick=MusicalTime::samplesToTicks(base+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float volume=automationAt(track.volumeAutomation,tick,track.volume);const float pan=std::clamp(automationAt(track.panAutomation,tick,track.pan),-1.0f,1.0f);const float lg=std::sqrt(std::max(0.0f,1.0f-pan)),rg=std::sqrt(std::max(0.0f,1.0f+pan));const auto o=static_cast<std::size_t>(i)*2U;trackData[o]*=volume*lg;trackData[o+1]*=volume*rg;
             }
+            if(track.meter)track.meter->process(trackData,static_cast<SampleIndex>(frames),2);
 
             for(auto&send:track.sends){
                 if(send.preFader||send.busIndex<0||send.busIndex>=static_cast<int>(g->realtimeBuses.size()))continue;
@@ -245,16 +259,19 @@ int AudioEngine::process(const float*in,float*out,unsigned long frames){
             for(unsigned long i=0;i<frames;++i){
                 const Tick tick=MusicalTime::samplesToTicks(base+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float volume=automationAt(bus.volumeAutomation,tick,bus.volume);const float pan=std::clamp(automationAt(bus.panAutomation,tick,bus.pan),-1.0f,1.0f);const float lg=std::sqrt(std::max(0.0f,1.0f-pan)),rg=std::sqrt(std::max(0.0f,1.0f+pan));const auto o=static_cast<std::size_t>(i)*2U;busData[o]*=volume*lg;busData[o+1]*=volume*rg;
             }
+            if(bus.meter)bus.meter->process(busData,static_cast<SampleIndex>(frames),2);
             bus.masterDelay.addDelayed(busData,out,static_cast<SampleIndex>(frames));
         }
 
         for(unsigned long i=0;i<frames;++i){const Tick tick=MusicalTime::samplesToTicks(base+static_cast<SampleIndex>(i),g->bpm,sampleRate_);const float gain=automationAt(g->masterVolumeAutomation,tick,g->master)*g->masterEffectGain;const auto o=static_cast<std::size_t>(i)*2U;out[o]*=gain;out[o+1]*=gain;}
     }else if(transport&&g){
+        for(auto&track:g->realtimeTracks)if(track.meter)track.meter->reset();
+        for(auto&bus:g->realtimeBuses)if(bus.meter)bus.meter->reset();
         for(auto const&c:g->clips){if(base+static_cast<SampleIndex>(frames)<=c.start)continue;const SampleIndex localOffset=std::max<SampleIndex>(0,base-c.start);const unsigned long outOffset=base<c.start?static_cast<unsigned long>(c.start-base):0;if(outOffset>=frames)continue;mixClip(out+outOffset*2,frames-outOffset,c,localOffset,base+static_cast<SampleIndex>(outOffset));}
     }
 
     mixPreviewVoices(out,frames);if(in&&inputMonitoring_.load(std::memory_order_relaxed)){for(unsigned long i=0;i<frames;++i){out[i*2]+=in[i]*0.7071f;out[i*2+1]+=in[i]*0.7071f;}}
-    if(g)g->masterRuntime.process(out,static_cast<SampleIndex>(frames));for(unsigned long i=0;i<frames;++i){float&l=out[i*2];float&r=out[i*2+1];l=std::clamp(l,-1.0f,1.0f);r=std::clamp(r,-1.0f,1.0f);}if(transport)playhead_.store(base+static_cast<SampleIndex>(frames),std::memory_order_release);return 0;
+    if(g){g->masterRuntime.process(out,static_cast<SampleIndex>(frames));if(g->masterMeter)g->masterMeter->process(out,static_cast<SampleIndex>(frames),2);}for(unsigned long i=0;i<frames;++i){float&l=out[i*2];float&r=out[i*2+1];l=std::clamp(l,-1.0f,1.0f);r=std::clamp(r,-1.0f,1.0f);}if(transport)playhead_.store(base+static_cast<SampleIndex>(frames),std::memory_order_release);return 0;
 }
 int AudioEngine::paCallback(const void*input,void*output,unsigned long frames,const void*,unsigned long,void*user){return static_cast<AudioEngine*>(user)->process(static_cast<const float*>(input),static_cast<float*>(output),frames);}
 
@@ -268,12 +285,12 @@ AudioBuffer AudioEngine::renderOffline(SampleIndex frames){
     auto*g=current_.load(std::memory_order_seq_cst);if(!g)return out;
 
     auto resetGraph=[&]{
-        g->masterRuntime.reset();
+        g->masterRuntime.reset();if(g->masterMeter)g->masterMeter->reset();
         for(auto&track:g->realtimeTracks){
-            track.runtime.reset();track.outputDelay.reset();
+            track.runtime.reset();track.outputDelay.reset();if(track.meter)track.meter->reset();
             for(auto&send:track.sends)send.delay.reset();
         }
-        for(auto&bus:g->realtimeBuses){bus.runtime.reset();bus.masterDelay.reset();}
+        for(auto&bus:g->realtimeBuses){bus.runtime.reset();bus.masterDelay.reset();if(bus.meter)bus.meter->reset();}
     };
 
     resetGraph();
