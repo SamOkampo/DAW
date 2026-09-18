@@ -1,6 +1,7 @@
 #pragma once
 #include "flowdaw/Project.hpp"
 #include <filesystem>
+#include <memory>
 #include <vector>
 
 namespace flowdaw {
