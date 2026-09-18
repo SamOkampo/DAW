@@ -90,7 +90,7 @@ jobs:
       - name: Register AU fixtures with CoreAudio
         run: |
           mkdir -p "$HOME/Library/Audio/Plug-Ins/Components"
-          find build-mac -type d -path "*/Release/AU/*.component" -maxdepth 8 -print0 | while IFS= read -r -d '' component; do
+          find build-mac -type d -path "*/Release/AU/*.component" -print0 | while IFS= read -r -d '' component; do
             ditto "$component" "$HOME/Library/Audio/Plug-Ins/Components/$(basename "$component")"
           done
           killall -9 AudioComponentRegistrar 2>/dev/null || true
