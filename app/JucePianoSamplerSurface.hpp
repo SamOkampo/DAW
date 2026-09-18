@@ -127,11 +127,14 @@ public:
         setWantsKeyboardFocus(true);
     }
 
-    void setSampleId(Id id){sampleId_=id;selectedSliceId_=0;boundaryDrag_=-1;bank_=0;repaint();}
+    void setSampleId(Id id){if(sampleId_==id){repaint();return;}sampleId_=id;selectedSliceId_=0;boundaryDrag_=-1;bank_=0;repaint();}
     Id sampleId()const{return sampleId_;}
     void previousBank(){bank_=std::max(0,bank_-1);repaint();}
     void nextBank(){auto*s=sample();if(!s)return;const int banks=std::max(1,(static_cast<int>(s->slices.size())+15)/16);bank_=std::min(banks-1,bank_+1);repaint();}
     int bank()const{return bank_;}
+    juce::String selectedPadName()const{auto*s=sample();if(!s||selectedSliceId_==0)return{};for(auto const&sl:s->slices)if(sl.id==selectedSliceId_)return juce::String(sl.name);return{};}
+    bool renameSelectedPad(const std::string&name){auto*s=sample();if(!s||selectedSliceId_==0)return false;auto it=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==selectedSliceId_;});if(it==s->slices.end())return false;Project before=project_;it->name=name.empty()?"Slice":name;if(commit_)commit_(std::move(before),"Rename sample pad");repaint();return true;}
+    bool adjustSelectedPad(float gainDelta,float panDelta,int chokeDelta){auto*s=sample();if(!s||selectedSliceId_==0)return false;auto it=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==selectedSliceId_;});if(it==s->slices.end())return false;Project before=project_;it->gain=std::clamp(it->gain+gainDelta,0.0f,2.0f);it->pan=std::clamp(it->pan+panDelta,-1.0f,1.0f);it->chokeGroup=std::clamp(it->chokeGroup+chokeDelta,0,8);if(commit_)commit_(std::move(before),"Edit sample pad");repaint();return true;}
 
     void paint(juce::Graphics&g)override{
         g.fillAll(juce::Colour(0xff0f1115));auto*s=sample();
