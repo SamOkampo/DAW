@@ -40,7 +40,7 @@ public:
     using CommitFn=std::function<void(Project,std::string)>;
 
     ArrangementComponent(Project&project,CommitFn commit):project_(project),commit_(std::move(commit)){
-        setMouseCursor(juce::MouseCursor::NormalCursor);
+        setMouseCursor(juce::MouseCursor::NormalCursor);setWantsKeyboardFocus(true);
     }
 
     void setPlayheadTick(Tick tick){playheadTick_=std::max<Tick>(0,tick);repaint();}
@@ -67,19 +67,21 @@ public:
             for(std::size_t ci=0;ci<track.clips.size();++ci){
                 auto r=clipRect(track.clips[ci],ti,end);g.setColour(juce::Colour(0xff6550dc));g.fillRoundedRectangle(r,4.0f);
                 auto*s=project_.findSample(track.clips[ci].sampleId);g.setColour(juce::Colours::white);g.drawFittedText(s?s->name:"Audio",r.toNearestInt().reduced(5,0),juce::Justification::centredLeft,1);
+                if(selected_.kind==Kind::Audio&&selected_.track==ti&&selected_.index==ci){g.setColour(juce::Colours::white);g.drawRoundedRectangle(r.reduced(1.0f),4.0f,1.5f);}
             }
             for(std::size_t pi=0;pi<track.patternClips.size();++pi){
                 auto r=patternRect(track.patternClips[pi],ti,end);g.setColour(juce::Colour(0xffed963c));g.fillRoundedRectangle(r,4.0f);
-                auto*p=project_.findPattern(track.patternClips[pi].patternId);g.setColour(juce::Colours::white);g.drawFittedText(p?p->name:"Pattern",r.toNearestInt().reduced(5,0),juce::Justification::centredLeft,1);
+                auto*p=project_.findPattern(track.patternClips[pi].patternId);g.setColour(juce::Colours::white);g.drawFittedText(juce::String(p?p->name:std::string("Pattern"))+" x"+juce::String(std::max(1,track.patternClips[pi].repeats)),r.toNearestInt().reduced(5,0),juce::Justification::centredLeft,1);
+                if(selected_.kind==Kind::Pattern&&selected_.track==ti&&selected_.index==pi){g.setColour(juce::Colours::white);g.drawRoundedRectangle(r.reduced(1.0f),4.0f,1.5f);}
             }
         }
 
         const int px=xForTick(std::clamp<Tick>(playheadTick_,0,end),end);g.setColour(juce::Colour(0xff30ca84));g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));
-        g.setColour(juce::Colour(0xff9aa0ad));g.setFont(11.0f);g.drawText("Drag clips/patterns • snap 1/16",8,3,labelWidth-12,18,juce::Justification::centredLeft,false);
+        g.setColour(juce::Colour(0xff9aa0ad));g.setFont(11.0f);g.drawText("Drag • Delete • Ctrl/Cmd+D • +/- repeats",8,3,labelWidth-12,18,juce::Justification::centredLeft,false);
     }
 
     void mouseDown(const juce::MouseEvent&e)override{
-        drag_=hitTest(e.position);if(drag_.kind==Kind::None)return;
+        grabKeyboardFocus();drag_=hitTest(e.position);selected_=drag_;repaint();if(drag_.kind==Kind::None)return;
         before_=project_;anchorX_=e.x;dragStart_=currentStart();setMouseCursor(juce::MouseCursor::DraggingHandCursor);
     }
     void mouseDrag(const juce::MouseEvent&e)override{
@@ -92,6 +94,15 @@ public:
     void mouseUp(const juce::MouseEvent&)override{
         if(drag_.kind==Kind::None)return;const bool changed=currentStart()!=dragStart_;setMouseCursor(juce::MouseCursor::NormalCursor);
         auto before=std::move(before_);const auto kind=drag_.kind;drag_=Hit{};if(changed&&commit_)commit_(std::move(before),kind==Kind::Audio?"Move audio clip":"Move pattern clip");
+    }
+
+    bool keyPressed(const juce::KeyPress&key)override{
+        if(selected_.kind==Kind::None)return false;
+        if(key==juce::KeyPress::deleteKey||key==juce::KeyPress::backspaceKey){deleteSelected();return true;}
+        if((key.getModifiers().isCommandDown()||key.getModifiers().isCtrlDown())&&(key.getTextCharacter()=='d'||key.getTextCharacter()=='D')){duplicateSelected();return true;}
+        if(key.getTextCharacter()=='+'||key.getTextCharacter()=='='){adjustRepeats(1);return true;}
+        if(key.getTextCharacter()=='-'){adjustRepeats(-1);return true;}
+        return false;
     }
 
 private:
@@ -137,7 +148,24 @@ private:
         else if(drag_.kind==Kind::Pattern&&drag_.index<t.patternClips.size())t.patternClips[drag_.index].startTick=tick;
     }
 
-    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0;int anchorX_=0;Hit drag_;Project before_;
+    void deleteSelected(){
+        if(selected_.track>=project_.tracks.size())return;Project before=project_;auto&t=project_.tracks[selected_.track];bool changed=false;
+        if(selected_.kind==Kind::Audio&&selected_.index<t.clips.size()){t.clips.erase(t.clips.begin()+static_cast<std::ptrdiff_t>(selected_.index));changed=true;}
+        else if(selected_.kind==Kind::Pattern&&selected_.index<t.patternClips.size()){t.patternClips.erase(t.patternClips.begin()+static_cast<std::ptrdiff_t>(selected_.index));changed=true;}
+        if(changed){selected_=Hit{};if(commit_)commit_(std::move(before),"Delete arrangement block");repaint();}
+    }
+    void duplicateSelected(){
+        if(selected_.track>=project_.tracks.size())return;Project before=project_;auto&t=project_.tracks[selected_.track];
+        if(selected_.kind==Kind::Audio&&selected_.index<t.clips.size()){auto copy=t.clips[selected_.index];copy.id=nextId();copy.startTick+=std::max<Tick>(copy.lengthTicks,kPPQ/2);t.clips.push_back(copy);selected_={Kind::Audio,selected_.track,t.clips.size()-1};}
+        else if(selected_.kind==Kind::Pattern&&selected_.index<t.patternClips.size()){auto copy=t.patternClips[selected_.index];copy.id=nextId();Tick len=kPPQ;if(auto*p=project_.findPattern(copy.patternId))len=p->lengthTicks()*std::max(1,copy.repeats);copy.startTick+=len;t.patternClips.push_back(copy);selected_={Kind::Pattern,selected_.track,t.patternClips.size()-1};}
+        else return;if(commit_)commit_(std::move(before),"Duplicate arrangement block");repaint();
+    }
+    void adjustRepeats(int delta){
+        if(selected_.kind!=Kind::Pattern||selected_.track>=project_.tracks.size())return;auto&t=project_.tracks[selected_.track];if(selected_.index>=t.patternClips.size())return;
+        const int next=std::clamp(t.patternClips[selected_.index].repeats+delta,1,64);if(next==t.patternClips[selected_.index].repeats)return;Project before=project_;t.patternClips[selected_.index].repeats=next;if(commit_)commit_(std::move(before),"Change pattern repeats");repaint();
+    }
+
+    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0;int anchorX_=0;Hit drag_,selected_;Project before_;
 };
 
 } // namespace flowdaw::juceui
