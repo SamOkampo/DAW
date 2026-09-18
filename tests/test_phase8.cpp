@@ -232,7 +232,19 @@ static void testRealtimeMeterPrimitive(){
     require(near(reading.rmsRight,std::sqrt(0.15625f),0.0001f),"RMS right meter mismatch");
     meter.reset();
     const auto reset=meter.snapshot();
-    require(near(reset.samplePeakLeft,0.0f)&&near(reset.rmsRight,0.0f),"meter reset did not publish silence");
+    require(near(reset.samplePeakLeft,0.0f)&&near(reset.truePeakLeft,0.0f)&&near(reset.rmsRight,0.0f),"meter reset did not publish silence");
+}
+
+static void testRealtimeTruePeakEstimate(){
+    RealtimeMeterState meter;
+    const float firstBlock[]={-1.0f,1.0f,1.0f};
+    meter.process(firstBlock,3,1);
+    const float secondBlock[]={-1.0f,0.0f};
+    meter.process(secondBlock,2,1);
+    const auto reading=meter.snapshot();
+    require(near(reading.samplePeakLeft,1.0f),"true-peak fixture sample peak changed");
+    require(reading.truePeakLeft>1.24f&&reading.truePeakLeft<1.26f,"4x inter-sample true-peak estimate did not detect overshoot");
+    require(near(reading.truePeakRight,reading.truePeakLeft,0.0001f),"mono true-peak channels diverged");
 }
 
 static void testAudioEngineMeters(){
@@ -256,4 +268,4 @@ static void testAudioEngineMeters(){
     require(near(reset.master.samplePeakLeft,0.0f)&&near(reset.master.rmsLeft,0.0f),"new master meter did not start at silence");
 }
 
-int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testExternalInstrumentMidiTrack();testSafeGraphReclamation();testTrackBusRoutingPdc();testOfflineExportParity();testRealtimeMeterPrimitive();testAudioEngineMeters();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
+int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testExternalInstrumentMidiTrack();testSafeGraphReclamation();testTrackBusRoutingPdc();testOfflineExportParity();testRealtimeMeterPrimitive();testRealtimeTruePeakEstimate();testAudioEngineMeters();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
