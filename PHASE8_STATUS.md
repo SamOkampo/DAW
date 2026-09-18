@@ -34,10 +34,12 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - The JUCE Studio now has its first real editing surface: a track Arrangement with audio/pattern blocks, moving playhead, 1/16-snapped drag editing and one Undo entry per completed drag.
 - JUCE transport now exposes play/pause, stop and undoable BPM edits.
 - The selected-track mixer surface exposes volume, pan, mute, solo and a live stereo sample/true-peak meter fed from route-ID snapshots. Mixer slider gestures collapse to one Undo entry while intermediate values are republished from the control thread.
+- JUCE Piano Roll now edits persistent Pattern MIDI directly: click-to-add, snapped drag, right-edge resize and Delete-to-remove, all through the shared Project/Undo/AudioEngine publication path with scale/grid rendering.
+- JUCE Sampler/Chop now renders the imported waveform and persistent slice markers, previews slices/pads through the realtime preview engine, supports 16-pad banks, non-destructive boundary dragging, double-click split and Delete-to-merge with Undo.
 
 ## Still required before Phase 8 is complete
 
-- Remaining editing-surface migration from X11 to JUCE: sequencer/sampler, piano roll, automation/bus mixer depth, Assist/Project Health and remaining arrangement operations.
+- Remaining editing-surface migration from X11 to JUCE: step sequencer, automation/bus mixer depth, Assist/Project Health and remaining arrangement operations.
 - Windows/macOS JUCE CI, AU runtime validation and platform packaging.
 
 ## Realtime invariants
