@@ -66,4 +66,24 @@ static void testBuiltinRealtimeChain(){
     auto gain=makeBuiltinPlugin("flow.gain");setPluginParameter(gain,"gain",0.25f);RealtimePluginChain chain;std::vector<RealtimePluginIssue>issues;require(chain.prepare({gain},nullptr,48000,2,8,&issues),"builtin chain should not require external host");float audio[]={1,1,-1,-1};chain.process(audio,2);require(near(audio[0],0.25f)&&near(audio[2],-0.25f),"builtin realtime chain processing changed");
 }
 
-int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
+static void testTrackBusRoutingPdc(){
+    auto host=std::make_shared<PluginHost>();host->registerBackend(std::make_shared<FakeBackend>());
+    AudioEngine engine;engine.configureExternalDevice(48000,16,false);engine.setPluginHost(host);
+
+    Project project;
+    SampleAsset sample;sample.audio=std::make_shared<AudioBuffer>();sample.audio->sampleRate=48000;sample.audio->channels=1;sample.audio->interleaved.assign(32,0.0f);sample.audio->interleaved[0]=0.4f;const Id sampleId=sample.id;project.samples.push_back(sample);
+
+    Bus bus;bus.name="PDC Bus";bus.mixer.plugins.push_back(fakePlugin("fake.latency2"));const Id busId=bus.id;project.buses.push_back(bus);
+
+    Track direct;direct.name="Direct";Clip directClip;directClip.sampleId=sampleId;directClip.sourceLength=32;direct.clips.push_back(directClip);MixerSend send;send.busId=busId;send.gain=0.5f;direct.sends.push_back(send);
+    Track throughBus;throughBus.name="Through Bus";throughBus.outputBusId=busId;throughBus.mixer.plugins.push_back(fakePlugin("fake.latency3"));Clip busClip;busClip.sampleId=sampleId;busClip.sourceLength=32;throughBus.clips.push_back(busClip);
+    project.tracks.push_back(direct);project.tracks.push_back(throughBus);
+
+    engine.publish(project);engine.play();auto output=engine.renderDeviceBlockForTest(16);
+    for(int frame=0;frame<5;++frame)require(near(output.interleaved[static_cast<std::size_t>(frame*2)],0.0f,0.002f),"PDC route emitted impulse before longest path latency");
+    const float expected=0.4f*std::sqrt(0.5f)*1.5f;
+    require(near(output.interleaved[10],expected,0.004f),"direct/send/bus paths did not align on the same compensated sample");
+    require(near(output.interleaved[12],0.0f,0.004f),"PDC impulse smeared into the next sample");
+}
+
+int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testTrackBusRoutingPdc();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
