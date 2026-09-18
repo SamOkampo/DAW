@@ -79,7 +79,7 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
         else if(tag=="SAMPLE_RATE")f>>p.sampleRate;
         else if(tag=="BPM")f>>p.transport.bpm;
         else if(tag=="PLAYHEAD")f>>p.transport.playheadTick;
-        else if(tag=="MASTER"){std::size_t nfx=0,nplugins=0;f>>p.master.volume;if(version>=3)f>>nfx;if(version>=10)f>>nplugins;if(version>=11)f>>t.externalInstrumentEnabled;for(std::size_t i=0;i<nfx;++i)p.master.effects.push_back(loadEffect(f,tag,"MASTER_EFFECT"));for(std::size_t i=0;i<nplugins;++i)p.master.plugins.push_back(loadPlugin(f,tag,"MASTER_PLUGIN"));}
+        else if(tag=="MASTER"){std::size_t nfx=0,nplugins=0;f>>p.master.volume;if(version>=3)f>>nfx;if(version>=10)f>>nplugins;for(std::size_t i=0;i<nfx;++i)p.master.effects.push_back(loadEffect(f,tag,"MASTER_EFFECT"));for(std::size_t i=0;i<nplugins;++i)p.master.plugins.push_back(loadPlugin(f,tag,"MASTER_PLUGIN"));}
         else if(tag=="SAMPLES"){
             std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){SampleAsset s;f>>tag;if(tag!="SAMPLE")throw std::runtime_error("Expected SAMPLE");f>>s.id>>std::quoted(s.name);std::string sp;f>>std::quoted(sp);s.path=sp;if(version>=2)f>>std::quoted(s.nativeKey);
                 std::size_t nslices=0;if(version>=4)f>>s.detectedBpm>>s.bpmConfidence>>s.sourceSampleId>>s.timeRatio>>nslices;
@@ -90,7 +90,7 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
             if(loadAudio&&version>=4){for(auto&derived:p.samples){if(derived.sourceSampleId==0||derived.audio)continue;auto*source=p.findSample(derived.sourceSampleId);if(source&&source->audio&&derived.timeRatio>=0.5&&derived.timeRatio<=2.0)derived.audio=std::make_shared<AudioBuffer>(timeStretchWsola(*source->audio,derived.timeRatio));}}
         }
         else if(tag=="TRACKS"){
-            std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){Track t;std::size_t nc=0,np=0,nfx=0,nsend=0,ntake=0,nplugins=0;f>>tag;if(tag!="TRACK")throw std::runtime_error("Expected TRACK");f>>t.id>>std::quoted(t.name)>>t.mixer.volume>>t.mixer.pan>>t.mixer.mute>>t.mixer.solo>>nc;if(version>=2)f>>np;if(version>=3)f>>nfx;if(version>=9)f>>t.armed>>t.inputMonitor>>t.outputBusId>>nsend>>ntake>>t.activeTakeId;if(version>=10)f>>nplugins;
+            std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){Track t;std::size_t nc=0,np=0,nfx=0,nsend=0,ntake=0,nplugins=0;f>>tag;if(tag!="TRACK")throw std::runtime_error("Expected TRACK");f>>t.id>>std::quoted(t.name)>>t.mixer.volume>>t.mixer.pan>>t.mixer.mute>>t.mixer.solo>>nc;if(version>=2)f>>np;if(version>=3)f>>nfx;if(version>=9)f>>t.armed>>t.inputMonitor>>t.outputBusId>>nsend>>ntake>>t.activeTakeId;if(version>=10)f>>nplugins;if(version>=11)f>>t.externalInstrumentEnabled;
                 for(std::size_t j=0;j<nc;++j){Clip c;f>>tag;if(tag!="CLIP")throw std::runtime_error("Expected CLIP");f>>c.id>>c.sampleId>>c.startTick>>c.lengthTicks>>c.sourceStart>>c.sourceLength>>c.gain>>c.loop;t.clips.push_back(c);}
                 for(std::size_t j=0;j<np;++j){PatternPlacement pc;f>>tag;if(tag!="PATCLIP")throw std::runtime_error("Expected PATCLIP");f>>pc.id>>pc.patternId>>pc.startTick>>pc.repeats;t.patternClips.push_back(pc);}
                 for(std::size_t j=0;j<nfx;++j)t.mixer.effects.push_back(loadEffect(f,tag,"TRACK_EFFECT"));
