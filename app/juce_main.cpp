@@ -173,7 +173,7 @@ public:
         prevTake_.setButtonText("Take -");prevTake_.onClick=[this]{cycleTake(-1);};addAndMakeVisible(prevTake_);
         nextTake_.setButtonText("Take +");nextTake_.onClick=[this]{cycleTake(1);};addAndMakeVisible(nextTake_);
         refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshRackControls();syncChopControls();updateBpmLabel();setEditorMode(EditorMode::Arrangement);
-        note_.setText("JUCE owns device I/O and registers the real VST3/AU backend with FLOWDAW's AudioEngine. Phase 8 now executes prepared track, bus and master inserts through preallocated realtime route buffers with PDC; full Studio editing parity remains in progress.",juce::dontSendNotification);note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
+        note_.setText("JUCE is the production FLOWDAW Studio: device I/O, editing, sampling, recording, mixer/routing, VST3/AU racks, export and realtime PDC run through the shared core.",juce::dontSendNotification);note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
         meterLabel_.setText("Meters (TP estimate / sample peak / RMS): waiting for audio",juce::dontSendNotification);addAndMakeVisible(meterLabel_);
         setSize(1440,1040);startTimer(100);
     }
