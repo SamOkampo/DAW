@@ -18,7 +18,7 @@ int main(int argc,char**argv){try{
     std::string error;auto found=scanPluginsWithJuce({bundle.parent_path(),instrumentBundle.parent_path()},error);require(error.empty(),"JUCE scan returned error");require(found.size()>=2,"JUCE did not discover both Phase 8 fixtures");
     auto effectIt=std::find_if(found.begin(),found.end(),[](auto const&d){return d.name=="FLOWDAW Test Plugin";});
     auto instrumentIt=std::find_if(found.begin(),found.end(),[](auto const&d){return d.name=="FLOWDAW Test Instrument";});
-    require(effectIt!=found.end(),"JUCE effect fixture missing");require(instrumentIt!=found.end(),"JUCE instrument fixture missing");
+    require(effectIt!=found.end(),"JUCE effect fixture missing");require(instrumentIt!=found.end(),"JUCE instrument fixture missing");require(!effectIt->instrument,"effect fixture misclassified as instrument");require(instrumentIt->instrument,"synth fixture was not classified as instrument");
     PluginInstance plugin;plugin.format="vst3";plugin.identifier=effectIt->identifier;plugin.name=effectIt->name;plugin.enabled=true;plugin.bypass=false;plugin.wet=1.0f;
     auto host=std::make_shared<PluginHost>();host->registerBackend(makeJucePluginBackend());AudioEngine engine;engine.configureExternalDevice(48000,128,true);engine.setPluginHost(host);engine.setInputMonitoring(true);
     Project project;project.master.plugins.push_back(plugin);engine.publish(project);
