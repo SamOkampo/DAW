@@ -223,6 +223,50 @@ private:
     void cycleTake(int delta){
         const int index=selectedTrackIndex();if(index<0)return;auto&t=project_.tracks[static_cast<std::size_t>(index)];if(t.takes.empty()){status_.setText("Selected track has no recorded takes",juce::dontSendNotification);return;}int current=0;for(int i=0;i<static_cast<int>(t.takes.size());++i)if(t.takes[static_cast<std::size_t>(i)].id==t.activeTakeId)current=i;current=(current+delta+static_cast<int>(t.takes.size()))%static_cast<int>(t.takes.size());Project before=project_;t.activeTakeId=t.takes[static_cast<std::size_t>(current)].id;const auto name=t.takes[static_cast<std::size_t>(current)].name;undo_.commit(std::move(before),project_,"Select recording take");publishEdit("Active comp: "+juce::String(name));
     }
+    void newProject(){
+        if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();engine_.stop();project_=makeStarterProject();projectPath_.clear();settings_.lastProjectPath.clear();undo_=UndoStack{};engine_.publish(project_);
+        refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshRackControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();
+        projectLabel_.setText("Untitled Beat • starter project",juce::dontSendNotification);status_.setText("New project: drums + FLOW Keys ready",juce::dontSendNotification);saveDeviceSettings();
+    }
+    std::vector<PluginInstance>*rackPlugins(){
+        if(rackTargetChoice_.getSelectedId()==2){const int index=selectedTrackIndex();if(index<0)return nullptr;return&project_.tracks[static_cast<std::size_t>(index)].mixer.plugins;}
+        return&project_.master.plugins;
+    }
+    const std::vector<PluginInstance>*rackPlugins()const{
+        if(rackTargetChoice_.getSelectedId()==2){const int index=selectedTrackIndex();if(index<0)return nullptr;return&project_.tracks[static_cast<std::size_t>(index)].mixer.plugins;}
+        return&project_.master.plugins;
+    }
+    PluginInstance*selectedRackPlugin(){auto*rack=rackPlugins();const int index=rackPluginChoice_.getSelectedId()-1;return rack&&index>=0&&index<static_cast<int>(rack->size())?&(*rack)[static_cast<std::size_t>(index)]:nullptr;}
+    const PluginInstance*selectedRackPlugin()const{auto*rack=rackPlugins();const int index=rackPluginChoice_.getSelectedId()-1;return rack&&index>=0&&index<static_cast<int>(rack->size())?&(*rack)[static_cast<std::size_t>(index)]:nullptr;}
+    void refreshRackControls(){
+        suppressRackCallbacks_=true;const int previous=rackPluginChoice_.getSelectedId();rackPluginChoice_.clear(juce::dontSendNotification);auto*rack=rackPlugins();if(rack){int id=1;for(auto const&p:*rack){auto label=juce::String(p.name)+" ["+juce::String(p.format)+"] "+(p.bypass?"BYPASS":"ACTIVE");rackPluginChoice_.addItem(label,id++);}if(!rack->empty())rackPluginChoice_.setSelectedId(previous>0&&previous<=static_cast<int>(rack->size())?previous:1,juce::dontSendNotification);}suppressRackCallbacks_=false;syncRackControls();
+    }
+    void syncRackControls(){
+        suppressRackCallbacks_=true;auto*p=selectedRackPlugin();rackWet_.setEnabled(p!=nullptr);rackBypass_.setEnabled(p!=nullptr);rackRemove_.setEnabled(p!=nullptr);
+        rackWet_.setValue(p?p->wet:1.0f,juce::dontSendNotification);rackBypass_.setButtonText(p&&p->bypass?"Activate":"Bypass");rackParam_.setEnabled(false);rackParamLabel_.setText("Parameter",juce::dontSendNotification);rackParam_.setTextValueSuffix({});
+        if(p&&p->format=="builtin"){
+            if(p->identifier=="flow.gain"){rackParam_.setRange(0.0,4.0,0.01);rackParam_.setValue(pluginParameterValue(*p,"gain",1.0f),juce::dontSendNotification);rackParam_.setTextValueSuffix(" gain");rackParamLabel_.setText("Gain",juce::dontSendNotification);rackParam_.setEnabled(true);}
+            else if(p->identifier=="flow.softclip"){rackParam_.setRange(0.0,1.0,0.01);rackParam_.setValue(pluginParameterValue(*p,"drive",0.25f),juce::dontSendNotification);rackParam_.setTextValueSuffix(" drive");rackParamLabel_.setText("Drive",juce::dontSendNotification);rackParam_.setEnabled(true);}
+            else if(p->identifier=="flow.width"){rackParam_.setRange(0.0,2.0,0.01);rackParam_.setValue(pluginParameterValue(*p,"width",1.0f),juce::dontSendNotification);rackParam_.setTextValueSuffix(" width");rackParamLabel_.setText("Width",juce::dontSendNotification);rackParam_.setEnabled(true);}
+        }else if(p){rackParamLabel_.setText("External state",juce::dontSendNotification);}
+        suppressRackCallbacks_=false;
+    }
+    void addBuiltinToRack(const std::string&id){
+        auto*rack=rackPlugins();if(!rack){status_.setText("Select a track for the track rack",juce::dontSendNotification);return;}Project before=project_;rack->push_back(makeBuiltinPlugin(id));const int selected=static_cast<int>(rack->size());const auto name=rack->back().name;undo_.commit(std::move(before),project_,"Add rack plugin");publishEdit("Added "+juce::String(name));rackPluginChoice_.setSelectedId(selected,juce::dontSendNotification);syncRackControls();
+    }
+    void toggleRackBypass(){
+        auto*p=selectedRackPlugin();if(!p){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}Project before=project_;p->bypass=!p->bypass;const auto name=p->name;const bool bypass=p->bypass;undo_.commit(std::move(before),project_,"Toggle plugin bypass");publishEdit(juce::String(name)+(bypass?" bypassed":" active"));
+    }
+    void removeRackPlugin(){
+        auto*rack=rackPlugins();const int index=rackPluginChoice_.getSelectedId()-1;if(!rack||index<0||index>=static_cast<int>(rack->size())){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}Project before=project_;const auto name=(*rack)[static_cast<std::size_t>(index)].name;rack->erase(rack->begin()+index);undo_.commit(std::move(before),project_,"Remove rack plugin");publishEdit("Removed "+juce::String(name));
+    }
+    void beginRackGesture(){if(suppressRackCallbacks_||rackGestureActive_||!selectedRackPlugin())return;rackBefore_=project_;rackGestureActive_=true;}
+    void applyRackSliders(){
+        if(suppressRackCallbacks_)return;auto*p=selectedRackPlugin();if(!p)return;if(!rackGestureActive_)beginRackGesture();p->wet=static_cast<float>(rackWet_.getValue());
+        if(p->format=="builtin"){if(p->identifier=="flow.gain")setPluginParameter(*p,"gain",static_cast<float>(rackParam_.getValue()));else if(p->identifier=="flow.softclip")setPluginParameter(*p,"drive",static_cast<float>(rackParam_.getValue()));else if(p->identifier=="flow.width")setPluginParameter(*p,"width",static_cast<float>(rackParam_.getValue()));}
+        engine_.publish(project_);
+    }
+    void endRackGesture(){if(!rackGestureActive_)return;rackGestureActive_=false;undo_.commit(std::move(rackBefore_),project_,"Edit rack plugin");refreshRackControls();status_.setText("Rack edit committed",juce::dontSendNotification);}
     void chooseWav(){
         chooser_=std::make_unique<juce::FileChooser>("Import WAV",juce::File::getSpecialLocation(juce::File::userMusicDirectory),"*.wav");
         chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[this](const juce::FileChooser&fc){auto f=fc.getResult();if(f.existsAsFile())importWavFile(std::filesystem::path(f.getFullPathName().toStdString()));chooser_.reset();});
@@ -272,7 +316,7 @@ private:
         chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectDirectories,[this](const juce::FileChooser&fc){auto dir=fc.getResult();if(dir!=juce::File{})try{const auto paths=exportTrackStems(project_,std::filesystem::path(dir.getFullPathName().toStdString()),2.0,pluginHost_);status_.setText("Exported "+juce::String(static_cast<int>(paths.size()))+" stems",juce::dontSendNotification);}catch(const std::exception&e){status_.setText("Stem export failed: "+juce::String(e.what()),juce::dontSendNotification);}chooser_.reset();});
     }
     void chooseProject(){chooser_=std::make_unique<juce::FileChooser>("Open FLOWDAW project",juce::File(projectPath_.string()),"*.flow");chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[this](const juce::FileChooser&fc){auto f=fc.getResult();if(f.existsAsFile())loadProjectFile(std::filesystem::path(f.getFullPathName().toStdString()));chooser_.reset();});}
-    void loadProjectFile(const std::filesystem::path&p){try{if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();engine_.stop();project_=ProjectSerializer::load(p,true);projectPath_=p;settings_.lastProjectPath=p;undo_=UndoStack{};engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();projectLabel_.setText("Project: "+juce::String(p.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);status_.setText("Project loaded; Play uses JUCE device callback",juce::dontSendNotification);}catch(const std::exception&e){status_.setText("Open failed: "+juce::String(e.what()),juce::dontSendNotification);}}
+    void loadProjectFile(const std::filesystem::path&p){try{if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();engine_.stop();project_=ProjectSerializer::load(p,true);projectPath_=p;settings_.lastProjectPath=p;undo_=UndoStack{};engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshRackControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();projectLabel_.setText("Project: "+juce::String(p.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);status_.setText("Project loaded; Play uses JUCE device callback",juce::dontSendNotification);}catch(const std::exception&e){status_.setText("Open failed: "+juce::String(e.what()),juce::dontSendNotification);}}
     std::vector<std::filesystem::path> pluginRoots()const{
         if(!settings_.pluginRoots.empty())return settings_.pluginRoots;std::vector<std::filesystem::path> roots;auto home=std::filesystem::path(juce::File::getSpecialLocation(juce::File::userHomeDirectory).getFullPathName().toStdString());roots.push_back(home/".vst3");roots.push_back("/usr/lib/vst3");roots.push_back("/usr/local/lib/vst3");
 #if JUCE_MAC
@@ -287,7 +331,7 @@ private:
         for(auto const&t:project_.tracks){std::string label=t.name;if(t.externalInstrumentEnabled&&!t.externalInstrument.name.empty())label+="  •  "+t.externalInstrument.name;trackChoice_.addItem(juce::String(label),id++);}
         if(!project_.tracks.empty())trackChoice_.setSelectedId(previous>0&&previous<=static_cast<int>(project_.tracks.size())?previous:1,juce::dontSendNotification);
     }
-    void publishEdit(const juce::String&message){engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();status_.setText(message,juce::dontSendNotification);}
+    void publishEdit(const juce::String&message){engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshRackControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();status_.setText(message,juce::dontSendNotification);}
     enum class EditorMode{Arrangement,Piano,Step,Automation,Sampler};
     void setEditorMode(EditorMode mode){
         editorMode_=mode;const bool arrangement=mode==EditorMode::Arrangement,piano=mode==EditorMode::Piano,step=mode==EditorMode::Step,automation=mode==EditorMode::Automation,sampler=mode==EditorMode::Sampler;
