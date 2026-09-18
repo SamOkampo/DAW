@@ -6,6 +6,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <algorithm>
 #include <cmath>
+#include <cctype>
 #include <functional>
 #include <string>
 #include <utility>
@@ -120,16 +121,20 @@ private:
 class SamplerComponent final:public juce::Component {
 public:
     using CommitFn=std::function<void(Project,std::string)>;
+    using TriggerFn=std::function<void(Id,Id)>;
 
-    SamplerComponent(Project&project,AudioEngine&engine,CommitFn commit):project_(project),engine_(engine),commit_(std::move(commit)){
+    SamplerComponent(Project&project,AudioEngine&engine,CommitFn commit,TriggerFn trigger={}):project_(project),engine_(engine),commit_(std::move(commit)),trigger_(std::move(trigger)){
         setWantsKeyboardFocus(true);
     }
 
-    void setSampleId(Id id){sampleId_=id;selectedSliceId_=0;boundaryDrag_=-1;bank_=0;repaint();}
+    void setSampleId(Id id){if(sampleId_==id){repaint();return;}sampleId_=id;selectedSliceId_=0;boundaryDrag_=-1;bank_=0;repaint();}
     Id sampleId()const{return sampleId_;}
     void previousBank(){bank_=std::max(0,bank_-1);repaint();}
     void nextBank(){auto*s=sample();if(!s)return;const int banks=std::max(1,(static_cast<int>(s->slices.size())+15)/16);bank_=std::min(banks-1,bank_+1);repaint();}
     int bank()const{return bank_;}
+    juce::String selectedPadName()const{auto*s=sample();if(!s||selectedSliceId_==0)return{};for(auto const&sl:s->slices)if(sl.id==selectedSliceId_)return juce::String(sl.name);return{};}
+    bool renameSelectedPad(const std::string&name){auto*s=sample();if(!s||selectedSliceId_==0)return false;auto it=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==selectedSliceId_;});if(it==s->slices.end())return false;Project before=project_;it->name=name.empty()?"Slice":name;if(commit_)commit_(std::move(before),"Rename sample pad");repaint();return true;}
+    bool adjustSelectedPad(float gainDelta,float panDelta,int chokeDelta){auto*s=sample();if(!s||selectedSliceId_==0)return false;auto it=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==selectedSliceId_;});if(it==s->slices.end())return false;Project before=project_;it->gain=std::clamp(it->gain+gainDelta,0.0f,2.0f);it->pan=std::clamp(it->pan+panDelta,-1.0f,1.0f);it->chokeGroup=std::clamp(it->chokeGroup+chokeDelta,0,8);if(commit_)commit_(std::move(before),"Edit sample pad");repaint();return true;}
 
     void paint(juce::Graphics&g)override{
         g.fillAll(juce::Colour(0xff0f1115));auto*s=sample();
@@ -183,7 +188,11 @@ public:
     }
 
     bool keyPressed(const juce::KeyPress&key)override{
-        if(key!=juce::KeyPress::deleteKey&&key!=juce::KeyPress::backspaceKey)return false;auto*s=sample();if(!s||selectedSliceId_==0)return false;
+        auto*s=sample();if(!s)return false;
+        const auto ch=static_cast<char>(std::tolower(static_cast<unsigned char>(key.getTextCharacter())));
+        const std::string keys="1234qwerasdfzxcv";const auto pos=keys.find(ch);
+        if(pos!=std::string::npos){const int index=bank_*16+static_cast<int>(pos);if(index>=0&&index<static_cast<int>(s->slices.size())){auto&sl=s->slices[static_cast<std::size_t>(index)];selectedSliceId_=sl.id;preview(sl,*s,true);repaint();return true;}return false;}
+        if(key!=juce::KeyPress::deleteKey&&key!=juce::KeyPress::backspaceKey)return false;if(selectedSliceId_==0)return false;
         auto it=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==selectedSliceId_;});if(it==s->slices.end()||it==s->slices.begin())return false;const std::size_t index=static_cast<std::size_t>(std::distance(s->slices.begin(),it));
         Project before=project_;if(!removeSliceBoundary(*s,index-1))return false;selectedSliceId_=s->slices[index-1].id;if(commit_)commit_(std::move(before),"Merge sample slices");repaint();return true;
     }
@@ -196,10 +205,10 @@ private:
     int xForFrame(SampleIndex frame,const SampleAsset&s)const{auto r=waveBounds();const auto frames=s.audio?std::max<SampleIndex>(1,s.audio->frames()):1;return r.getX()+static_cast<int>(std::llround(static_cast<double>(std::clamp<SampleIndex>(frame,0,frames))/frames*r.getWidth()));}
     SampleIndex frameAtX(int x,const SampleAsset&s)const{auto r=waveBounds();const auto frames=s.audio?std::max<SampleIndex>(1,s.audio->frames()):1;const double u=std::clamp(static_cast<double>(x-r.getX())/std::max(1,r.getWidth()),0.0,1.0);return std::clamp<SampleIndex>(static_cast<SampleIndex>(std::llround(u*frames)),0,frames);}
     int boundaryAtX(int x,const SampleAsset&s)const{for(std::size_t i=0;i+1<s.slices.size();++i)if(std::abs(x-xForFrame(s.slices[i].endFrame,s))<=5)return static_cast<int>(i);return-1;}
-    void preview(const SampleSlice&sl,SampleAsset&s){if(!s.audio)return;engine_.triggerPreview(s.audio,sl.startFrame,std::max<SampleIndex>(1,sl.endFrame-sl.startFrame),sl.gain,sl.pan,sl.chokeGroup);}
-    void selectPadAt(juce::Point<int>point,SampleAsset&s){auto r=padBounds();const int col=std::clamp((point.x-r.getX())*4/std::max(1,r.getWidth()),0,3);const int row=std::clamp((point.y-r.getY())*4/std::max(1,r.getHeight()),0,3);const int index=bank_*16+row*4+col;if(index<0||index>=static_cast<int>(s.slices.size()))return;auto&sl=s.slices[static_cast<std::size_t>(index)];selectedSliceId_=sl.id;preview(sl,s);repaint();}
+    void preview(const SampleSlice&sl,SampleAsset&s,bool report=false){if(!s.audio)return;if(engine_.triggerPreview(s.audio,sl.startFrame,std::max<SampleIndex>(1,sl.endFrame-sl.startFrame),sl.gain,sl.pan,sl.chokeGroup)&&report&&trigger_)trigger_(s.id,sl.id);}
+    void selectPadAt(juce::Point<int>point,SampleAsset&s){auto r=padBounds();const int col=std::clamp((point.x-r.getX())*4/std::max(1,r.getWidth()),0,3);const int row=std::clamp((point.y-r.getY())*4/std::max(1,r.getHeight()),0,3);const int index=bank_*16+row*4+col;if(index<0||index>=static_cast<int>(s.slices.size()))return;auto&sl=s.slices[static_cast<std::size_t>(index)];selectedSliceId_=sl.id;preview(sl,s,true);repaint();}
 
-    Project&project_;AudioEngine&engine_;CommitFn commit_;Id sampleId_=0,selectedSliceId_=0;int bank_=0,boundaryDrag_=-1;SampleIndex originalBoundary_=0;Project before_;
+    Project&project_;AudioEngine&engine_;CommitFn commit_;TriggerFn trigger_;Id sampleId_=0,selectedSliceId_=0;int bank_=0,boundaryDrag_=-1;SampleIndex originalBoundary_=0;Project before_;
 };
 
 } // namespace flowdaw::juceui

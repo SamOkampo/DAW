@@ -1,9 +1,12 @@
 #pragma once
 #include "flowdaw/Project.hpp"
+#include "flowdaw/NativeDrums.hpp"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -27,10 +30,11 @@ public:
         len16_.setButtonText("16");len16_.onClick=[this]{setLength(16);};addAndMakeVisible(len16_);
         len32_.setButtonText("32");len32_.onClick=[this]{setLength(32);};addAndMakeVisible(len32_);
         len64_.setButtonText("64");len64_.onClick=[this]{setLength(64);};addAndMakeVisible(len64_);
+        int drumId=1;for(auto const&choice:nativeDrums())drumChoice_.addItem(juce::String(choice.first),drumId++);drumChoice_.setTextWhenNothingSelected("Assign FLOW drum");drumChoice_.onChange=[this]{assignNativeDrum(drumChoice_.getSelectedId()-1);};addAndMakeVisible(drumChoice_);
     }
 
     void setPatternId(Id id){
-        patternId_=id;selectedLane_=0;selectedStep_=0;page_=0;gestureActive_=false;syncControls();repaint();
+        if(patternId_==id){syncControls();repaint();return;}patternId_=id;selectedLane_=0;selectedStep_=0;page_=0;gestureActive_=false;syncControls();repaint();
     }
     Id patternId()const{return patternId_;}
 
@@ -85,7 +89,7 @@ public:
     void resized()override{
         auto r=getLocalBounds().reduced(6);
         r.removeFromTop(20);
-        auto top=r.removeFromTop(30);pagePrev_.setBounds(top.removeFromLeft(72).reduced(2));pageNext_.setBounds(top.removeFromLeft(72).reduced(2));top.removeFromLeft(8);len16_.setBounds(top.removeFromLeft(48).reduced(2));len32_.setBounds(top.removeFromLeft(48).reduced(2));len64_.setBounds(top.removeFromLeft(48).reduced(2));
+        auto top=r.removeFromTop(30);pagePrev_.setBounds(top.removeFromLeft(72).reduced(2));pageNext_.setBounds(top.removeFromLeft(72).reduced(2));top.removeFromLeft(8);len16_.setBounds(top.removeFromLeft(48).reduced(2));len32_.setBounds(top.removeFromLeft(48).reduced(2));len64_.setBounds(top.removeFromLeft(48).reduced(2));top.removeFromLeft(8);drumChoice_.setBounds(top.removeFromLeft(190).reduced(2));
         auto controls=r.removeFromBottom(84);auto row1=controls.removeFromTop(40);layoutSlider(row1,velocity_,140);layoutSlider(row1,probability_,140);layoutSlider(row1,micro_,150);layoutSlider(row1,swing_,140);layoutSlider(row1,humanize_,140);
         auto row2=controls.removeFromTop(40);layoutSlider(row2,laneVolume_,170);layoutSlider(row2,lanePan_,170);
     }
@@ -124,6 +128,10 @@ private:
     }
     static void layoutSlider(juce::Rectangle<int>&row,juce::Slider&slider,int width){slider.setBounds(row.removeFromLeft(width).reduced(2));row.removeFromLeft(4);}
 
+    static const std::array<std::pair<const char*,const char*>,7>&nativeDrums(){static const std::array<std::pair<const char*,const char*>,7> choices={{{"Kick","kick"},{"Snare","snare"},{"Closed Hat","hat"},{"Open Hat","openhat"},{"Clap","clap"},{"Rim","rim"},{"Perc","perc"}}};return choices;}
+    void assignNativeDrum(int index){
+        auto*p=pattern();auto*l=selectedLane();if(!p||!l||index<0||index>=static_cast<int>(nativeDrums().size()))return;const auto&choice=nativeDrums()[static_cast<std::size_t>(index)];Project before=project_;SampleAsset*asset=nullptr;for(auto&s:project_.samples)if(s.nativeKey==choice.second){asset=&s;break;}if(!asset){SampleAsset sample;sample.name=std::string("FLOW ")+choice.first;sample.nativeKey=choice.second;sample.audio=std::make_shared<AudioBuffer>(makeNativeDrum(choice.second,project_.sampleRate));project_.samples.push_back(std::move(sample));asset=&project_.samples.back();}l=selectedLane();if(!l)return;l->sampleId=asset->id;l->name=choice.first;if(commit_)commit_(std::move(before),"Assign native drum");syncControls();repaint();
+    }
     void configureSlider(juce::Slider&slider,double min,double max,double step,const juce::String&suffix){
         slider.setRange(min,max,step);slider.setSliderStyle(juce::Slider::LinearHorizontal);slider.setTextBoxStyle(juce::Slider::TextBoxRight,false,62,22);slider.setName(suffix);addAndMakeVisible(slider);
         slider.onDragStart=[this]{beginGesture();};slider.onValueChange=[this]{applyControls();};slider.onDragEnd=[this]{endGesture();};
@@ -151,11 +159,13 @@ private:
         suppress_=true;auto*p=pattern();auto*l=selectedLane();auto*e=selectedEvent();
         velocity_.setValue(e?e->velocity:1.0,juce::dontSendNotification);probability_.setValue(e?e->probability:1.0,juce::dontSendNotification);micro_.setValue(e?e->microTicks:0,juce::dontSendNotification);
         laneVolume_.setValue(l?l->volume:1.0,juce::dontSendNotification);lanePan_.setValue(l?l->pan:0.0,juce::dontSendNotification);
-        swing_.setValue(p?p->swing:0.0,juce::dontSendNotification);humanize_.setValue(p?p->humanize:0.0,juce::dontSendNotification);suppress_=false;
+        swing_.setValue(p?p->swing:0.0,juce::dontSendNotification);humanize_.setValue(p?p->humanize:0.0,juce::dontSendNotification);
+        int selectedDrum=0;if(l&&l->sampleId){if(auto*smp=project_.findSample(l->sampleId)){for(std::size_t i=0;i<nativeDrums().size();++i)if(smp->nativeKey==nativeDrums()[i].second){selectedDrum=static_cast<int>(i)+1;break;}}}drumChoice_.setSelectedId(selectedDrum,juce::dontSendNotification);suppress_=false;
     }
 
     Project&project_;CommitFn commit_;Id patternId_=0;int page_=0,selectedLane_=0,selectedStep_=0;bool suppress_=false,gestureActive_=false;Project before_;
     juce::TextButton pagePrev_,pageNext_,len16_,len32_,len64_;
+    juce::ComboBox drumChoice_;
     juce::Slider velocity_,probability_,micro_,laneVolume_,lanePan_,swing_,humanize_;
 };
 
