@@ -94,7 +94,7 @@ public:
         trackMeterLabel_.setText("Selected track meter",juce::dontSendNotification);addAndMakeVisible(trackMeterLabel_);addAndMakeVisible(trackMeter_);
         auto commitEdit=[this](Project before,std::string name){undo_.commit(std::move(before),project_,name);publishEdit(juce::String(name));};
         arrangement_=std::make_unique<juceui::ArrangementComponent>(project_,commitEdit);addAndMakeVisible(*arrangement_);
-        piano_=std::make_unique<juceui::PianoRollComponent>(project_,commitEdit);addChildComponent(*piano_);
+        piano_=std::make_unique<juceui::PianoRollComponent>(project_,engine_,commitEdit);addChildComponent(*piano_);
         sampler_=std::make_unique<juceui::SamplerComponent>(project_,engine_,commitEdit,[this](Id sampleId,Id sliceId){recordChopTrigger(sampleId,sliceId);});addChildComponent(*sampler_);
         sequencer_=std::make_unique<juceui::StepSequencerComponent>(project_,commitEdit);addChildComponent(*sequencer_);
         automationAssist_=std::make_unique<juceui::AutomationAssistComponent>(project_,[this]{return MusicalTime::samplesToTicks(engine_.playheadSamples(),project_.transport.bpm,engine_.sampleRate());},commitEdit);addChildComponent(*automationAssist_);
