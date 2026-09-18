@@ -118,4 +118,5 @@ See:
 - `PROJECT_FORMAT.md`
 - `ROADMAP.md`
 - `PHASE1_STATUS.md` through `PHASE8_STATUS.md`
+- `docs/PRODUCTION_GOLDEN_PATH.md` — manual installed-app acceptance flow from starter project through export
 - `docs/TIME_STRETCH_EVALUATION.md`
