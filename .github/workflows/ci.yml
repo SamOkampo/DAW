@@ -87,6 +87,15 @@ jobs:
         run: cmake -S . -B build-mac -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=OFF -DFLOWDAW_BUILD_TESTS=ON -DFLOWDAW_ENABLE_JUCE_RUNTIME=ON -DFLOWDAW_FETCH_JUCE=ON -DFLOWDAW_BUILD_JUCE_APP=ON -DFLOWDAW_BUILD_JUCE_TEST_PLUGIN=ON
       - name: Build macOS desktop, VST3 and AU fixtures
         run: cmake --build build-mac --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests flowdaw_phase8_juce_tests flowdaw-doctor
+      - name: Register AU fixtures with CoreAudio
+        run: |
+          mkdir -p "$HOME/Library/Audio/Plug-Ins/Components"
+          find build-mac -type d -path "*/Release/AU/*.component" -maxdepth 8 -print0 | while IFS= read -r -d '' component; do
+            ditto "$component" "$HOME/Library/Audio/Plug-Ins/Components/$(basename "$component")"
+          done
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a >/dev/null 2>&1 || true
       - name: Execute macOS VST3 and AU host integration tests
         run: ctest --test-dir build-mac -R "flowdaw_phase(7|8)_(juce|au)_tests" --output-on-failure
       - name: Install macOS desktop smoke test
