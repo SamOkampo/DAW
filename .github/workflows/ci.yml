@@ -47,8 +47,8 @@ jobs:
       - name: Configure JUCE 9.0.2 runtime
         run: cmake -S . -B build-juce -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=OFF -DFLOWDAW_BUILD_TESTS=ON -DFLOWDAW_ENABLE_JUCE_RUNTIME=ON -DFLOWDAW_FETCH_JUCE=ON -DFLOWDAW_BUILD_JUCE_APP=ON -DFLOWDAW_BUILD_JUCE_TEST_PLUGIN=ON
       - name: Build JUCE desktop and real VST3 fixture
-        run: cmake --build build-juce --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests
+        run: cmake --build build-juce --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests flowdaw-doctor
       - name: Execute real VST3 host integration test
         run: ctest --test-dir build-juce -R flowdaw_phase7_juce_tests --output-on-failure
       - name: Install JUCE desktop smoke test
-        run: cmake --install build-juce --prefix "$RUNNER_TEMP/flowdaw-juce-install" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/FLOWDAW"
+        run: cmake --install build-juce --prefix "$RUNNER_TEMP/flowdaw-juce-install" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/FLOWDAW" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-doctor" && "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-doctor" status
