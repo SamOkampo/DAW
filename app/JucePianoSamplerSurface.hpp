@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cctype>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -73,10 +74,10 @@ public:
     bool keyPressed(const juce::KeyPress&key)override{
         auto*p=pattern();if(!p)return false;const auto mods=key.getModifiers();
         if(key==juce::KeyPress::deleteKey||key==juce::KeyPress::backspaceKey)return deleteSelected();
-        if(key==juce::KeyPress::leftKey)return nudgeSelected(-std::max<Tick>(1,p->midiGridTicks),0);
-        if(key==juce::KeyPress::rightKey)return nudgeSelected(std::max<Tick>(1,p->midiGridTicks),0);
-        if(key==juce::KeyPress::upKey)return mods.isShiftDown()?adjustSelectedNote(0.05f,0):nudgeSelected(0,1);
-        if(key==juce::KeyPress::downKey)return mods.isShiftDown()?adjustSelectedNote(-0.05f,0):nudgeSelected(0,-1);
+        if(key.getKeyCode()==juce::KeyPress::leftKey)return nudgeSelected(-std::max<Tick>(1,p->midiGridTicks),0);
+        if(key.getKeyCode()==juce::KeyPress::rightKey)return nudgeSelected(std::max<Tick>(1,p->midiGridTicks),0);
+        if(key.getKeyCode()==juce::KeyPress::upKey)return mods.isShiftDown()?adjustSelectedNote(0.05f,0):nudgeSelected(0,1);
+        if(key.getKeyCode()==juce::KeyPress::downKey)return mods.isShiftDown()?adjustSelectedNote(-0.05f,0):nudgeSelected(0,-1);
         const auto ch=static_cast<char>(std::tolower(static_cast<unsigned char>(key.getTextCharacter())));if(ch=='['){previewBasePitch_=std::max(12,previewBasePitch_-12);repaint();return true;}if(ch==']'){previewBasePitch_=std::min(108,previewBasePitch_+12);repaint();return true;}
         const std::string keys="awsedftgyhuj";const auto pos=keys.find(ch);if(pos!=std::string::npos){static const int semis[]={0,1,2,3,4,5,6,7,8,9,10,11};previewPitch(std::clamp(previewBasePitch_+semis[pos],0,127));return true;}return false;
     }
