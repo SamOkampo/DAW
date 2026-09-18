@@ -21,6 +21,8 @@ Phase 8 is **IN PROGRESS**. This document records the first realtime-plugin-grap
 - JUCE CI now validates real VST3 processing not only on master but across a real track→bus insert chain.
 - Graph ownership now separates the currently published graph from retired graphs; realtime/offline readers are counted atomically and retired plugin graphs are reclaimed only from the control thread when no reader can still reference them.
 - A concurrent test holds a processor inside the realtime callback while a replacement graph is published, proving the old graph is retained until the callback exits; repeated idle publications are also verified not to accumulate retired graphs.
+- Offline rendering now drives the same prepared track/bus/master realtime graph in bounded blocks, preserving external effects, PDC, automation and master processing instead of using the legacy flattened renderer.
+- Project WAV export and per-track stem export accept the production `PluginHost`, so JUCE-backed VST3 effects are instantiated for bounce; CI compares deterministic realtime/offline samples and also bounces the real JUCE VST3 fixture.
 
 ## Still required before Phase 8 is complete
 
