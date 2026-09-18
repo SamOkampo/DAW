@@ -4,7 +4,7 @@ FLOWDAW is a hip-hop-first desktop DAW built around one principle: remove techni
 
 ## Current state
 
-**Phase 0 through Phase 8 are complete.**
+**Phase 0 through Phase 8 are complete. Phase 9 is in progress.**
 
 The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 shell remains source-available only as an explicit legacy regression/bootstrap target.
 
@@ -27,7 +27,7 @@ The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 s
 - External instrument slots driven by Pattern MIDI before Track inserts.
 - Realtime/offline routing parity, master WAV export and per-track stem export through the production PluginHost.
 - Production Assistant, Project Health and explicit Undoable workflow commands.
-- Machine-local audio/plugin settings, crash recovery/autosave infrastructure and plugin quarantine.
+- Machine-local audio/plugin settings, JUCE-wired periodic autosave/crash recovery and plugin quarantine.
 - `flowdaw-doctor` for runtime status, recovery and plugin-quarantine maintenance.
 - New sessions start with a usable native beat plus a FLOW Keys melodic Pattern.
 - Cross-platform CI validates Linux, Windows and macOS production builds; Windows creates a portable ZIP and macOS creates a DMG.
@@ -117,5 +117,5 @@ See:
 - `AUDIO_ENGINE.md`
 - `PROJECT_FORMAT.md`
 - `ROADMAP.md`
-- `PHASE1_STATUS.md` through `PHASE8_STATUS.md`
+- `PHASE1_STATUS.md` through `PHASE9_STATUS.md`
 - `docs/TIME_STRETCH_EVALUATION.md`
