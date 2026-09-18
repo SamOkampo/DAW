@@ -1,4 +1,4 @@
-#include "flowdaw/AudioEngine.hpp"
+#include "flowdaw/AudioEngine.hpp"\n#include "flowdaw/Export.hpp"
 #include "flowdaw/PluginHost.hpp"
 #include "flowdaw/RealtimePluginGraph.hpp"
 #include <algorithm>
@@ -132,4 +132,29 @@ static void testTrackBusRoutingPdc(){
     require(near(output.interleaved[12],0.0f,0.004f),"PDC impulse smeared into the next sample");
 }
 
-int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testSafeGraphReclamation();testTrackBusRoutingPdc();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
+
+static void testOfflineExportParity(){
+    auto host=std::make_shared<PluginHost>();host->registerBackend(std::make_shared<FakeBackend>());
+    Project project;project.transport.bpm=120.0;
+
+    SampleAsset sample;sample.audio=std::make_shared<AudioBuffer>();sample.audio->sampleRate=48000;sample.audio->channels=1;sample.audio->interleaved.assign(128,0.0f);sample.audio->interleaved[0]=0.4f;const Id sampleId=sample.id;project.samples.push_back(sample);
+
+    Bus bus;bus.name="Offline parity bus";bus.mixer.plugins.push_back(fakePlugin("fake.latency2"));const Id busId=bus.id;project.buses.push_back(bus);
+    Track track;track.name="Offline parity track";track.outputBusId=busId;track.mixer.plugins.push_back(fakePlugin("fake.latency3"));
+    Clip clip;clip.sampleId=sampleId;clip.sourceLength=128;clip.lengthTicks=kPPQ;track.clips.push_back(clip);project.tracks.push_back(track);
+    project.master.plugins.push_back(fakePlugin("fake.latency2"));
+
+    AudioEngine realtime;realtime.configureExternalDevice(48000,16,false);realtime.setPluginHost(host);realtime.publish(project);realtime.play();
+    auto device=realtime.renderDeviceBlockForTest(32);
+
+    AudioEngine offline;offline.configureExternalDevice(48000,16,false);offline.setPluginHost(host);offline.publish(project);
+    auto directBounce=offline.renderOffline(32);
+    require(device.interleaved.size()==directBounce.interleaved.size(),"offline parity block length mismatch");
+    for(std::size_t i=0;i<device.interleaved.size();++i)require(near(device.interleaved[i],directBounce.interleaved[i],0.0001f),"offline AudioEngine graph diverged from realtime graph");
+
+    auto exported=renderProjectOffline(project,0.0,host);
+    require(exported.frames()>=32,"project export ended before test graph output");
+    for(std::size_t i=0;i<device.interleaved.size();++i)require(near(device.interleaved[i],exported.interleaved[i],0.0001f),"project export with external host diverged from realtime graph");
+}
+
+int main(){try{testDelayLine();testPreparedChain();testRealtimeMasterGraph();testBuiltinRealtimeChain();testSafeGraphReclamation();testTrackBusRoutingPdc();testOfflineExportParity();std::cout<<"Phase 8 realtime plugin graph foundation OK\n";return 0;}catch(const std::exception&e){std::cerr<<"Phase 8 test failed: "<<e.what()<<"\n";return 1;}}
