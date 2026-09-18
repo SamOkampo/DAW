@@ -37,7 +37,7 @@ The JUCE Studio is the production FLOWDAW desktop path. The X11 shell is retaine
 - Native instruments: FLOW Keys, FLOW 808, FLOW Bass and FLOW Lead with gain, pan, envelope, tone, drive and tempo-aware delay controls.
 - Recording: bounded realtime-safe capture, input monitoring, persistent takes and active-take selection.
 - Mixer/Automation: Track controls, buses, sends, pre/post-fader mode, route meters and Track/Bus/Master volume/pan automation.
-- Plugin workflow: VST3/AU scanning, external instruments/effects, Track/Master racks, FLOW Gain/Soft Clip/Width, bypass/remove, wet mix and native parameters.
+- Plugin workflow: VST3/AU scanning, external instruments/effects, Track/Bus/Master racks, FLOW Gain/Soft Clip/Width, bypass/remove, wet mix, insert reordering and native parameters.
 - External rack editor restores the selected persistent insert state, republishes audible changes and collapses the editor session into one Undo entry.
 - Production Assistant, Project Health and explicit workflow commands are available from the JUCE Studio.
 - Master mix and per-track stem export execute through the production PluginHost.
