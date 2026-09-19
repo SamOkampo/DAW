@@ -26,7 +26,7 @@ public:
         favorite_.setButtonText("Favorite"); favorite_.onClick = [this] { toggleFavoriteSelected(); }; addAndMakeVisible(favorite_);
         import_.setButtonText("Import"); import_.onClick = [this] { importSelected(); }; addAndMakeVisible(import_);
         list_.setRowHeight(34); list_.setOutlineThickness(0); addAndMakeVisible(list_);
-        hint_.setText("Double-click a WAV to import", juce::dontSendNotification);
+        hint_.setText("Double-click to import · drag WAVs to the DAW", juce::dontSendNotification);
         hint_.setColour(juce::Label::textColourId, juce::Colour(0xff8d95a5)); addAndMakeVisible(hint_);
         refreshRoots(); refresh();
     }
@@ -53,6 +53,12 @@ private:
     }
     void listBoxItemDoubleClicked(int row, const juce::MouseEvent&) override {
         if (row >= 0 && row < static_cast<int>(visible_.size())) importPath(visible_[static_cast<std::size_t>(row)]);
+    }
+    juce::var getDragSourceDescription(const juce::SparseSet<int>& selectedRows) override {
+        if (selectedRows.size() != 1) return {};
+        const int row = selectedRows[0]; if (row < 0 || row >= static_cast<int>(visible_.size())) return {};
+        const auto& p = visible_[static_cast<std::size_t>(row)];
+        return juce::String("flowdaw-sample:") + juce::String(p.string());
     }
     static std::string lower(std::string s) { for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); return s; }
     bool matchesSearch(const std::filesystem::path& p) const {
