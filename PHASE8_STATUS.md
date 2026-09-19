@@ -66,6 +66,7 @@ All Phase 8 roadmap criteria are satisfied:
 10. Core production editing/workflows are available in JUCE.
 11. X11 is retired from the default product path and remains only as a legacy target.
 12. Linux/Windows/macOS CI and platform packaging validate the production runtime.
+13. `docs/PRODUCTION_GOLDEN_PATH.md` defines the install-to-export manual acceptance path for the complete JUCE production workflow.
 
 **Production desktop path: JUCE. Project format: v11. FLOWDAW version: 0.8.0.**
 
