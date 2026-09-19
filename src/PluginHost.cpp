@@ -49,7 +49,9 @@ void PluginHost::registerBackend(std::shared_ptr<IExternalPluginBackend>b){if(b)
 std::unique_ptr<IPluginProcessor> PluginHost::createProcessor(const PluginInstance&p,std::string&error)const{
  error.clear();if(!p.enabled||p.bypass)return{};if(p.format=="builtin"){auto proc=builtinProcessor(p);if(!proc)error="Unknown FLOWDAW builtin plugin: "+p.identifier;return proc;}
  if(p.format!="vst3"&&p.format!="au"){error="Unsupported plugin format: "+p.format;return{};}
- for(auto const&b:backends_)if(b&&b->supports(p.format)){auto proc=b->create(p,error);if(proc)return proc;}
+ bool supportedBackend=false;std::string backendError;
+ for(auto const&b:backends_)if(b&&b->supports(p.format)){supportedBackend=true;std::string attemptError;auto proc=b->create(p,attemptError);if(proc){error.clear();return proc;}if(!attemptError.empty())backendError=std::move(attemptError);}
+ if(supportedBackend){error=backendError.empty()?"Compatible plugin backend could not instantiate: "+p.identifier:backendError;return{};}
  error="No "+p.format+" execution backend registered. Discovery/state are available; connect the JUCE/platform adapter to instantiate this plugin.";return{};
 }
 bool PluginHost::process(AudioBuffer&buffer,PluginInstance&p,std::string&error)const{

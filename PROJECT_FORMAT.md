@@ -75,7 +75,7 @@ Patterns persist step count, subdivisions, Swing, Humanize, drum lanes, Chop eve
 
 ## Compatibility rule
 
-Persisted schema changes increment `formatVersion` and keep explicit backward loading where practical. v10 preserves backward loading through v1. Older projects receive safe defaults for recording, buses, sends, automation and plugin racks and can be resaved as v10 without modifying their source audio.
+Persisted schema changes increment `formatVersion` and keep explicit backward loading where practical. The v11 loader preserves backward loading through v1. Older projects receive safe defaults for recording, buses, sends, automation, plugin racks and external instrument slots and can be resaved as v11 without modifying their source audio.
 
 
 ## External instrument slot — v11+
