@@ -23,6 +23,7 @@ public:
         search_.onTextChange = [this] { refresh(); }; addAndMakeVisible(search_);
         root_.setTextWhenNothingSelected("No sample folder"); root_.onChange = [this] { refresh(); }; addAndMakeVisible(root_);
         addRoot_.setButtonText("+ Folder"); addRoot_.onClick = [this] { chooseRoot(); }; addAndMakeVisible(addRoot_);
+        favorite_.setButtonText("Favorite"); favorite_.onClick = [this] { toggleFavoriteSelected(); }; addAndMakeVisible(favorite_);
         import_.setButtonText("Import"); import_.onClick = [this] { importSelected(); }; addAndMakeVisible(import_);
         list_.setRowHeight(34); list_.setOutlineThickness(0); addAndMakeVisible(list_);
         hint_.setText("Double-click a WAV to import", juce::dontSendNotification);
@@ -37,7 +38,7 @@ public:
     void resized() override {
         auto r = getLocalBounds().reduced(8); title_.setBounds(r.removeFromTop(24)); search_.setBounds(r.removeFromTop(30));
         auto roots = r.removeFromTop(30); root_.setBounds(roots.removeFromLeft(std::max(0, roots.getWidth()-82)).reduced(2)); addRoot_.setBounds(roots.reduced(2));
-        auto actions = r.removeFromTop(30); import_.setBounds(actions.removeFromLeft(72).reduced(2));
+        auto actions = r.removeFromTop(30); import_.setBounds(actions.removeFromLeft(72).reduced(2)); favorite_.setBounds(actions.removeFromLeft(82).reduced(2));
         hint_.setBounds(r.removeFromBottom(22)); list_.setBounds(r.reduced(2));
     }
 
@@ -46,11 +47,12 @@ private:
     void paintListBoxItem(int row, juce::Graphics& g, int width, int height, bool selected) override {
         if (row < 0 || row >= static_cast<int>(visible_.size())) return;
         if (selected) g.fillAll(juce::Colour(0xff263249)); const auto& p = visible_[static_cast<std::size_t>(row)];
-        g.setColour(juce::Colour(0xfff0f3f8)); g.drawText(juce::String(p.filename().string()), 8, 2, width-16, 16, juce::Justification::centredLeft, true);
+        const bool favorite = std::find(settings_.favoriteSamples.begin(), settings_.favoriteSamples.end(), p) != settings_.favoriteSamples.end();
+        g.setColour(juce::Colour(0xfff0f3f8)); g.drawText((favorite ? juce::String::fromUTF8("★ ") : juce::String()) + juce::String(p.filename().string()), 8, 2, width-16, 16, juce::Justification::centredLeft, true);
         g.setColour(juce::Colour(0xff7f8796)); g.setFont(11.0f); g.drawText(juce::String(p.parent_path().string()), 8, 18, width-16, std::max(12,height-18), juce::Justification::centredLeft, true);
     }
     void listBoxItemDoubleClicked(int row, const juce::MouseEvent&) override {
-        if (row >= 0 && row < static_cast<int>(visible_.size()) && importFn_) importFn_(visible_[static_cast<std::size_t>(row)]);
+        if (row >= 0 && row < static_cast<int>(visible_.size())) importPath(visible_[static_cast<std::size_t>(row)]);
     }
     static std::string lower(std::string s) { for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); return s; }
     bool matchesSearch(const std::filesystem::path& p) const {
@@ -73,7 +75,7 @@ private:
             }
             std::sort(visible_.begin(), visible_.end(), [](const auto& a,const auto& b){return lower(a.filename().string()) < lower(b.filename().string());});
         }
-        list_.updateContent(); list_.repaint(); import_.setEnabled(!visible_.empty());
+        list_.updateContent(); list_.repaint(); import_.setEnabled(!visible_.empty()); favorite_.setEnabled(!visible_.empty());
     }
     void addRootPath(const std::filesystem::path& p) {
         if (p.empty() || !std::filesystem::is_directory(p)) return;
@@ -87,9 +89,18 @@ private:
         chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectDirectories, [this](const juce::FileChooser& fc){ auto f=fc.getResult(); if(f.isDirectory()) addRootPath(std::filesystem::path(f.getFullPathName().toStdString())); chooser_.reset(); });
     }
     std::filesystem::path selectedPath() const { const int row=list_.getSelectedRow(); return row>=0 && row<static_cast<int>(visible_.size()) ? visible_[static_cast<std::size_t>(row)] : std::filesystem::path{}; }
-    void importSelected() { auto p=selectedPath(); if(!p.empty() && std::filesystem::exists(p) && importFn_) importFn_(p); }
+    void toggleFavoriteSelected() {
+        auto p=selectedPath(); if(p.empty()) return; auto& favorites=settings_.favoriteSamples;
+        auto it=std::find(favorites.begin(),favorites.end(),p); if(it==favorites.end()){favorites.push_back(p);if(favorites.size()>256)favorites.erase(favorites.begin());}else favorites.erase(it);
+        notifySettingsChanged(); list_.repaint();
+    }
+    void importPath(const std::filesystem::path& p) {
+        if(p.empty() || !std::filesystem::exists(p) || !importFn_) return;
+        importFn_(p); auto& recent=settings_.recentSamples; recent.erase(std::remove(recent.begin(),recent.end(),p),recent.end()); recent.insert(recent.begin(),p); if(recent.size()>64)recent.resize(64); notifySettingsChanged();
+    }
+    void importSelected() { importPath(selectedPath()); }
 
     AppSettings& settings_; ImportFn importFn_; SettingsChangedFn settingsChanged_; std::vector<std::filesystem::path> visible_; std::unique_ptr<juce::FileChooser> chooser_;
-    juce::Label title_, hint_; juce::TextEditor search_; juce::ComboBox root_; juce::TextButton addRoot_, import_; juce::ListBox list_;
+    juce::Label title_, hint_; juce::TextEditor search_; juce::ComboBox root_; juce::TextButton addRoot_, favorite_, import_; juce::ListBox list_;
 };
 }
