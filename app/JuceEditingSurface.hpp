@@ -52,9 +52,11 @@ public:
         const auto timeline=juce::Rectangle<int>(labelWidth,header,std::max(1,bounds.getWidth()-labelWidth),std::max(1,bounds.getHeight()-header));
         g.setColour(juce::Colour(0xff1b1d22));g.fillRect(0,0,bounds.getWidth(),header);
         const Tick end=visibleEndTick();
-        for(Tick tick=0;tick<=end;tick+=kPPQ){
-            const int x=xForTick(tick,end);const bool bar=((tick/kPPQ)%4)==0;
-            g.setColour(bar?juce::Colour(0xff3a3e48):juce::Colour(0xff24272e));
+        const Tick grid=snapGridTicks();
+        const Tick firstGrid=(viewStartTick_/grid)*grid;
+        for(Tick tick=firstGrid;tick<=end;tick+=grid){
+            const int x=xForTick(tick);const bool beat=(tick%kPPQ)==0;const bool bar=beat&&((tick/kPPQ)%4)==0;
+            g.setColour(bar?juce::Colour(0xff3a3e48):(beat?juce::Colour(0xff24272e):juce::Colour(0xff1f2127)));
             g.drawVerticalLine(x,static_cast<float>(header),static_cast<float>(bounds.getBottom()));
             if(bar){g.setColour(juce::Colour(0xff9aa0ad));g.setFont(11.0f);g.drawText(juce::String(static_cast<int>(tick/(kPPQ*4))+1),x+3,3,40,18,juce::Justification::left,false);}
         }
@@ -66,19 +68,19 @@ public:
             g.setColour(juce::Colour(0xffdfe2e8));g.setFont(12.0f);g.drawFittedText(project_.tracks[ti].name,8,y,106,rowHeight,juce::Justification::centredLeft,1);
             auto const&track=project_.tracks[ti];
             for(std::size_t ci=0;ci<track.clips.size();++ci){
-                auto r=clipRect(track.clips[ci],ti,end);g.setColour(juce::Colour(0xff6550dc));g.fillRoundedRectangle(r,4.0f);
+                auto r=clipRect(track.clips[ci],ti);g.setColour(juce::Colour(0xff6550dc));g.fillRoundedRectangle(r,4.0f);
                 auto*s=project_.findSample(track.clips[ci].sampleId);g.setColour(juce::Colours::white);g.drawFittedText(s?s->name:"Audio",r.toNearestInt().reduced(5,0),juce::Justification::centredLeft,1);
                 if(selection_.contains(ArrangementSelection::Kind::AudioClip,track.id,track.clips[ci].id)){g.setColour(juce::Colours::white);g.drawRoundedRectangle(r.reduced(1.0f),4.0f,1.5f);}
             }
             for(std::size_t pi=0;pi<track.patternClips.size();++pi){
-                auto r=patternRect(track.patternClips[pi],ti,end);g.setColour(juce::Colour(0xffed963c));g.fillRoundedRectangle(r,4.0f);
+                auto r=patternRect(track.patternClips[pi],ti);g.setColour(juce::Colour(0xffed963c));g.fillRoundedRectangle(r,4.0f);
                 auto*p=project_.findPattern(track.patternClips[pi].patternId);g.setColour(juce::Colours::white);g.drawFittedText(juce::String(p?p->name:std::string("Pattern"))+" x"+juce::String(std::max(1,track.patternClips[pi].repeats)),r.toNearestInt().reduced(5,0),juce::Justification::centredLeft,1);
                 if(selection_.contains(ArrangementSelection::Kind::PatternClip,track.id,track.patternClips[pi].id)){g.setColour(juce::Colours::white);g.drawRoundedRectangle(r.reduced(1.0f),4.0f,1.5f);}
             }
         }
 
-        const int px=xForTick(std::clamp<Tick>(playheadTick_,0,end),end);g.setColour(juce::Colour(0xff30ca84));g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));
-        g.setColour(juce::Colour(0xff9aa0ad));g.setFont(11.0f);g.drawText("Drag • Ctrl/Cmd-click select • Delete • Ctrl/Cmd+D • +/- repeats",8,3,labelWidth-12,18,juce::Justification::centredLeft,false);
+        if(playheadTick_>=viewStartTick_&&playheadTick_<=end){const int px=xForTick(playheadTick_);g.setColour(juce::Colour(0xff30ca84));g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));}
+        g.setColour(juce::Colour(0xff9aa0ad));g.setFont(11.0f);g.drawFittedText("Wheel scroll • Ctrl/Cmd+wheel zoom • Alt-drag free",8,3,std::max(1,bounds.getWidth()-16),18,juce::Justification::centredLeft,1);
     }
 
     void mouseDown(const juce::MouseEvent&e)override{
@@ -96,11 +98,27 @@ public:
         before_=project_;anchorX_=e.x;dragStart_=currentStart();setMouseCursor(juce::MouseCursor::DraggingHandCursor);
     }
     void mouseDrag(const juce::MouseEvent&e)override{
-        if(drag_.kind==Kind::None)return;const int content=std::max(1,getWidth()-120);const Tick end=visibleEndTick();
-        const double ticksPerPixel=static_cast<double>(end)/static_cast<double>(content);
-        const Tick raw=static_cast<Tick>(std::llround(static_cast<double>(e.x-anchorX_)*ticksPerPixel));
-        constexpr Tick snap=kPPQ/4;const Tick snapped=static_cast<Tick>(std::llround(static_cast<double>(raw)/snap))*snap;
-        setCurrentStart(std::max<Tick>(0,dragStart_+snapped));repaint();
+        if(drag_.kind==Kind::None)return;const int content=std::max(1,getWidth()-120);
+        const double ticksPerPixel=static_cast<double>(viewSpanTicks_)/static_cast<double>(content);
+        const Tick rawDelta=static_cast<Tick>(std::llround(static_cast<double>(e.x-anchorX_)*ticksPerPixel));
+        const Tick desired=std::max<Tick>(0,dragStart_+rawDelta);
+        setCurrentStart(e.mods.isAltDown()?desired:snapTick(desired));repaint();
+    }
+    void mouseWheelMove(const juce::MouseEvent&e,const juce::MouseWheelDetails&wheel)override{
+        if(e.mods.isCommandDown()||e.mods.isCtrlDown()){
+            const Tick oldSpan=viewSpanTicks_;
+            const Tick anchor=tickForX(e.position.x);
+            const double factor=std::pow(1.8,-static_cast<double>(wheel.deltaY));
+            const Tick minSpan=kPPQ*4;
+            const Tick maxSpan=std::max<Tick>(minSpan,contentEndTick());
+            viewSpanTicks_=std::clamp<Tick>(static_cast<Tick>(std::llround(static_cast<double>(oldSpan)*factor)),minSpan,maxSpan);
+            const double anchorFraction=static_cast<double>(anchor-viewStartTick_)/static_cast<double>(std::max<Tick>(1,oldSpan));
+            viewStartTick_=anchor-static_cast<Tick>(std::llround(anchorFraction*static_cast<double>(viewSpanTicks_)));
+        }else{
+            const float delta=std::abs(wheel.deltaX)>0.0001f?wheel.deltaX:wheel.deltaY;
+            viewStartTick_-=static_cast<Tick>(std::llround(static_cast<double>(delta)*static_cast<double>(viewSpanTicks_)*0.12));
+        }
+        clampView();repaint();
     }
     void mouseUp(const juce::MouseEvent&)override{
         if(drag_.kind==Kind::None)return;const bool changed=currentStart()!=dragStart_;setMouseCursor(juce::MouseCursor::NormalCursor);
@@ -149,7 +167,9 @@ private:
         }
     }
 
-    Tick visibleEndTick()const{
+    static constexpr Tick snapGridTicks(){return kPPQ/4;}
+    static Tick snapTick(Tick tick){const Tick grid=snapGridTicks();return static_cast<Tick>(std::llround(static_cast<double>(tick)/static_cast<double>(grid)))*grid;}
+    Tick contentEndTick()const{
         Tick end=kPPQ*32;
         for(auto const&t:project_.tracks){
             for(auto const&c:t.clips)end=std::max(end,c.startTick+std::max<Tick>(c.lengthTicks,kPPQ));
@@ -157,22 +177,24 @@ private:
         }
         const Tick bar=kPPQ*4;return ((end+bar-1)/bar)*bar;
     }
-    int xForTick(Tick tick,Tick end)const{const int w=std::max(1,getWidth()-120);return 120+static_cast<int>(std::llround(static_cast<double>(tick)/std::max<Tick>(1,end)*w));}
-    juce::Rectangle<float> clipRect(const Clip&c,std::size_t track,Tick end)const{
-        const int y=26+static_cast<int>(track)*44;const int x=xForTick(c.startTick,end);const int x2=xForTick(c.startTick+std::max<Tick>(c.lengthTicks,kPPQ/2),end);
+    Tick visibleEndTick()const{return viewStartTick_+viewSpanTicks_;}
+    void clampView(){const Tick maxStart=std::max<Tick>(0,contentEndTick()-viewSpanTicks_);viewStartTick_=std::clamp<Tick>(viewStartTick_,0,maxStart);}
+    int xForTick(Tick tick)const{const int w=std::max(1,getWidth()-120);return 120+static_cast<int>(std::llround(static_cast<double>(tick-viewStartTick_)/static_cast<double>(std::max<Tick>(1,viewSpanTicks_))*w));}
+    Tick tickForX(float x)const{const int w=std::max(1,getWidth()-120);const double ratio=std::clamp((static_cast<double>(x)-120.0)/static_cast<double>(w),0.0,1.0);return viewStartTick_+static_cast<Tick>(std::llround(ratio*static_cast<double>(viewSpanTicks_)));}
+    juce::Rectangle<float> clipRect(const Clip&c,std::size_t track)const{
+        const int y=26+static_cast<int>(track)*44;const int x=xForTick(c.startTick);const int x2=xForTick(c.startTick+std::max<Tick>(c.lengthTicks,kPPQ/2));
         return{static_cast<float>(x+2),static_cast<float>(y+6),static_cast<float>(std::max(18,x2-x-4)),32.0f};
     }
-    juce::Rectangle<float> patternRect(const PatternPlacement&pp,std::size_t track,Tick end)const{
+    juce::Rectangle<float> patternRect(const PatternPlacement&pp,std::size_t track)const{
         Tick length=kPPQ;if(auto*p=project_.findPattern(pp.patternId))length=p->lengthTicks()*std::max(1,pp.repeats);
-        const int y=26+static_cast<int>(track)*44;const int x=xForTick(pp.startTick,end);const int x2=xForTick(pp.startTick+length,end);
+        const int y=26+static_cast<int>(track)*44;const int x=xForTick(pp.startTick);const int x2=xForTick(pp.startTick+length);
         return{static_cast<float>(x+2),static_cast<float>(y+6),static_cast<float>(std::max(18,x2-x-4)),32.0f};
     }
     Hit hitTest(juce::Point<float>point)const{
-        const Tick end=visibleEndTick();
         for(std::size_t ti=0;ti<project_.tracks.size();++ti){
             auto const&t=project_.tracks[ti];
-            for(std::size_t i=t.clips.size();i>0;--i)if(clipRect(t.clips[i-1],ti,end).contains(point))return{Kind::Audio,ti,i-1};
-            for(std::size_t i=t.patternClips.size();i>0;--i)if(patternRect(t.patternClips[i-1],ti,end).contains(point))return{Kind::Pattern,ti,i-1};
+            for(std::size_t i=t.clips.size();i>0;--i)if(clipRect(t.clips[i-1],ti).contains(point))return{Kind::Audio,ti,i-1};
+            for(std::size_t i=t.patternClips.size();i>0;--i)if(patternRect(t.patternClips[i-1],ti).contains(point))return{Kind::Pattern,ti,i-1};
         }
         return{};
     }
@@ -216,7 +238,7 @@ private:
         const int next=std::clamp(t.patternClips[selected_.index].repeats+delta,1,64);if(next==t.patternClips[selected_.index].repeats)return;Project before=project_;t.patternClips[selected_.index].repeats=next;if(commit_)commit_(std::move(before),"Change pattern repeats");repaint();
     }
 
-    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0;int anchorX_=0;Hit drag_,selected_;ArrangementSelection selection_;Project before_;
+    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0,viewStartTick_=0,viewSpanTicks_=kPPQ*32;int anchorX_=0;Hit drag_,selected_;ArrangementSelection selection_;Project before_;
 };
 
 } // namespace flowdaw::juceui
