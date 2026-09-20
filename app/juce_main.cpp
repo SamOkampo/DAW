@@ -59,6 +59,13 @@ Project makeStarterProject(){
     return p;
 }
 
+Project makeBlankProject(){
+    Project p;p.name="Blank Project";p.transport.bpm=120.0;Track audio;audio.name="Audio 1";p.tracks.push_back(std::move(audio));return p;
+}
+Project makeBeatTemplate(const std::string&name,double bpm,float swing){
+    auto p=makeStarterProject();p.name=name;p.transport.bpm=bpm;if(!p.patterns.empty())p.patterns.front().swing=swing;return p;
+}
+
 std::string pluginStateHex(juce::AudioProcessor&processor){
     juce::MemoryBlock block;processor.getStateInformation(block);static constexpr char hex[]="0123456789ABCDEF";const auto*bytes=static_cast<const unsigned char*>(block.getData());std::string out(block.getSize()*2,'0');for(std::size_t i=0;i<block.getSize();++i){out[i*2]=hex[bytes[i]>>4];out[i*2+1]=hex[bytes[i]&15];}return out;
 }
@@ -83,11 +90,11 @@ private:
     std::unique_ptr<juce::AudioPluginInstance>plugin_;StateFn stateFn_;CloseFn closeFn_;std::string lastState_;bool closed_=false;
 };
 
-class MainComponent final:public juce::Component,public juce::DragAndDropContainer,public juce::DragAndDropTarget,private juce::Timer,private juce::AudioIODeviceCallback{
+class MainComponent final:public juce::Component,public juce::DragAndDropContainer,public juce::DragAndDropTarget,private juce::KeyListener,private juce::Timer,private juce::AudioIODeviceCallback{
 public:
     MainComponent(){
         pluginHost_=std::make_shared<PluginHost>();pluginHost_->registerBackend(makeJucePluginBackend());engine_.setPluginHost(pluginHost_);
-        const auto config=defaultSettingsDirectory();settingsPath_=config/"settings.conf";safetyPath_=config/"plugin-safety.conf";recovery_=std::make_unique<SessionRecovery>(config/"recovery");settings_=std::filesystem::exists(settingsPath_)?loadAppSettings(settingsPath_):defaultAppSettings();safety_.load(safetyPath_);
+        const auto config=defaultSettingsDirectory();settingsPath_=config/"settings.conf";safetyPath_=config/"plugin-safety.conf";recovery_=std::make_unique<SessionRecovery>(config/"recovery");const bool firstRun=!std::filesystem::exists(settingsPath_);settings_=firstRun?defaultAppSettings():loadAppSettings(settingsPath_);safety_.load(safetyPath_);
         const auto recoveryInfo=recovery_->inspect();bool loadedRecovery=false,loadedLast=false;
         if(settings_.restoreLastSession&&recoveryInfo.available)try{project_=recovery_->loadRecovered(true);projectPath_=recoveryInfo.originalProject;loadedRecovery=true;recoveredAtStartup_=true;preserveRecoveryOnExit_=true;}catch(...){}
         if(!loadedRecovery&&!settings_.lastProjectPath.empty()&&std::filesystem::exists(settings_.lastProjectPath))try{project_=ProjectSerializer::load(settings_.lastProjectPath,true);projectPath_=settings_.lastProjectPath;loadedLast=true;}catch(...){}
@@ -97,10 +104,10 @@ public:
         if(!settings_.audio.inputDevice.empty())setup.inputDeviceName=settings_.audio.inputDevice;if(!settings_.audio.outputDevice.empty())setup.outputDeviceName=settings_.audio.outputDevice;deviceManager_.setAudioDeviceSetup(setup,true);
         selector_=std::make_unique<juce::AudioDeviceSelectorComponent>(deviceManager_,0,2,0,2,true,true,true,false);addAndMakeVisible(*selector_);deviceManager_.addAudioCallback(this);
         addHostFormats(formatManager_);
-        title_.setText("FLOWDAW JUCE Runtime",juce::dontSendNotification);title_.setFont(juce::Font(24.0f,juce::Font::bold));addAndMakeVisible(title_);
+        title_.setText("FLOWDAW Studio",juce::dontSendNotification);title_.setFont(juce::Font(24.0f,juce::Font::bold));title_.setColour(juce::Label::textColourId,juce::Colour(0xfff4f7fb));addAndMakeVisible(title_);
         status_.setText(recoveredAtStartup_?"Recovered previous autosave; Save, New or Open confirms the session":(err.isEmpty()?"JUCE AudioDeviceManager drives FLOWDAW core":"Audio: "+err),juce::dontSendNotification);addAndMakeVisible(status_);
         projectLabel_.setText(recoveredAtStartup_?(projectPath_.empty()?juce::String("Recovered: Untitled Beat"):juce::String("Recovered: ")+juce::String(projectPath_.filename().string())):(projectPath_.empty()?juce::String("Untitled Beat • starter project"):juce::String("Project: ")+juce::String(projectPath_.filename().string())),juce::dontSendNotification);addAndMakeVisible(projectLabel_);
-        newProject_.setButtonText("New");newProject_.onClick=[this]{newProject();};addAndMakeVisible(newProject_);
+        newProject_.setButtonText("New / Template");newProject_.onClick=[this]{showNewProjectMenu();};newProject_.setTooltip("Ctrl/Cmd+N");addAndMakeVisible(newProject_);
         loadProject_.setButtonText("Open .flow");loadProject_.onClick=[this]{chooseProject();};addAndMakeVisible(loadProject_);
         importWav_.setButtonText("Import WAV");importWav_.onClick=[this]{chooseWav();};addAndMakeVisible(importWav_);
         analyzeSample_.setButtonText("Analyze");analyzeSample_.onClick=[this]{analyzeSelectedSample();};addAndMakeVisible(analyzeSample_);
@@ -111,7 +118,7 @@ public:
         matchBpm_.setButtonText("Match BPM");matchBpm_.onClick=[this]{matchSelectedSampleBpm();};addAndMakeVisible(matchBpm_);
         exportMix_.setButtonText("Export Mix");exportMix_.onClick=[this]{chooseMixExport();};addAndMakeVisible(exportMix_);
         exportStems_.setButtonText("Export Stems");exportStems_.onClick=[this]{chooseStemExport();};addAndMakeVisible(exportStems_);
-        play_.setButtonText("Play");play_.onClick=[this]{if(engine_.isPlaying()){engine_.pause();status_.setText("Paused",juce::dontSendNotification);}else{engine_.play();status_.setText("Playing through JUCE device",juce::dontSendNotification);}};addAndMakeVisible(play_);
+        play_.setButtonText("Play");play_.onClick=[this]{togglePlayback();};addAndMakeVisible(play_);
         bpmMinus_.setButtonText("- BPM");bpmMinus_.onClick=[this]{changeBpm(-1.0);};addAndMakeVisible(bpmMinus_);
         bpmPlus_.setButtonText("+ BPM");bpmPlus_.onClick=[this]{changeBpm(1.0);};addAndMakeVisible(bpmPlus_);
         bpmLabel_.setJustificationType(juce::Justification::centred);addAndMakeVisible(bpmLabel_);
@@ -142,6 +149,7 @@ public:
         saveProject_.setButtonText("Save Project");saveProject_.onClick=[this]{saveProject();};addAndMakeVisible(saveProject_);
         undoButton_.setButtonText("Undo");undoButton_.onClick=[this]{undoEdit();};addAndMakeVisible(undoButton_);
         redoButton_.setButtonText("Redo");redoButton_.onClick=[this]{redoEdit();};addAndMakeVisible(redoButton_);
+        commandPalette_.setButtonText("Commands");commandPalette_.setTooltip("Ctrl/Cmd+K");commandPalette_.onClick=[this]{showCommandPalette();};addAndMakeVisible(commandPalette_);
         trackChoice_.onChange=[this]{syncMixerControls();refreshRackControls();};
         mixerVolume_.setRange(0.0,2.0,0.01);mixerVolume_.setSliderStyle(juce::Slider::LinearHorizontal);mixerVolume_.setTextBoxStyle(juce::Slider::TextBoxRight,false,70,22);mixerVolume_.onDragStart=[this]{beginMixerGesture();};mixerVolume_.onValueChange=[this]{applyMixerSliders();};mixerVolume_.onDragEnd=[this]{endMixerGesture();};addAndMakeVisible(mixerVolume_);
         mixerPan_.setRange(-1.0,1.0,0.01);mixerPan_.setSliderStyle(juce::Slider::LinearHorizontal);mixerPan_.setTextBoxStyle(juce::Slider::TextBoxRight,false,70,22);mixerPan_.onDragStart=[this]{beginMixerGesture();};mixerPan_.onValueChange=[this]{applyMixerSliders();};mixerPan_.onDragEnd=[this]{endMixerGesture();};addAndMakeVisible(mixerPan_);
@@ -161,6 +169,7 @@ public:
         sequencerTab_.setButtonText("Sequencer");sequencerTab_.onClick=[this]{setEditorMode(EditorMode::Step);};addAndMakeVisible(sequencerTab_);
         automationTab_.setButtonText("Automation");automationTab_.onClick=[this]{setEditorMode(EditorMode::Automation);};addAndMakeVisible(automationTab_);
         samplerTab_.setButtonText("Sampler");samplerTab_.onClick=[this]{setEditorMode(EditorMode::Sampler);};addAndMakeVisible(samplerTab_);
+        for(auto*tab:{&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_})tab->setColour(juce::TextButton::buttonOnColourId,juce::Colour(0xff315d9b));
         addAndMakeVisible(patternChoice_);patternChoice_.setTextWhenNothingSelected("No MIDI pattern");patternChoice_.onChange=[this]{syncPatternEditors();};
         addAndMakeVisible(sampleChoice_);sampleChoice_.setTextWhenNothingSelected("No audio sample");sampleChoice_.onChange=[this]{syncSamplerSample();};
         bankPrev_.setButtonText("Bank -");bankPrev_.onClick=[this]{if(sampler_)sampler_->previousBank();};addAndMakeVisible(bankPrev_);
@@ -184,14 +193,15 @@ public:
         prevTake_.setButtonText("Take -");prevTake_.onClick=[this]{cycleTake(-1);};addAndMakeVisible(prevTake_);
         nextTake_.setButtonText("Take +");nextTake_.onClick=[this]{cycleTake(1);};addAndMakeVisible(nextTake_);
         refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshRackControls();syncChopControls();updateBpmLabel();setEditorMode(EditorMode::Arrangement);
-        note_.setText("JUCE is the production Studio. Prepared Track/Bus/Master realtime plugin graphs with PDC remain the production path. Phase 9 adds periodic autosave and crash recovery on the message/control thread; recovery file I/O never enters the audio callback.",juce::dontSendNotification);note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
+        note_.setText("Workflow: New / Template starts fast, the Sample Browser supports favorites/recent + drag/drop, and Ctrl/Cmd+K opens Commands. Autosave/recovery and all file I/O stay off the audio callback.",juce::dontSendNotification);note_.setColour(juce::Label::textColourId,juce::Colour(0xff9aa5b5));note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
         meterLabel_.setText("Meters (TP estimate / sample peak / RMS): waiting for audio",juce::dontSendNotification);addAndMakeVisible(meterLabel_);
-        setSize(1440,1040);startTimer(100);
+        setWantsKeyboardFocus(true);installShortcutListeners(*this);setSize(1440,1040);startTimer(100);if(firstRun){saveDeviceSettings();auto safe=juce::Component::SafePointer<MainComponent>(this);juce::MessageManager::callAsync([safe]()mutable{if(auto*self=safe.getComponent())self->showFirstRunOnboarding();});}
     }
     ~MainComponent()override{if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();pluginWindow_.reset();deviceManager_.removeAudioCallback(this);engine_.stop();engine_.collectRetiredGraphs();saveDeviceSettings();saveSafety();if(recovery_&&!preserveRecoveryOnExit_)try{recovery_->markCleanExit();}catch(...){}}
+    void paint(juce::Graphics&g)override{g.fillAll(juce::Colour(0xff0b0e14));}
     void resized()override{
         auto r=getLocalBounds().reduced(16);title_.setBounds(r.removeFromTop(38));status_.setBounds(r.removeFromTop(26));projectLabel_.setBounds(r.removeFromTop(26));note_.setBounds(r.removeFromTop(54));meterLabel_.setBounds(r.removeFromTop(28));
-        auto transport=r.removeFromTop(38);newProject_.setBounds(transport.removeFromLeft(72).reduced(3));loadProject_.setBounds(transport.removeFromLeft(100).reduced(3));importWav_.setBounds(transport.removeFromLeft(100).reduced(3));saveProject_.setBounds(transport.removeFromLeft(105).reduced(3));play_.setBounds(transport.removeFromLeft(66).reduced(3));stop_.setBounds(transport.removeFromLeft(66).reduced(3));bpmMinus_.setBounds(transport.removeFromLeft(60).reduced(3));bpmLabel_.setBounds(transport.removeFromLeft(80).reduced(3));bpmPlus_.setBounds(transport.removeFromLeft(60).reduced(3));undoButton_.setBounds(transport.removeFromLeft(66).reduced(3));redoButton_.setBounds(transport.removeFromLeft(66).reduced(3));
+        auto transport=r.removeFromTop(38);newProject_.setBounds(transport.removeFromLeft(72).reduced(3));loadProject_.setBounds(transport.removeFromLeft(100).reduced(3));importWav_.setBounds(transport.removeFromLeft(100).reduced(3));saveProject_.setBounds(transport.removeFromLeft(105).reduced(3));play_.setBounds(transport.removeFromLeft(66).reduced(3));stop_.setBounds(transport.removeFromLeft(66).reduced(3));bpmMinus_.setBounds(transport.removeFromLeft(60).reduced(3));bpmLabel_.setBounds(transport.removeFromLeft(80).reduced(3));bpmPlus_.setBounds(transport.removeFromLeft(60).reduced(3));undoButton_.setBounds(transport.removeFromLeft(66).reduced(3));redoButton_.setBounds(transport.removeFromLeft(66).reduced(3));commandPalette_.setBounds(transport.removeFromLeft(96).reduced(3));
         auto controls=r.removeFromTop(38);scan_.setBounds(controls.removeFromLeft(150).reduced(3));pluginChoice_.setBounds(controls.removeFromLeft(430).reduced(3));openEditor_.setBounds(controls.removeFromLeft(180).reduced(3));
         auto instrument=r.removeFromTop(38);trackChoice_.setBounds(instrument.removeFromLeft(300).reduced(3));setInstrument_.setBounds(instrument.removeFromLeft(130).reduced(3));clearInstrument_.setBounds(instrument.removeFromLeft(135).reduced(3));addTrackFx_.setBounds(instrument.removeFromLeft(120).reduced(3));addMasterFx_.setBounds(instrument.removeFromLeft(125).reduced(3));
         auto rack=r.removeFromTop(38);rackTargetChoice_.setBounds(rack.removeFromLeft(150).reduced(3));rackPluginChoice_.setBounds(rack.removeFromLeft(205).reduced(3));addRackGain_.setBounds(rack.removeFromLeft(92).reduced(3));addRackClip_.setBounds(rack.removeFromLeft(82).reduced(3));addRackWidth_.setBounds(rack.removeFromLeft(70).reduced(3));addRackExternal_.setBounds(rack.removeFromLeft(78).reduced(3));rackMoveUp_.setBounds(rack.removeFromLeft(38).reduced(3));rackMoveDown_.setBounds(rack.removeFromLeft(45).reduced(3));rackEnabled_.setBounds(rack.removeFromLeft(68).reduced(3));rackBypass_.setBounds(rack.removeFromLeft(62).reduced(3));rackRemove_.setBounds(rack.removeFromLeft(62).reduced(3));openRackEditor_.setBounds(rack.removeFromLeft(90).reduced(3));rackWet_.setBounds(rack.removeFromLeft(120).reduced(3));rackParamLabel_.setBounds(rack.removeFromLeft(60).reduced(3));rackParam_.setBounds(rack.reduced(3));
@@ -259,11 +269,39 @@ private:
     void cycleTake(int delta){
         const int index=selectedTrackIndex();if(index<0)return;auto&t=project_.tracks[static_cast<std::size_t>(index)];if(t.takes.empty()){status_.setText("Selected track has no recorded takes",juce::dontSendNotification);return;}int current=0;for(int i=0;i<static_cast<int>(t.takes.size());++i)if(t.takes[static_cast<std::size_t>(i)].id==t.activeTakeId)current=i;current=(current+delta+static_cast<int>(t.takes.size()))%static_cast<int>(t.takes.size());Project before=project_;t.activeTakeId=t.takes[static_cast<std::size_t>(current)].id;const auto name=t.takes[static_cast<std::size_t>(current)].name;undo_.commit(std::move(before),project_,"Select recording take");publishEdit("Active comp: "+juce::String(name));
     }
-    void newProject(){
-        if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();pluginWindow_.reset();engine_.stop();project_=makeStarterProject();projectPath_.clear();settings_.lastProjectPath.clear();undo_=UndoStack{};engine_.publish(project_);
+    void togglePlayback(){if(engine_.isPlaying()){engine_.pause();status_.setText("Paused",juce::dontSendNotification);}else{engine_.play();status_.setText("Playing through JUCE device",juce::dontSendNotification);}}
+    void applyNewProject(Project next,const juce::String&label,const juce::String&message){
+        if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();pluginWindow_.reset();engine_.stop();project_=std::move(next);projectPath_.clear();settings_.lastProjectPath.clear();undo_=UndoStack{};engine_.publish(project_);
         refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshRackControls();syncChopControls();updateBpmLabel();if(arrangement_)arrangement_->repaint();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();
-        recoveredAtStartup_=false;preserveRecoveryOnExit_=false;resetRecoverySnapshot();projectLabel_.setText("Untitled Beat • starter project",juce::dontSendNotification);status_.setText("New project: drums + FLOW Keys ready",juce::dontSendNotification);saveDeviceSettings();
+        recoveredAtStartup_=false;preserveRecoveryOnExit_=false;resetRecoverySnapshot();projectLabel_.setText(label,juce::dontSendNotification);status_.setText(message,juce::dontSendNotification);saveDeviceSettings();
     }
+    void showNewProjectMenu(){
+        juce::PopupMenu menu;menu.addItem(1,"Blank Project — 120 BPM");menu.addItem(2,"Boom Bap Starter — 90 BPM");menu.addItem(3,"Trap Starter — 140 BPM");menu.addItem(4,"Lo-Fi Starter — 82 BPM");
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&newProject_),[this](int result){
+            if(result==1)applyNewProject(makeBlankProject(),"Blank Project • 120 BPM","New blank project");
+            else if(result==2)applyNewProject(makeBeatTemplate("Boom Bap Starter",90.0,0.12f),"Boom Bap Starter • 90 BPM","Boom Bap template ready");
+            else if(result==3)applyNewProject(makeBeatTemplate("Trap Starter",140.0,0.02f),"Trap Starter • 140 BPM","Trap template ready");
+            else if(result==4)applyNewProject(makeBeatTemplate("Lo-Fi Starter",82.0,0.18f),"Lo-Fi Starter • 82 BPM","Lo-Fi template ready");
+        });
+    }
+    void showFirstRunOnboarding(){
+        juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,"Welcome to FLOWDAW","Start with New / Template, add folders in the Sample Browser, drag WAVs into the workspace, and use Ctrl/Cmd+K for the command palette. FLOWDAW autosaves recovery snapshots automatically.","Start making music");
+    }
+    void runWorkflowCommand(int id){
+        switch(id){case 1:showNewProjectMenu();break;case 2:chooseProject();break;case 3:saveProject();break;case 4:chooseWav();break;case 5:togglePlayback();break;case 6:undoEdit();break;case 7:redoEdit();break;case 11:setEditorMode(EditorMode::Arrangement);break;case 12:setEditorMode(EditorMode::Piano);break;case 13:setEditorMode(EditorMode::Step);break;case 14:setEditorMode(EditorMode::Automation);break;case 15:setEditorMode(EditorMode::Sampler);break;default:break;}
+    }
+    void showCommandPalette(){
+        juce::PopupMenu menu;menu.addSectionHeader("FLOWDAW Commands");menu.addItem(1,"New / Template    Ctrl/Cmd+N");menu.addItem(2,"Open Project    Ctrl/Cmd+O");menu.addItem(3,"Save Project    Ctrl/Cmd+S");menu.addItem(4,"Import WAV    Ctrl/Cmd+I");menu.addSeparator();menu.addItem(5,"Play / Pause    Ctrl/Cmd+Space");menu.addItem(6,"Undo    Ctrl/Cmd+Z");menu.addItem(7,"Redo    Ctrl/Cmd+Shift+Z");menu.addSeparator();menu.addItem(11,"Arrangement    Ctrl/Cmd+1");menu.addItem(12,"Piano Roll    Ctrl/Cmd+2");menu.addItem(13,"Sequencer    Ctrl/Cmd+3");menu.addItem(14,"Automation    Ctrl/Cmd+4");menu.addItem(15,"Sampler    Ctrl/Cmd+5");
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&commandPalette_),[this](int result){runWorkflowCommand(result);});
+    }
+    bool keyPressed(const juce::KeyPress&key,juce::Component*)override{
+        const auto mods=key.getModifiers();if(!mods.isCommandDown())return false;const int code=key.getKeyCode();
+        if(code=='K'){showCommandPalette();return true;}if(code=='N'){showNewProjectMenu();return true;}if(code=='O'){chooseProject();return true;}if(code=='S'){saveProject();return true;}if(code=='I'){chooseWav();return true;}
+        if(code=='Z'){mods.isShiftDown()?redoEdit():undoEdit();return true;}if(code==juce::KeyPress::spaceKey){togglePlayback();return true;}
+        if(code>='1'&&code<='5'){runWorkflowCommand(11+(code-'1'));return true;}return false;
+    }
+    void installShortcutListeners(juce::Component&component){component.addKeyListener(this);for(auto*child:component.getChildren())if(child)installShortcutListeners(*child);}
+
     void refreshRackTargets(){
         const int previous=rackTargetChoice_.getSelectedId();rackTargetChoice_.clear(juce::dontSendNotification);rackTargetChoice_.addItem("Master Rack",1);rackTargetChoice_.addItem("Selected Track Rack",2);
         int id=100;for(auto const&bus:project_.buses)rackTargetChoice_.addItem("Bus: "+juce::String(bus.name),id++);
@@ -417,7 +455,7 @@ private:
         editorMode_=mode;const bool arrangement=mode==EditorMode::Arrangement,piano=mode==EditorMode::Piano,step=mode==EditorMode::Step,automation=mode==EditorMode::Automation,sampler=mode==EditorMode::Sampler;
         if(arrangement_)arrangement_->setVisible(arrangement);if(piano_)piano_->setVisible(piano);if(sequencer_)sequencer_->setVisible(step);if(automationAssist_)automationAssist_->setVisible(automation);if(sampler_)sampler_->setVisible(sampler);
         patternChoice_.setVisible(piano||step);sampleChoice_.setVisible(sampler);bankPrev_.setVisible(sampler);bankNext_.setVisible(sampler);
-        arrangementTab_.setEnabled(!arrangement);pianoTab_.setEnabled(!piano);sequencerTab_.setEnabled(!step);automationTab_.setEnabled(!automation);samplerTab_.setEnabled(!sampler);
+        arrangementTab_.setToggleState(arrangement,juce::dontSendNotification);pianoTab_.setToggleState(piano,juce::dontSendNotification);sequencerTab_.setToggleState(step,juce::dontSendNotification);automationTab_.setToggleState(automation,juce::dontSendNotification);samplerTab_.setToggleState(sampler,juce::dontSendNotification);
         if(piano||step)syncPatternEditors();if(automation&&automationAssist_)automationAssist_->refresh();if(sampler)syncSamplerSample();
     }
     void refreshPatternChoice(){
@@ -506,7 +544,7 @@ private:
     void resetRecoverySnapshot(){autosaveTicks_=0;autosaveRecovery();}
     void saveSafety(){try{safety_.save(safetyPath_);}catch(...){} }
     void saveDeviceSettings(){auto s=deviceManager_.getAudioDeviceSetup();settings_.audio.preferredSampleRate=s.sampleRate>0?static_cast<int>(s.sampleRate):48000;settings_.audio.bufferSize=sanitizeBufferSize(static_cast<unsigned long>(std::max(1,s.bufferSize)));settings_.audio.inputDevice=s.inputDeviceName.toStdString();settings_.audio.outputDevice=s.outputDeviceName.toStdString();try{saveAppSettings(settings_,settingsPath_);}catch(...){} }
-    AppSettings settings_;PluginSafetyRegistry safety_;std::unique_ptr<SessionRecovery> recovery_;std::filesystem::path settingsPath_,safetyPath_,projectPath_;Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::unique_ptr<juceui::ArrangementComponent> arrangement_;std::unique_ptr<juceui::PianoRollComponent> piano_;std::unique_ptr<juceui::SamplerComponent> sampler_;std::unique_ptr<juceui::StepSequencerComponent> sequencer_;std::unique_ptr<juceui::AutomationAssistComponent> automationAssist_;std::unique_ptr<juceui::SampleBrowserComponent> sampleBrowser_;EditorMode editorMode_=EditorMode::Arrangement;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juce::Label title_,status_,projectLabel_,note_,meterLabel_,bpmLabel_,mixerVolumeLabel_,mixerPanLabel_,trackMeterLabel_,rackParamLabel_;int settingsSaveTicks_=0,autosaveTicks_=0;bool recoveredAtStartup_=false,preserveRecoveryOnExit_=false,suppressMixerCallbacks_=false,mixerGestureActive_=false,suppressRackCallbacks_=false,rackGestureActive_=false,rackEditorDirty_=false,suppressChopCallbacks_=false,chopGestureActive_=false,recordingChops_=false,audioRecording_=false;Id chopRecordPatternId_=0,audioRecordTrackId_=0,rackEditorPluginId_=0;Tick chopRecordStartTick_=0,audioRecordStartTick_=0;Project mixerBefore_,rackBefore_,rackEditorBefore_,chopBefore_,chopRecordBefore_,audioRecordBefore_;juce::TextButton newProject_,loadProject_,importWav_,saveProject_,play_,stop_,bpmMinus_,bpmPlus_,undoButton_,redoButton_,scan_,openEditor_,setInstrument_,clearInstrument_,addTrackFx_,addMasterFx_,muteTrack_,soloTrack_,arrangementTab_,pianoTab_,sequencerTab_,automationTab_,samplerTab_,bankPrev_,bankNext_,analyzeSample_,chop8_,autoChop_,chopBeat_,chopBar_,matchBpm_,exportMix_,exportStems_,stopPreview_,recChops_,chopReset_,recAudio_,monitorInput_,prevTake_,nextTake_,renamePad_,padGainMinus_,padGainPlus_,padPanMinus_,padPanPlus_,padChokeMinus_,padChokePlus_,addRackGain_,addRackClip_,addRackWidth_,addRackExternal_,rackMoveUp_,rackMoveDown_,rackEnabled_,rackBypass_,rackRemove_,openRackEditor_;juce::ComboBox pluginChoice_,trackChoice_,patternChoice_,sampleChoice_,rackTargetChoice_,rackPluginChoice_,chopGridChoice_;juce::TextEditor padName_;juce::Slider mixerVolume_,mixerPan_,rackWet_,rackParam_,chopQuantizeStrength_,chopHumanizeStrength_;juceui::StereoMeterComponent trackMeter_;
+    AppSettings settings_;PluginSafetyRegistry safety_;std::unique_ptr<SessionRecovery> recovery_;std::filesystem::path settingsPath_,safetyPath_,projectPath_;Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::unique_ptr<juceui::ArrangementComponent> arrangement_;std::unique_ptr<juceui::PianoRollComponent> piano_;std::unique_ptr<juceui::SamplerComponent> sampler_;std::unique_ptr<juceui::StepSequencerComponent> sequencer_;std::unique_ptr<juceui::AutomationAssistComponent> automationAssist_;std::unique_ptr<juceui::SampleBrowserComponent> sampleBrowser_;EditorMode editorMode_=EditorMode::Arrangement;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juce::Label title_,status_,projectLabel_,note_,meterLabel_,bpmLabel_,mixerVolumeLabel_,mixerPanLabel_,trackMeterLabel_,rackParamLabel_;int settingsSaveTicks_=0,autosaveTicks_=0;bool recoveredAtStartup_=false,preserveRecoveryOnExit_=false,suppressMixerCallbacks_=false,mixerGestureActive_=false,suppressRackCallbacks_=false,rackGestureActive_=false,rackEditorDirty_=false,suppressChopCallbacks_=false,chopGestureActive_=false,recordingChops_=false,audioRecording_=false;Id chopRecordPatternId_=0,audioRecordTrackId_=0,rackEditorPluginId_=0;Tick chopRecordStartTick_=0,audioRecordStartTick_=0;Project mixerBefore_,rackBefore_,rackEditorBefore_,chopBefore_,chopRecordBefore_,audioRecordBefore_;juce::TextButton newProject_,loadProject_,importWav_,saveProject_,play_,stop_,bpmMinus_,bpmPlus_,undoButton_,redoButton_,commandPalette_,scan_,openEditor_,setInstrument_,clearInstrument_,addTrackFx_,addMasterFx_,muteTrack_,soloTrack_,arrangementTab_,pianoTab_,sequencerTab_,automationTab_,samplerTab_,bankPrev_,bankNext_,analyzeSample_,chop8_,autoChop_,chopBeat_,chopBar_,matchBpm_,exportMix_,exportStems_,stopPreview_,recChops_,chopReset_,recAudio_,monitorInput_,prevTake_,nextTake_,renamePad_,padGainMinus_,padGainPlus_,padPanMinus_,padPanPlus_,padChokeMinus_,padChokePlus_,addRackGain_,addRackClip_,addRackWidth_,addRackExternal_,rackMoveUp_,rackMoveDown_,rackEnabled_,rackBypass_,rackRemove_,openRackEditor_;juce::ComboBox pluginChoice_,trackChoice_,patternChoice_,sampleChoice_,rackTargetChoice_,rackPluginChoice_,chopGridChoice_;juce::TextEditor padName_;juce::Slider mixerVolume_,mixerPan_,rackWet_,rackParam_,chopQuantizeStrength_,chopHumanizeStrength_;juceui::StereoMeterComponent trackMeter_;
 };
 
 class MainWindow final:public juce::DocumentWindow{
