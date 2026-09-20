@@ -58,18 +58,16 @@ Planned sequence:
 
 ## Current checkpoint
 
-Arrangement closure is carried by the parent PR sequence:
-- **10.1.1** stable selection and predictable click behavior.
-- **10.1.2** bounded multi-selection and one-transaction grouped Delete.
-- **10.1.3** horizontal navigation, bounded zoom and musical snapping.
-- **10.1.4** manipulation feedback and Undo/Redo-safe Arrangement resynchronization.
+Completed in the parent branch / `main` sequence:
+- **10.1** Arrangement editing (selection, multi-select Delete, navigation/zoom/snapping, manipulation feedback and Undo/Redo-safe resynchronization).
+- **10.2.1** explicit Mixer active-target hierarchy for Track / Bus / Master with target-aware controls and meters.
 
-This branch starts **10.2.1 — explicit Mixer active-target hierarchy**:
-- The Mixer exposes one clear active target selector covering the selected Track, every Bus and Master.
-- The visible channel header identifies the active target instead of presenting anonymous sliders.
-- Volume, Pan, Mute and Solo bind to Track/Bus mixer state; Master exposes its supported Volume control while unsupported Pan/Mute/Solo controls are disabled.
-- The channel meter follows the same active Track/Bus/Master target using existing callback-safe meter snapshots.
-- Mixer gestures still commit through the existing UndoStack and publish the same immutable realtime graph path.
-- No routing schema, plugin graph, PDC, audio callback or `.flow` v11 change is introduced.
+This branch implements **10.2.2 — routing and sends inspection/edit UX**:
+- When the active Mixer target is the selected Track, the channel strip now exposes its output route directly: Master or any existing Bus.
+- The same Mixer surface exposes one selected send Bus with gain, Pre/Post state, Set/Update and Remove actions.
+- Existing `Track::outputBusId` and `Track::sends` project state are reused; no schema or serialization change is introduced.
+- Routing/send edits commit through the existing UndoStack and republish the prepared immutable routing graph on the control thread.
+- Routing/send controls disable automatically for Bus/Master targets or when no valid Bus exists.
+- The existing Automation/Assist surface remains compatible; this change promotes common routing work into the primary Mixer instead of removing advanced controls.
 
-After this PR is green and the Arrangement parent PRs are merged, the next Mixer subpoint is **10.2.2 — routing and sends inspection/edit UX**. Keep plugin-rack ergonomics for the following bounded Mixer subpoint.
+After this PR is green and merged, the next bounded Mixer subpoint is **10.2.3 — plugin-rack ergonomics and target synchronization**. Do not start Browser 10.3 until Mixer 10.2 is closed.
