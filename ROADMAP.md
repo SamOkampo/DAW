@@ -73,19 +73,21 @@ Completed:
 **Production desktop path: JUCE 9.0.2. Project format remains v11.**
 
 
-## Phase 9 — Workflow / Browser / Polish / Autosave [IN PROGRESS]
+## Phase 9 — Workflow / Browser / Polish / Autosave [DONE]
 
-Milestone 9.1 — JUCE autosave and crash recovery:
-1. Wire the existing `SessionRecovery` service into the production JUCE Studio.
-2. Restore a dirty autosave at startup when `restoreLastSession` is enabled.
-3. Keep recovered work protected across a normal close until the user explicitly chooses Save, New or Open.
-4. Refresh recovery snapshots after New/Open/Save and periodically using `autosaveSeconds`.
-5. Keep all recovery filesystem work on the message/control thread and out of the audio callback.
-6. Keep regression coverage for non-consuming recovery loads, repeated snapshots, generation increments and latest-project metadata.
+Completed:
+1. Production JUCE autosave and crash recovery using the existing `SessionRecovery` service.
+2. Dirty autosave restore at startup, periodic recovery snapshots and explicit clean-session handling after Save/New/Open.
+3. Recovery filesystem work stays on the message/control thread and never enters the realtime audio callback.
+4. Sample Browser with persistent local sample roots, bounded recursive WAV discovery and filename/path search.
+5. Persistent Favorites and Recent samples through machine-local AppSettings v3, with compatible v1/v2 migration.
+6. Browser import actions, favorite toggling and recent-sample tracking.
+7. Internal Browser drag source plus workspace drop target using the existing WAV import route; no decoding or filesystem work is added to the audio callback.
+8. Project templates for Blank, Boom Bap, Trap and Lo-Fi starting points.
+9. First-run onboarding that points new users to templates, the Sample Browser, drag/drop and Commands.
+10. Keyboard workflow with a Ctrl/Cmd+K command palette plus shortcuts for New, Open, Save, Import, transport, Undo/Redo and editor views.
+11. Final JUCE workflow polish: FLOWDAW Studio hierarchy, dark workspace treatment, active editor-tab state and concise workflow guidance.
+12. Linux, Windows and macOS production CI continues to validate the JUCE runtime, real plugin fixtures, packaging and legacy/core regressions.
 
-Next Phase 9 product work:
-- sample/file Browser with search, favorites and recent samples;
-- drag/drop from Browser into the production workspace;
-- project templates and first-run/onboarding flow;
-- keyboard shortcuts and command palette;
-- continued visual hierarchy/polish without changing DSP architecture.
+**Production desktop path remains JUCE 9.0.2. Project format remains v11.**
+
