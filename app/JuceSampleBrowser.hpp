@@ -21,9 +21,10 @@ public:
         title_.setFont(juce::Font(14.0f, juce::Font::bold)); addAndMakeVisible(title_);
         search_.setTextToShowWhenEmpty("Search WAVs...", juce::Colour(0xff7f8796));
         search_.onTextChange = [this] { refresh(); }; addAndMakeVisible(search_);
-        root_.setTextWhenNothingSelected("No sample folder"); root_.onChange = [this] { refresh(); }; addAndMakeVisible(root_);
+        root_.setTextWhenNothingSelected("No sample folder"); root_.onChange = [this] { showRecent_=false; recent_.setToggleState(false, juce::dontSendNotification); refresh(); }; addAndMakeVisible(root_);
         addRoot_.setButtonText("+ Folder"); addRoot_.onClick = [this] { chooseRoot(); }; addAndMakeVisible(addRoot_);
         favorite_.setButtonText("Favorite"); favorite_.onClick = [this] { toggleFavoriteSelected(); }; addAndMakeVisible(favorite_);
+        recent_.setButtonText("Recent"); recent_.setClickingTogglesState(true); recent_.onClick = [this] { showRecent_=recent_.getToggleState(); refresh(); }; addAndMakeVisible(recent_);
         import_.setButtonText("Import"); import_.onClick = [this] { importSelected(); }; addAndMakeVisible(import_);
         list_.setRowHeight(34); list_.setOutlineThickness(0); addAndMakeVisible(list_);
         hint_.setText("Double-click to import · drag WAVs to the DAW", juce::dontSendNotification);
@@ -38,7 +39,7 @@ public:
     void resized() override {
         auto r = getLocalBounds().reduced(8); title_.setBounds(r.removeFromTop(24)); search_.setBounds(r.removeFromTop(30));
         auto roots = r.removeFromTop(30); root_.setBounds(roots.removeFromLeft(std::max(0, roots.getWidth()-82)).reduced(2)); addRoot_.setBounds(roots.reduced(2));
-        auto actions = r.removeFromTop(30); import_.setBounds(actions.removeFromLeft(72).reduced(2)); favorite_.setBounds(actions.removeFromLeft(82).reduced(2));
+        auto actions = r.removeFromTop(30); import_.setBounds(actions.removeFromLeft(72).reduced(2)); favorite_.setBounds(actions.removeFromLeft(82).reduced(2)); recent_.setBounds(actions.removeFromLeft(70).reduced(2));
         hint_.setBounds(r.removeFromBottom(22)); list_.setBounds(r.reduced(2));
     }
 
@@ -72,14 +73,19 @@ private:
         if (!settings_.sampleRoots.empty()) root_.setSelectedId(previous>0 && previous<=static_cast<int>(settings_.sampleRoots.size()) ? previous : 1, juce::dontSendNotification);
     }
     void refresh() {
-        visible_.clear(); const int idx = root_.getSelectedId()-1;
-        if (idx >= 0 && idx < static_cast<int>(settings_.sampleRoots.size())) {
-            const auto base = settings_.sampleRoots[static_cast<std::size_t>(idx)]; std::error_code ec; std::size_t scanned=0;
-            if (std::filesystem::exists(base, ec)) for (std::filesystem::recursive_directory_iterator it(base, std::filesystem::directory_options::skip_permission_denied, ec), end; it!=end && scanned<5000; it.increment(ec)) {
-                if (ec) { ec.clear(); continue; } if (!it->is_regular_file(ec)) continue; ++scanned;
-                if (lower(it->path().extension().string()) != ".wav") continue; if (matchesSearch(it->path())) visible_.push_back(it->path());
+        visible_.clear();
+        if(showRecent_){
+            for(const auto&p:settings_.recentSamples){std::error_code ec;if(std::filesystem::is_regular_file(p,ec)&&lower(p.extension().string())==".wav"&&matchesSearch(p))visible_.push_back(p);}
+        }else{
+            const int idx = root_.getSelectedId()-1;
+            if (idx >= 0 && idx < static_cast<int>(settings_.sampleRoots.size())) {
+                const auto base = settings_.sampleRoots[static_cast<std::size_t>(idx)]; std::error_code ec; std::size_t scanned=0;
+                if (std::filesystem::exists(base, ec)) for (std::filesystem::recursive_directory_iterator it(base, std::filesystem::directory_options::skip_permission_denied, ec), end; it!=end && scanned<5000; it.increment(ec)) {
+                    if (ec) { ec.clear(); continue; } if (!it->is_regular_file(ec)) continue; ++scanned;
+                    if (lower(it->path().extension().string()) != ".wav") continue; if (matchesSearch(it->path())) visible_.push_back(it->path());
+                }
+                std::sort(visible_.begin(), visible_.end(), [](const auto& a,const auto& b){return lower(a.filename().string()) < lower(b.filename().string());});
             }
-            std::sort(visible_.begin(), visible_.end(), [](const auto& a,const auto& b){return lower(a.filename().string()) < lower(b.filename().string());});
         }
         list_.updateContent(); list_.repaint(); import_.setEnabled(!visible_.empty()); favorite_.setEnabled(!visible_.empty());
     }
@@ -88,7 +94,7 @@ private:
         if (std::find(settings_.sampleRoots.begin(), settings_.sampleRoots.end(), p) == settings_.sampleRoots.end()) {
             settings_.sampleRoots.push_back(p); if (settings_.sampleRoots.size()>64) settings_.sampleRoots.erase(settings_.sampleRoots.begin()); notifySettingsChanged();
         }
-        refreshRoots(); for (std::size_t i=0;i<settings_.sampleRoots.size();++i) if (settings_.sampleRoots[i]==p) { root_.setSelectedId(static_cast<int>(i)+1, juce::dontSendNotification); break; } refresh();
+        showRecent_=false; recent_.setToggleState(false, juce::dontSendNotification); refreshRoots(); for (std::size_t i=0;i<settings_.sampleRoots.size();++i) if (settings_.sampleRoots[i]==p) { root_.setSelectedId(static_cast<int>(i)+1, juce::dontSendNotification); break; } refresh();
     }
     void chooseRoot() {
         chooser_ = std::make_unique<juce::FileChooser>("Add sample folder", juce::File::getSpecialLocation(juce::File::userMusicDirectory));
@@ -102,11 +108,11 @@ private:
     }
     void importPath(const std::filesystem::path& p) {
         if(p.empty() || !std::filesystem::exists(p) || !importFn_) return;
-        importFn_(p); auto& recent=settings_.recentSamples; recent.erase(std::remove(recent.begin(),recent.end(),p),recent.end()); recent.insert(recent.begin(),p); if(recent.size()>64)recent.resize(64); notifySettingsChanged();
+        importFn_(p); auto& recent=settings_.recentSamples; recent.erase(std::remove(recent.begin(),recent.end(),p),recent.end()); recent.insert(recent.begin(),p); if(recent.size()>64)recent.resize(64); notifySettingsChanged(); if(showRecent_)refresh();
     }
     void importSelected() { importPath(selectedPath()); }
 
-    AppSettings& settings_; ImportFn importFn_; SettingsChangedFn settingsChanged_; std::vector<std::filesystem::path> visible_; std::unique_ptr<juce::FileChooser> chooser_;
-    juce::Label title_, hint_; juce::TextEditor search_; juce::ComboBox root_; juce::TextButton addRoot_, favorite_, import_; juce::ListBox list_;
+    AppSettings& settings_; ImportFn importFn_; SettingsChangedFn settingsChanged_; std::vector<std::filesystem::path> visible_; std::unique_ptr<juce::FileChooser> chooser_; bool showRecent_=false;
+    juce::Label title_, hint_; juce::TextEditor search_; juce::ComboBox root_; juce::TextButton addRoot_, favorite_, recent_, import_; juce::ListBox list_;
 };
 }
