@@ -70,4 +70,4 @@ This branch implements **10.1.2-B** only:
 - Modifier-click is selection-only and does not begin a drag, avoiding accidental movement while building a selection.
 - Existing single-target Delete/Duplicate/Repeat commands are intentionally unchanged; grouped edit semantics remain a later 10.1.2 subpoint.
 
-After this PR is green and merged, the next bounded subpoint is **10.1.2-C: multi-selected Delete with one Undo/Redo transaction**. Do not include Duplicate, marquee, zoom or snapping in that block.
+Once this PR is green and merged, the next bounded subpoint is **10.1.2-C: multi-selected Delete with one Undo/Redo transaction**. Keep Duplicate, marquee, zoom and snapping out of that block.
