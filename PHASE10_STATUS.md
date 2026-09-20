@@ -58,15 +58,16 @@ Planned sequence:
 
 ## Current checkpoint
 
-Completed in `main` before this branch:
+Completed in `main`:
 - **10.1.1** stable Arrangement selection and predictable click-to-select behavior.
-- **10.1.2-A** bounded multi-selection model with fixed capacity of 256 blocks.
-- **10.1.2-B** Ctrl/Cmd-click toggling for audio clips and Pattern placements, while normal click remains exclusive and draggable.
+- **10.1.2** bounded multi-selection with Ctrl/Cmd-click toggling and one-transaction multi-selected Delete.
 
-This branch completes **10.1.2** with multi-selected Delete:
-- Delete/Backspace removes every selected audio clip and Pattern placement across tracks.
-- The whole deletion captures one pre-edit Project snapshot and emits exactly one commit callback, so Undo/Redo treats the grouped delete as one transaction.
-- Selection and drag state are cleared only after an actual deletion.
-- No grouped Duplicate, grouped drag, marquee, zoom or snapping is added here.
+This branch implements **10.1.3 — timeline navigation, zoom/scroll and musical snapping**:
+- Arrangement now owns an explicit horizontal viewport instead of always scaling the complete song into the available width.
+- Mouse wheel scrolls the timeline horizontally; Ctrl/Cmd + wheel zooms around the pointer while keeping the zoom bounded to a useful musical range.
+- The visible grid includes 1/16-note snap divisions with stronger beat/bar lines.
+- Clip and Pattern dragging snaps absolute start positions to the 1/16 grid; Alt-drag temporarily bypasses snapping for free placement.
+- The playhead is drawn only when it is inside the visible viewport.
+- View state is UI-only and does not change `.flow` v11 or the audio/realtime graph.
 
-After this PR is green and merged, **10.1.2 is DONE**. The next planned block is **10.1.3 — timeline navigation, zoom/scroll and musical snapping**. Treat any implementation checkpoints inside 10.1.3 as technical PR boundaries, not additional roadmap blocks.
+After this PR is green and merged, **10.1.3 is DONE**. The next planned Arrangement block is **10.1.4 — clip/pattern manipulation feedback and Undo/Redo coverage**.
