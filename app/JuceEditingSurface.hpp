@@ -78,11 +78,21 @@ public:
         }
 
         const int px=xForTick(std::clamp<Tick>(playheadTick_,0,end),end);g.setColour(juce::Colour(0xff30ca84));g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));
-        g.setColour(juce::Colour(0xff9aa0ad));g.setFont(11.0f);g.drawText("Drag • Delete • Ctrl/Cmd+D • +/- repeats",8,3,labelWidth-12,18,juce::Justification::centredLeft,false);
+        g.setColour(juce::Colour(0xff9aa0ad));g.setFont(11.0f);g.drawText("Drag • Ctrl/Cmd-click select • Delete • Ctrl/Cmd+D • +/- repeats",8,3,labelWidth-12,18,juce::Justification::centredLeft,false);
     }
 
     void mouseDown(const juce::MouseEvent&e)override{
-        grabKeyboardFocus();drag_=hitTest(e.position);selected_=drag_;syncSelectionFromHit(selected_);repaint();if(drag_.kind==Kind::None)return;
+        grabKeyboardFocus();
+        const auto hit=hitTest(e.position);
+        const bool toggle=e.mods.isCommandDown()||e.mods.isCtrlDown();
+        if(toggle){
+            drag_=Hit{};
+            toggleSelectionFromHit(hit);
+            syncSelectedFromPrimarySelection();
+            repaint();
+            return;
+        }
+        drag_=hit;selected_=drag_;syncSelectionFromHit(selected_);repaint();if(drag_.kind==Kind::None)return;
         before_=project_;anchorX_=e.x;dragStart_=currentStart();setMouseCursor(juce::MouseCursor::DraggingHandCursor);
     }
     void mouseDrag(const juce::MouseEvent&e)override{
@@ -116,6 +126,27 @@ private:
         if(hit.kind==Kind::Audio&&hit.index<t.clips.size())selection_.selectAudio(t.id,t.clips[hit.index].id);
         else if(hit.kind==Kind::Pattern&&hit.index<t.patternClips.size())selection_.selectPattern(t.id,t.patternClips[hit.index].id);
         else selection_.clear();
+    }
+    void toggleSelectionFromHit(const Hit&hit){
+        if(hit.kind==Kind::None||hit.track>=project_.tracks.size()){selection_.clear();return;}
+        auto const&t=project_.tracks[hit.track];
+        if(hit.kind==Kind::Audio&&hit.index<t.clips.size())selection_.toggle(ArrangementSelection::Kind::AudioClip,t.id,t.clips[hit.index].id);
+        else if(hit.kind==Kind::Pattern&&hit.index<t.patternClips.size())selection_.toggle(ArrangementSelection::Kind::PatternClip,t.id,t.patternClips[hit.index].id);
+    }
+    void syncSelectedFromPrimarySelection(){
+        selected_=Hit{};
+        const auto item=selection_.item();
+        if(!item.valid())return;
+        for(std::size_t ti=0;ti<project_.tracks.size();++ti){
+            auto const&t=project_.tracks[ti];
+            if(t.id!=item.trackId)continue;
+            if(item.kind==ArrangementSelection::Kind::AudioClip){
+                for(std::size_t i=0;i<t.clips.size();++i)if(t.clips[i].id==item.id){selected_={Kind::Audio,ti,i};return;}
+            }else if(item.kind==ArrangementSelection::Kind::PatternClip){
+                for(std::size_t i=0;i<t.patternClips.size();++i)if(t.patternClips[i].id==item.id){selected_={Kind::Pattern,ti,i};return;}
+            }
+            return;
+        }
     }
 
     Tick visibleEndTick()const{

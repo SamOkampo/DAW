@@ -58,4 +58,16 @@ Planned sequence:
 
 ## Current checkpoint
 
-Phase 10 planning foundation established. The next implementation subpoint is **10.1.1: explicit Arrangement selection state and predictable click-to-select behavior**. Before changing code, inspect the existing JUCE Arrangement component and its edit/Undo path, then implement only the smallest selection-state foundation.
+Completed in `main` before this branch:
+- **10.1.1-A** stable Arrangement selection keyed by persistent Track/Clip/PatternPlacement IDs.
+- **10.1.1-B** click-to-select wiring and empty-space selection clearing.
+- **10.1.2-A** bounded multi-selection model with fixed capacity of 256 blocks.
+
+This branch implements **10.1.2-B** only:
+- Ctrl/Cmd-click toggles an audio clip or Pattern placement in the bounded selection.
+- Normal click keeps exclusive selection and existing single-block drag behavior.
+- Clicking empty Arrangement space clears the selection.
+- Modifier-click is selection-only and does not begin a drag, avoiding accidental movement while building a selection.
+- Existing single-target Delete/Duplicate/Repeat commands are intentionally unchanged; grouped edit semantics remain a later 10.1.2 subpoint.
+
+Once this PR is green and merged, the next bounded subpoint is **10.1.2-C: multi-selected Delete with one Undo/Redo transaction**. Keep Duplicate, marquee, zoom and snapping out of that block.
