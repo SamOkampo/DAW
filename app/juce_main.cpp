@@ -340,8 +340,8 @@ private:
     bool isInterestedInDragSource(const SourceDetails& details) override {
         const auto description=details.description.toString();
         if(!description.startsWith("flowdaw-sample:")) return false;
-        const auto path=std::filesystem::path(description.substring(15).toStdString());
-        return !path.empty() && lowerAscii(path.extension().string())==".wav";
+        const auto pathText=description.substring(15);
+        return pathText.isNotEmpty() && pathText.endsWithIgnoreCase(".wav");
     }
     void itemDropped(const SourceDetails& details) override {
         if(!isInterestedInDragSource(details)) return;
@@ -350,10 +350,6 @@ private:
         std::error_code ec;
         if(!std::filesystem::is_regular_file(path,ec)) return;
         importWavFile(path);
-    }
-    static std::string lowerAscii(std::string value){
-        for(char& c:value)c=static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        return value;
     }
     void importWavFile(const std::filesystem::path&path){
         try{
