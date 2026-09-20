@@ -189,10 +189,21 @@ private:
     }
 
     void deleteSelected(){
-        if(selected_.track>=project_.tracks.size())return;Project before=project_;auto&t=project_.tracks[selected_.track];bool changed=false;
-        if(selected_.kind==Kind::Audio&&selected_.index<t.clips.size()){t.clips.erase(t.clips.begin()+static_cast<std::ptrdiff_t>(selected_.index));changed=true;}
-        else if(selected_.kind==Kind::Pattern&&selected_.index<t.patternClips.size()){t.patternClips.erase(t.patternClips.begin()+static_cast<std::ptrdiff_t>(selected_.index));changed=true;}
-        if(changed){selected_=Hit{};selection_.clear();if(commit_)commit_(std::move(before),"Delete arrangement block");repaint();}
+        if(selection_.empty())return;
+        Project before=project_;
+        const auto selectedCount=selection_.size();
+        bool changed=false;
+        for(auto&t:project_.tracks){
+            const auto clipsBefore=t.clips.size();
+            std::erase_if(t.clips,[&](const Clip&clip){return selection_.contains(ArrangementSelection::Kind::AudioClip,t.id,clip.id);});
+            const auto patternsBefore=t.patternClips.size();
+            std::erase_if(t.patternClips,[&](const PatternPlacement&placement){return selection_.contains(ArrangementSelection::Kind::PatternClip,t.id,placement.id);});
+            changed=changed||clipsBefore!=t.clips.size()||patternsBefore!=t.patternClips.size();
+        }
+        if(!changed)return;
+        drag_=Hit{};selected_=Hit{};selection_.clear();
+        if(commit_)commit_(std::move(before),selectedCount>1?"Delete arrangement blocks":"Delete arrangement block");
+        repaint();
     }
     void duplicateSelected(){
         if(selected_.track>=project_.tracks.size())return;Project before=project_;auto&t=project_.tracks[selected_.track];
