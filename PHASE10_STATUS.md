@@ -58,7 +58,7 @@ Planned sequence:
 
 ## Current checkpoint
 
-Completed in the parent branch / `main` sequence:
+Completed in `main`:
 - **10.1.1** stable Arrangement selection and predictable click-to-select behavior.
 - **10.1.2** bounded multi-selection with Ctrl/Cmd-click toggling and one-transaction multi-selected Delete.
 - **10.1.3** horizontal navigation, bounded zoom and 1/16 musical snapping with Alt-drag free placement.
