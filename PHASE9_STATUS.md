@@ -1,29 +1,46 @@
 # Phase 9 Status — Workflow / Browser / Polish / Autosave
 
-**Status: IN PROGRESS**
+**Status: DONE**
 
-Phase 8 established JUCE as the production desktop path. Phase 9 now focuses on daily workflow safety and speed without changing the realtime DSP architecture.
+Phase 9 closes the production-workflow gap left after the JUCE Studio migration while preserving the realtime architecture and project compatibility.
 
-## Milestone 9.1 — JUCE autosave and crash recovery
+## 9.1 — Autosave / recovery
 
-Implemented on this branch:
+- JUCE Studio owns the existing `SessionRecovery` service.
+- Dirty recovery is restored when configured, snapshots refresh periodically and after confirmed project transitions.
+- Recovery I/O remains on the message/control thread.
+- Existing recovery lifecycle regression coverage remains active.
 
-- The JUCE Studio owns the existing `SessionRecovery` service in the machine-local FLOWDAW settings directory.
-- A dirty recovery snapshot is restored at startup when `restoreLastSession` is enabled.
-- The active project gets an immediate recovery snapshot and periodic snapshots at `AppSettings::autosaveSeconds`.
-- New Project, Open Project and Save Project refresh recovery metadata for the newly confirmed session.
-- A crash-recovered session remains protected if the user closes the app without explicitly choosing Save, New or Open; the last recovery snapshot is therefore not silently destroyed.
-- Once the user explicitly confirms the session with Save/New/Open, a later clean shutdown removes the dirty recovery marker and autosave files.
-- Autosave runs on the JUCE message/control thread; the audio callback performs no recovery file I/O or project mutation.
-- Phase 6 recovery tests cover non-consuming recovery loads, repeated snapshots, generation increments, latest project metadata and latest project state.
+## 9.2 — Sample Browser
 
-## Next
+- Persistent machine-local sample folders.
+- Permission-safe, bounded recursive WAV discovery.
+- Search by filename/path.
+- Imports route through the existing project edit/import path.
 
-1. Sample/file Browser with search.
-2. Favorites and recent samples.
-3. Drag/drop into the production workspace.
-4. Templates and first-run workflow.
-5. Keyboard shortcuts and command palette.
-6. UX hierarchy/polish while preserving the realtime architecture.
+## 9.3 — Favorites / Recent / drag & drop
 
-Project format remains **v11**.
+- AppSettings v3 persists Favorites and Recent samples with v1/v2 migration.
+- Favorites can be toggled directly in the Browser and are visibly marked.
+- Successful Browser imports are kept in a bounded, de-duplicated Recent list.
+- Browser WAVs expose an internal `flowdaw-sample:` drag payload.
+- The production workspace accepts only that internal WAV payload and routes it through `importWavFile`.
+- No Browser filesystem scanning, drop validation or WAV decoding runs in the audio callback.
+
+## 9.4 — Templates / onboarding
+
+- New-project menu offers Blank (120 BPM), Boom Bap (90 BPM), Trap (140 BPM) and Lo-Fi (82 BPM) starting points.
+- Fresh installs receive a first-run workflow guide for templates, Browser drag/drop and Commands.
+
+## 9.5 — Commands / shortcuts / polish
+
+- Ctrl/Cmd+K opens a command palette.
+- Shortcuts cover New, Open, Save, Import WAV, Play/Pause, Undo/Redo and the five editor views.
+- FLOWDAW Studio uses a clearer dark workspace hierarchy and active editor-tab state.
+
+## Compatibility and safety
+
+- Production desktop path: **JUCE 9.0.2**.
+- Project format remains **v11**.
+- Phase 9 introduces no project-schema migration and no new realtime filesystem work.
+- Phase 9 is complete only after the final Linux/Windows/macOS + core/legacy CI matrix is green.
