@@ -22,7 +22,7 @@ Phase 9 closes the production-workflow gap left after the JUCE Studio migration 
 
 - AppSettings v3 persists Favorites and Recent samples with v1/v2 migration.
 - Favorites can be toggled directly in the Browser and are visibly marked.
-- Successful Browser imports are kept in a bounded, de-duplicated Recent list.
+- Browser imports are kept in a bounded, de-duplicated Recent list and exposed through a Recent view.
 - Browser WAVs expose an internal `flowdaw-sample:` drag payload.
 - The production workspace accepts only that internal WAV payload and routes it through `importWavFile`.
 - No Browser filesystem scanning, drop validation or WAV decoding runs in the audio callback.
