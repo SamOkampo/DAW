@@ -59,15 +59,16 @@ Planned sequence:
 ## Current checkpoint
 
 Completed in the parent branch / `main` sequence:
-- **10.1** Arrangement editing (selection, multi-select Delete, navigation/zoom/snapping, manipulation feedback and Undo/Redo-safe resynchronization).
-- **10.2.1** explicit Mixer active-target hierarchy for Track / Bus / Master with target-aware controls and meters.
+- **10.1** Arrangement editing.
+- **10.2.1** explicit Track / Bus / Master Mixer active-target hierarchy.
+- **10.2.2** primary-Mixer output routing and send inspection/edit controls.
 
-This branch implements **10.2.2 — routing and sends inspection/edit UX**:
-- When the active Mixer target is the selected Track, the channel strip now exposes its output route directly: Master or any existing Bus.
-- The same Mixer surface exposes one selected send Bus with gain, Pre/Post state, Set/Update and Remove actions.
-- Existing `Track::outputBusId` and `Track::sends` project state are reused; no schema or serialization change is introduced.
-- Routing/send edits commit through the existing UndoStack and republish the prepared immutable routing graph on the control thread.
-- Routing/send controls disable automatically for Bus/Master targets or when no valid Bus exists.
-- The existing Automation/Assist surface remains compatible; this change promotes common routing work into the primary Mixer instead of removing advanced controls.
+This branch implements **10.2.3 — plugin-rack ergonomics and target synchronization**:
+- Mixer and Plugin Rack targets are synchronized bidirectionally: Track maps to the selected Track rack, Bus maps to the same Bus rack, and Master maps to the Master rack.
+- Changing either target updates the other surface without callback loops, reducing ambiguity about which channel is being edited.
+- Rack target labels now use the same TRACK / BUS / MASTER hierarchy as the Mixer.
+- Rack insert choices are numbered and expose ACTIVE / BYPASS / DISABLED state directly.
+- Existing insert add/remove/reorder/wet/native-parameter/external-editor behavior is preserved and still publishes through the existing control-thread graph path.
+- No DSP, PDC, audio-callback or `.flow` v11 schema changes are introduced.
 
-After this PR is green and merged, the next bounded Mixer subpoint is **10.2.3 — plugin-rack ergonomics and target synchronization**. Do not start Browser 10.3 until Mixer 10.2 is closed.
+After this PR is green and merged, **10.2 Mixer production workflow is DONE**. The next planned block is **10.3 — Browser production workflow**, beginning with safe sample preview and faster navigation.
