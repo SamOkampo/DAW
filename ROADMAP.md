@@ -91,3 +91,24 @@ Completed:
 
 **Production desktop path remains JUCE 9.0.2. Project format remains v11.**
 
+## Phase 10 — Production Editing / Mixer / Browser / Workflow [IN PROGRESS]
+
+See `PHASE10_STATUS.md` for the live execution plan and checkpoints. Phase 10 focuses on production workflow completeness and reliability while preserving JUCE 9.0.2, project format v11, and the realtime-safety contract.
+
+## Phase 11 — UI/UX & Productization [PLANNED]
+
+Phase 11 is intentionally reserved for the interface itself after Phase 10 is fully closed and audited. It must not begin before the Phase 10 final architecture/realtime/project-compatibility/regression audit is complete.
+
+Planned focus:
+1. Establish a cohesive FLOWDAW visual design system: spacing, typography, contrast, component states, iconography and consistent interaction patterns.
+2. Replace the current control-dense technical layout with clear production workspaces and stronger hierarchy for Arrangement, Mixer, Browser, Piano Roll, Sequencer, Sampler, Automation and Plugins.
+3. Introduce resizable/dockable or otherwise adaptive panels where justified, with sensible minimum sizes and high-DPI behavior.
+4. Turn core workflows into visually obvious paths: create/import → arrange → edit → mix → export.
+5. Improve channel strips, transport, timeline ruler, inspectors, context menus, dialogs, empty states, selection feedback and drag/drop affordances.
+6. Unify keyboard/mouse behavior, focus handling, tooltips and accessibility-visible state across the JUCE application.
+7. Reduce exposed implementation/debug-style controls from the primary workspace; move advanced/device/diagnostic controls to appropriate secondary surfaces.
+8. Add visual regression/smoke coverage where practical and validate Linux / Windows / macOS layout behavior.
+9. Preserve the existing audio architecture and project compatibility; Phase 11 is a product-interface phase, not a DSP rewrite.
+
+**Phase 11 is planning only until Phase 10 is marked DONE.**
+
