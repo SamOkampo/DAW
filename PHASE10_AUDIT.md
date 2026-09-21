@@ -36,6 +36,17 @@ Plugin discovery, instantiation and editor/state handling remain outside the rea
 
 **Architecture result: PASS, pending final integrated CI.**
 
+## Full Phase 9 → Phase 10 diff boundary
+
+A repository compare from the Phase 9 merge commit `077f587404a16019007f6507479e3e250b4ed1c0` to this pre-closure branch shows Phase 10 changes only in:
+
+- JUCE UI/workflow surfaces;
+- the bounded ArrangementSelection helper;
+- Phase 10 stress tests / CMake registration;
+- status, roadmap, README and golden-path documentation.
+
+The Phase 10 diff contains **no modifications** to `src/AudioEngine.cpp`, realtime routing/PDC implementation, realtime plugin-graph implementation, project serialization, export DSP, WAV decode implementation or plugin-host core implementation. This does not replace runtime tests, but it materially narrows the realtime/persistence regression surface.
+
 ## 2. Realtime-safety audit
 
 The required Phase 10 callback contract remains:
