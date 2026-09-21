@@ -21,6 +21,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <array>
 #include <cmath>
+#include <cctype>
 #include <filesystem>
 #include <functional>
 #include <memory>
