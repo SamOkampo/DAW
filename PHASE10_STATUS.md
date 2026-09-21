@@ -62,14 +62,15 @@ Completed in the parent branch / `main` sequence:
 - **10.1 Arrangement editing**.
 - **10.2 Mixer production workflow**.
 - **10.3 Browser production workflow**.
-- **10.4.1** bounded Piano Roll multi-selection and grouped note edits.
+- **10.4 Piano Roll / Sequencer workflow**.
 
-This branch implements **10.4.2 — Step Sequencer keyboard workflow and deterministic step operations**:
-- The Sequencer accepts keyboard focus and arrow keys move the selected lane/step without editing pattern data.
-- Space toggles the selected step, Delete/Backspace clears it, and Ctrl/Cmd+D copies the selected step event to the next step.
-- Horizontal navigation updates the visible 16-step page automatically while keeping the selected absolute step stable.
-- Mouse clicks still use the existing toggle behavior and now explicitly focus the Sequencer for immediate keyboard editing.
-- All edits remain single command/Undo transactions and reuse existing StepEvent timing/velocity/probability/microtiming state.
-- No project schema, groove algorithm, audio callback or realtime graph behavior changes.
+This branch implements **10.5 — Plugin workflow search/selection polish**:
+- Adds a text search field over the already-scanned plugin catalogue; matching covers plugin name, format and identifier.
+- Adds All / Instruments / Effects filtering without rescanning or instantiating plugins.
+- Maintains an explicit filtered-to-source index map so instrument assignment, track/master FX, rack insertion and editor preview all resolve the correct underlying PluginDescriptor.
+- Attempts to preserve the previously selected plugin by identifier when filters change.
+- Scan status reports total discovered plugin types, currently shown matches and quarantined records.
+- Existing plugin discovery, quarantine, instantiation, editor/state handling and rack operations remain outside the realtime callback.
+- No plugin state schema, PDC, DSP or `.flow` v11 changes are introduced.
 
-After this PR is green and merged, **10.4 Piano Roll / Sequencer workflow is DONE**. The next planned block is **10.5 — Plugin workflow**.
+After this PR is green and merged, **10.5 Plugin workflow is DONE**. The next planned block is **10.6 — Performance / robustness**, beginning with focused profiling/regression coverage before optimization.
