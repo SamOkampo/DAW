@@ -45,6 +45,12 @@ public:
     }
 
     void setPlayheadTick(Tick tick){playheadTick_=std::max<Tick>(0,tick);repaint();}
+    void projectChanged(){
+        drag_=Hit{};dragFree_=false;setMouseCursor(juce::MouseCursor::NormalCursor);
+        syncSelectedFromPrimarySelection();
+        if(!selection_.empty()&&selected_.kind==Kind::None)selection_.clear();
+        clampView();repaint();
+    }
 
     void paint(juce::Graphics&g)override{
         g.fillAll(juce::Colour(0xff101114));
@@ -80,7 +86,14 @@ public:
         }
 
         if(playheadTick_>=viewStartTick_&&playheadTick_<=end){const int px=xForTick(playheadTick_);g.setColour(juce::Colour(0xff30ca84));g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));}
-        g.setColour(juce::Colour(0xff9aa0ad));g.setFont(11.0f);g.drawFittedText("Wheel scroll • Ctrl/Cmd+wheel zoom • Alt-drag free",8,3,std::max(1,bounds.getWidth()-16),18,juce::Justification::centredLeft,1);
+        juce::String hint="Wheel scroll • Ctrl/Cmd+wheel zoom • Alt-drag free";
+        if(drag_.kind!=Kind::None){
+            const Tick start=currentStart();const int guideX=xForTick(start);const Tick barTicks=kPPQ*4;
+            g.setColour(juce::Colour(0xff64d7a0));g.drawVerticalLine(guideX,static_cast<float>(header),static_cast<float>(bounds.getBottom()));
+            const int bar=static_cast<int>(start/barTicks)+1;const int beat=static_cast<int>((start%barTicks)/kPPQ)+1;
+            hint="Move • Bar "+juce::String(bar)+" Beat "+juce::String(beat)+(dragFree_?" • FREE":" • SNAP 1/16");
+        }
+        g.setColour(juce::Colour(0xff9aa0ad));g.setFont(11.0f);g.drawFittedText(hint,8,3,std::max(1,bounds.getWidth()-16),18,juce::Justification::centredLeft,1);
     }
 
     void mouseDown(const juce::MouseEvent&e)override{
@@ -95,14 +108,14 @@ public:
             return;
         }
         drag_=hit;selected_=drag_;syncSelectionFromHit(selected_);repaint();if(drag_.kind==Kind::None)return;
-        before_=project_;anchorX_=e.x;dragStart_=currentStart();setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+        dragFree_=false;before_=project_;anchorX_=e.x;dragStart_=currentStart();setMouseCursor(juce::MouseCursor::DraggingHandCursor);
     }
     void mouseDrag(const juce::MouseEvent&e)override{
         if(drag_.kind==Kind::None)return;const int content=std::max(1,getWidth()-120);
         const double ticksPerPixel=static_cast<double>(viewSpanTicks_)/static_cast<double>(content);
         const Tick rawDelta=static_cast<Tick>(std::llround(static_cast<double>(e.x-anchorX_)*ticksPerPixel));
         const Tick desired=std::max<Tick>(0,dragStart_+rawDelta);
-        setCurrentStart(e.mods.isAltDown()?desired:snapTick(desired));repaint();
+        dragFree_=e.mods.isAltDown();setCurrentStart(dragFree_?desired:snapTick(desired));repaint();
     }
     void mouseWheelMove(const juce::MouseEvent&e,const juce::MouseWheelDetails&wheel)override{
         if(e.mods.isCommandDown()||e.mods.isCtrlDown()){
@@ -122,7 +135,7 @@ public:
     }
     void mouseUp(const juce::MouseEvent&)override{
         if(drag_.kind==Kind::None)return;const bool changed=currentStart()!=dragStart_;setMouseCursor(juce::MouseCursor::NormalCursor);
-        auto before=std::move(before_);const auto kind=drag_.kind;drag_=Hit{};if(changed&&commit_)commit_(std::move(before),kind==Kind::Audio?"Move audio clip":"Move pattern clip");
+        auto before=std::move(before_);const auto kind=drag_.kind;drag_=Hit{};dragFree_=false;if(changed&&commit_)commit_(std::move(before),kind==Kind::Audio?"Move audio clip":"Move pattern clip");
     }
 
     bool keyPressed(const juce::KeyPress&key)override{
@@ -238,7 +251,7 @@ private:
         const int next=std::clamp(t.patternClips[selected_.index].repeats+delta,1,64);if(next==t.patternClips[selected_.index].repeats)return;Project before=project_;t.patternClips[selected_.index].repeats=next;if(commit_)commit_(std::move(before),"Change pattern repeats");repaint();
     }
 
-    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0,viewStartTick_=0,viewSpanTicks_=kPPQ*32;int anchorX_=0;Hit drag_,selected_;ArrangementSelection selection_;Project before_;
+    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0,viewStartTick_=0,viewSpanTicks_=kPPQ*32;int anchorX_=0;bool dragFree_=false;Hit drag_,selected_;ArrangementSelection selection_;Project before_;
 };
 
 } // namespace flowdaw::juceui

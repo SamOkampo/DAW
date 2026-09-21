@@ -61,13 +61,13 @@ Planned sequence:
 Completed in `main`:
 - **10.1.1** stable Arrangement selection and predictable click-to-select behavior.
 - **10.1.2** bounded multi-selection with Ctrl/Cmd-click toggling and one-transaction multi-selected Delete.
+- **10.1.3** horizontal navigation, bounded zoom and 1/16 musical snapping with Alt-drag free placement.
 
-This branch implements **10.1.3 — timeline navigation, zoom/scroll and musical snapping**:
-- Arrangement now owns an explicit horizontal viewport instead of always scaling the complete song into the available width.
-- Mouse wheel scrolls the timeline horizontally; Ctrl/Cmd + wheel zooms around the pointer while keeping the zoom bounded to a useful musical range.
-- The visible grid includes 1/16-note snap divisions with stronger beat/bar lines.
-- Clip and Pattern dragging snaps absolute start positions to the 1/16 grid; Alt-drag temporarily bypasses snapping for free placement.
-- The playhead is drawn only when it is inside the visible viewport.
-- View state is UI-only and does not change `.flow` v11 or the audio/realtime graph.
+This branch implements **10.1.4 — manipulation feedback and Undo/Redo robustness**:
+- Active clip/Pattern drags show a vertical position guide plus Bar/Beat and SNAP/FREE feedback.
+- Project publication now asks Arrangement to resynchronize its index-based interaction target from the persistent selection IDs.
+- Undo/Redo and any whole-Project replacement cancel stale drag state, clear an invalid primary selection, clamp the viewport and repaint safely.
+- Existing move, Delete, Duplicate and Pattern-repeat edits continue to commit through the existing UndoStack; no project schema change is introduced.
+- All of this remains UI/control-thread work; the realtime audio contract is unchanged.
 
-After this PR is green and merged, **10.1.3 is DONE**. The next planned Arrangement block is **10.1.4 — clip/pattern manipulation feedback and Undo/Redo coverage**.
+After this PR and its parent are green and merged, **10.1 Arrangement editing is DONE**. The next planned block is **10.2 — Mixer production workflow**.
