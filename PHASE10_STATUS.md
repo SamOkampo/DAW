@@ -60,14 +60,15 @@ Planned sequence:
 
 Completed in the parent branch / `main` sequence:
 - **10.1 Arrangement editing**.
-- **10.2 Mixer production workflow** — active Track/Bus/Master hierarchy, primary routing/sends UX and synchronized plugin-rack targets.
+- **10.2 Mixer production workflow**.
+- **10.3.1** asynchronous Browser preview and keyboard navigation.
 
-This branch implements **10.3.1 — safe sample preview and faster Browser navigation**:
-- The Sample Browser adds Preview and Stop controls plus keyboard workflow: Up/Down navigates, Space previews, Enter imports and Escape stops preview.
-- WAV decode runs on a dedicated single-worker JUCE ThreadPool; only a prepared shared AudioBuffer is handed to the existing `AudioEngine::triggerPreview` command path.
-- New preview requests supersede older queued work using a generation token, so stale decodes cannot start playback.
-- Search/root refresh preserves the selected sample when possible and automatically selects the first visible result when needed.
-- Existing Favorites, Recent, drag/drop and Import behavior is preserved.
-- No filesystem traversal, WAV decode, allocation or UI work is added to the audio callback; `.flow` remains v11.
+This branch implements **10.3.2 — Browser filter/navigation polish and preview integration**:
+- Adds an explicit Favorites-only Browser view alongside Recent and folder-root browsing.
+- Adds optional Auto Preview so moving selection can audition samples through the already-prepared worker/preview path.
+- Adds Home/End jumping and `/` search focus in addition to Up/Down, Space, Enter and Escape.
+- Preview status reports sample name, duration and sample rate after background decode.
+- Root/Recent/Favorites modes are mutually exclusive and preserve existing machine-local Favorites/Recent settings semantics.
+- No project state or serialization changes are introduced; filesystem/decode work remains outside the audio callback.
 
-After this PR is green and merged, the next Browser subpoint is **10.3.2 — Browser navigation/filter polish and preview workflow integration**, keeping project import compatibility and machine-local settings boundaries.
+After this PR is green and merged, **10.3 Browser production workflow is DONE**. The next planned block is **10.4 — Piano Roll / Sequencer workflow**.
