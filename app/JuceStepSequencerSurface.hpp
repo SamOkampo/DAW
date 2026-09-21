@@ -17,6 +17,7 @@ public:
     using CommitFn=std::function<void(Project,std::string)>;
 
     StepSequencerComponent(Project&project,CommitFn commit):project_(project),commit_(std::move(commit)){
+        setWantsKeyboardFocus(true);
         configureSlider(velocity_,0.0,1.5,0.01,"Velocity");
         configureSlider(probability_,0.0,1.0,0.01,"Probability");
         configureSlider(micro_, -240.0,240.0,1.0,"Micro");
@@ -84,6 +85,7 @@ public:
         g.setColour(juce::Colour(0xffaeb4c0));g.setFont(11.0f);
         const int pages=std::max(1,(p->stepCount+15)/16);
         g.drawText(juce::String(p->name)+" • page "+juce::String(page_+1)+"/"+juce::String(pages)+" • "+juce::String(p->stepCount)+" steps",6,2,getWidth()-12,18,juce::Justification::centredLeft,false);
+        g.drawText("Arrows select • Space toggle • Delete clear • Ctrl/Cmd+D copy →",6,20,getWidth()-12,16,juce::Justification::centredLeft,false);
         if(auto*ev=selectedEvent()){
             g.drawText("Step "+juce::String(selectedStep_+1)+" • vel "+juce::String(ev->velocity,2)+" • prob "+juce::String(ev->probability,2)+" • micro "+juce::String(ev->microTicks)+" ticks",6,getHeight()-18,getWidth()-12,16,juce::Justification::centredLeft,false);
         }
@@ -98,7 +100,7 @@ public:
     }
 
     void mouseDown(const juce::MouseEvent&e)override{
-        auto*p=pattern();if(!p)return;
+        grabKeyboardFocus();auto*p=pattern();if(!p)return;
         for(int laneIndex=0;laneIndex<static_cast<int>(p->lanes.size());++laneIndex){
             if(muteRect(laneIndex).contains(e.getPosition())){toggleLane(laneIndex,false);return;}
             if(soloRect(laneIndex).contains(e.getPosition())){toggleLane(laneIndex,true);return;}
@@ -107,6 +109,18 @@ public:
                 if(stepRect(laneIndex,local).contains(e.getPosition())){toggleStep(laneIndex,stepIndex);return;}
             }
         }
+    }
+
+    bool keyPressed(const juce::KeyPress&key)override{
+        auto*p=pattern();if(!p||p->lanes.empty()||p->stepCount<=0)return false;const auto mods=key.getModifiers();
+        if(key.getKeyCode()==juce::KeyPress::leftKey)return moveSelection(-1,0);
+        if(key.getKeyCode()==juce::KeyPress::rightKey)return moveSelection(1,0);
+        if(key.getKeyCode()==juce::KeyPress::upKey)return moveSelection(0,-1);
+        if(key.getKeyCode()==juce::KeyPress::downKey)return moveSelection(0,1);
+        if(key==juce::KeyPress::spaceKey){toggleStep(selectedLane_,selectedStep_);return true;}
+        if(key==juce::KeyPress::deleteKey||key==juce::KeyPress::backspaceKey)return clearSelectedStep();
+        if(mods.isCommandDown()&&key.getKeyCode()=='D')return duplicateSelectedStep();
+        return false;
     }
 
 private:
@@ -146,9 +160,22 @@ private:
     void setLength(int count){
         auto*p=pattern();if(!p||p->stepCount==count)return;Project before=project_;p->stepCount=count;for(auto&lane:p->lanes)lane.steps.resize(static_cast<std::size_t>(count));selectedStep_=std::clamp(selectedStep_,0,count-1);page_=std::min(page_,(count-1)/16);if(commit_)commit_(std::move(before),"Change pattern length");syncControls();repaint();
     }
+    bool moveSelection(int stepDelta,int laneDelta){
+        auto*p=pattern();if(!p||p->lanes.empty()||p->stepCount<=0)return false;
+        selectedLane_=std::clamp(selectedLane_+laneDelta,0,static_cast<int>(p->lanes.size())-1);
+        selectedStep_=std::clamp(selectedStep_+stepDelta,0,p->stepCount-1);
+        page_=selectedStep_/16;syncControls();repaint();return true;
+    }
     void toggleStep(int laneIndex,int stepIndex){
         auto*p=pattern();if(!p||laneIndex<0||laneIndex>=static_cast<int>(p->lanes.size()))return;auto&lane=p->lanes[static_cast<std::size_t>(laneIndex)];if(stepIndex<0||stepIndex>=static_cast<int>(lane.steps.size()))return;
-        Project before=project_;selectedLane_=laneIndex;selectedStep_=stepIndex;lane.steps[static_cast<std::size_t>(stepIndex)].active=!lane.steps[static_cast<std::size_t>(stepIndex)].active;if(commit_)commit_(std::move(before),"Toggle step");syncControls();repaint();
+        Project before=project_;selectedLane_=laneIndex;selectedStep_=stepIndex;page_=selectedStep_/16;lane.steps[static_cast<std::size_t>(stepIndex)].active=!lane.steps[static_cast<std::size_t>(stepIndex)].active;if(commit_)commit_(std::move(before),"Toggle step");syncControls();repaint();
+    }
+    bool clearSelectedStep(){
+        auto*e=selectedEvent();if(!e||!e->active)return false;Project before=project_;e->active=false;if(commit_)commit_(std::move(before),"Clear step");syncControls();repaint();return true;
+    }
+    bool duplicateSelectedStep(){
+        auto*p=pattern();auto*l=selectedLane();auto*e=selectedEvent();if(!p||!l||!e)return false;const int target=selectedStep_+1;if(target<0||target>=p->stepCount||target>=static_cast<int>(l->steps.size()))return false;
+        Project before=project_;l->steps[static_cast<std::size_t>(target)]=*e;selectedStep_=target;page_=selectedStep_/16;if(commit_)commit_(std::move(before),"Duplicate step");syncControls();repaint();return true;
     }
     void toggleLane(int laneIndex,bool solo){
         auto*p=pattern();if(!p||laneIndex<0||laneIndex>=static_cast<int>(p->lanes.size()))return;Project before=project_;selectedLane_=laneIndex;auto&lane=p->lanes[static_cast<std::size_t>(laneIndex)];if(solo)lane.solo=!lane.solo;else lane.mute=!lane.mute;if(commit_)commit_(std::move(before),solo?"Toggle lane solo":"Toggle lane mute");syncControls();repaint();
