@@ -4,7 +4,7 @@ FLOWDAW is a hip-hop-first desktop DAW built around one principle: remove techni
 
 ## Current state
 
-**Phase 0 through Phase 9 are complete. Phase 10 is in release-quality closure.**
+**Phase 0 through Phase 10 are complete. Phase 11 is planned and has not started.**
 
 The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 shell remains source-available only as an explicit legacy regression/bootstrap target.
 
