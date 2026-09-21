@@ -26,16 +26,18 @@ public:
         title_.setFont(juce::Font(14.0f, juce::Font::bold)); addAndMakeVisible(title_);
         search_.setTextToShowWhenEmpty("Search WAVs...", juce::Colour(0xff7f8796));
         search_.onTextChange = [this] { refresh(); }; addAndMakeVisible(search_);
-        root_.setTextWhenNothingSelected("No sample folder"); root_.onChange = [this] { showRecent_=false; recent_.setToggleState(false, juce::dontSendNotification); refresh(); }; addAndMakeVisible(root_);
+        root_.setTextWhenNothingSelected("No sample folder"); root_.onChange = [this] { showRecent_=false; showFavorites_=false; recent_.setToggleState(false, juce::dontSendNotification); favoritesOnly_.setToggleState(false, juce::dontSendNotification); refresh(); }; addAndMakeVisible(root_);
         addRoot_.setButtonText("+ Folder"); addRoot_.onClick = [this] { chooseRoot(); }; addAndMakeVisible(addRoot_);
         favorite_.setButtonText("Fav"); favorite_.onClick = [this] { toggleFavoriteSelected(); }; addAndMakeVisible(favorite_);
-        recent_.setButtonText("Recent"); recent_.setClickingTogglesState(true); recent_.onClick = [this] { showRecent_=recent_.getToggleState(); refresh(); }; addAndMakeVisible(recent_);
+        recent_.setButtonText("Recent"); recent_.setClickingTogglesState(true); recent_.onClick = [this] { showRecent_=recent_.getToggleState(); if(showRecent_){showFavorites_=false;favoritesOnly_.setToggleState(false,juce::dontSendNotification);} refresh(); }; addAndMakeVisible(recent_);
+        favoritesOnly_.setButtonText("Favorites"); favoritesOnly_.setClickingTogglesState(true); favoritesOnly_.onClick=[this]{showFavorites_=favoritesOnly_.getToggleState();if(showFavorites_){showRecent_=false;recent_.setToggleState(false,juce::dontSendNotification);}refresh();};addAndMakeVisible(favoritesOnly_);
+        autoPreview_.setButtonText("Auto"); autoPreview_.setClickingTogglesState(true); addAndMakeVisible(autoPreview_);
         import_.setButtonText("Import"); import_.onClick = [this] { importSelected(); }; addAndMakeVisible(import_);
         preview_.setButtonText("Preview"); preview_.onClick = [this] { previewSelected(); }; addAndMakeVisible(preview_);
         stopPreview_.setButtonText("Stop"); stopPreview_.onClick = [this] { stopPreviewNow(); }; addAndMakeVisible(stopPreview_);
         list_.setRowHeight(34); list_.setOutlineThickness(0); list_.setMultipleSelectionEnabled(false); list_.addKeyListener(this); addAndMakeVisible(list_);
         search_.addKeyListener(this);
-        hint_.setText("↑/↓ navigate · Space preview · Enter import", juce::dontSendNotification);
+        hint_.setText("↑/↓ navigate · Home/End jump · Space preview · Enter import · / search", juce::dontSendNotification);
         hint_.setColour(juce::Label::textColourId, juce::Colour(0xff8d95a5)); addAndMakeVisible(hint_);
         previewStatus_.setText("Preview ready", juce::dontSendNotification);
         previewStatus_.setColour(juce::Label::textColourId, juce::Colour(0xff6fca9b)); addAndMakeVisible(previewStatus_);
@@ -55,7 +57,7 @@ public:
     void resized() override {
         auto r = getLocalBounds().reduced(8); title_.setBounds(r.removeFromTop(24)); search_.setBounds(r.removeFromTop(30));
         auto roots = r.removeFromTop(30); root_.setBounds(roots.removeFromLeft(std::max(0, roots.getWidth()-82)).reduced(2)); addRoot_.setBounds(roots.reduced(2));
-        auto actions = r.removeFromTop(30); import_.setBounds(actions.removeFromLeft(48).reduced(2)); preview_.setBounds(actions.removeFromLeft(56).reduced(2)); stopPreview_.setBounds(actions.removeFromLeft(44).reduced(2)); favorite_.setBounds(actions.removeFromLeft(60).reduced(2)); recent_.setBounds(actions.removeFromLeft(52).reduced(2));
+        auto actions = r.removeFromTop(30); import_.setBounds(actions.removeFromLeft(48).reduced(2)); preview_.setBounds(actions.removeFromLeft(56).reduced(2)); stopPreview_.setBounds(actions.removeFromLeft(44).reduced(2)); favorite_.setBounds(actions.removeFromLeft(48).reduced(2)); favoritesOnly_.setBounds(actions.removeFromLeft(68).reduced(2)); recent_.setBounds(actions.removeFromLeft(52).reduced(2)); autoPreview_.setBounds(actions.removeFromLeft(48).reduced(2));
         previewStatus_.setBounds(r.removeFromBottom(20)); hint_.setBounds(r.removeFromBottom(20)); list_.setBounds(r.reduced(2));
     }
 
@@ -68,7 +70,7 @@ private:
         g.setColour(juce::Colour(0xfff0f3f8)); g.drawText((favorite ? juce::String::fromUTF8("★ ") : juce::String()) + juce::String(p.filename().string()), 8, 2, width-16, 16, juce::Justification::centredLeft, true);
         g.setColour(juce::Colour(0xff7f8796)); g.setFont(11.0f); g.drawText(juce::String(p.parent_path().string()), 8, 18, width-16, std::max(12,height-18), juce::Justification::centredLeft, true);
     }
-    void selectedRowsChanged(int) override { updateActions(); }
+    void selectedRowsChanged(int) override { updateActions(); if(autoPreview_.getToggleState()&&!selectedPath().empty())previewSelected(); }
     void listBoxItemDoubleClicked(int row, const juce::MouseEvent&) override {
         if (row >= 0 && row < static_cast<int>(visible_.size())) importPath(visible_[static_cast<std::size_t>(row)]);
     }
@@ -84,6 +86,9 @@ private:
         if (key == juce::KeyPress::escapeKey) { stopPreviewNow(); return true; }
         if (key.getKeyCode() == juce::KeyPress::upKey) { selectRelative(-1); return true; }
         if (key.getKeyCode() == juce::KeyPress::downKey) { selectRelative(1); return true; }
+        if (key.getKeyCode() == juce::KeyPress::homeKey) { selectAbsolute(0); return true; }
+        if (key.getKeyCode() == juce::KeyPress::endKey) { selectAbsolute(static_cast<int>(visible_.size())-1); return true; }
+        if (key.getTextCharacter() == '/') { search_.grabKeyboardFocus(); search_.selectAll(); return true; }
         return false;
     }
     static std::string lower(std::string s) { for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); return s; }
@@ -102,6 +107,9 @@ private:
         visible_.clear();
         if(showRecent_){
             for(const auto&p:settings_.recentSamples){std::error_code ec;if(std::filesystem::is_regular_file(p,ec)&&lower(p.extension().string())==".wav"&&matchesSearch(p))visible_.push_back(p);}
+        }else if(showFavorites_){
+            for(const auto&p:settings_.favoriteSamples){std::error_code ec;if(std::filesystem::is_regular_file(p,ec)&&lower(p.extension().string())==".wav"&&matchesSearch(p))visible_.push_back(p);}
+            std::sort(visible_.begin(), visible_.end(), [](const auto& a,const auto& b){return lower(a.filename().string()) < lower(b.filename().string());});
         }else{
             const int idx = root_.getSelectedId()-1;
             if (idx >= 0 && idx < static_cast<int>(settings_.sampleRoots.size())) {
@@ -129,18 +137,22 @@ private:
         if (std::find(settings_.sampleRoots.begin(), settings_.sampleRoots.end(), p) == settings_.sampleRoots.end()) {
             settings_.sampleRoots.push_back(p); if (settings_.sampleRoots.size()>64) settings_.sampleRoots.erase(settings_.sampleRoots.begin()); notifySettingsChanged();
         }
-        showRecent_=false; recent_.setToggleState(false, juce::dontSendNotification); refreshRoots(); for (std::size_t i=0;i<settings_.sampleRoots.size();++i) if (settings_.sampleRoots[i]==p) { root_.setSelectedId(static_cast<int>(i)+1, juce::dontSendNotification); break; } refresh();
+        showRecent_=false; showFavorites_=false; recent_.setToggleState(false, juce::dontSendNotification); favoritesOnly_.setToggleState(false,juce::dontSendNotification); refreshRoots(); for (std::size_t i=0;i<settings_.sampleRoots.size();++i) if (settings_.sampleRoots[i]==p) { root_.setSelectedId(static_cast<int>(i)+1, juce::dontSendNotification); break; } refresh();
     }
     void chooseRoot() {
         chooser_ = std::make_unique<juce::FileChooser>("Add sample folder", juce::File::getSpecialLocation(juce::File::userMusicDirectory));
         chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectDirectories, [this](const juce::FileChooser& fc){ auto f=fc.getResult(); if(f.isDirectory()) addRootPath(std::filesystem::path(f.getFullPathName().toStdString())); chooser_.reset(); });
     }
     std::filesystem::path selectedPath() const { const int row=list_.getSelectedRow(); return row>=0 && row<static_cast<int>(visible_.size()) ? visible_[static_cast<std::size_t>(row)] : std::filesystem::path{}; }
+    void selectAbsolute(int row) {
+        if(visible_.empty())return;
+        row=std::clamp(row,0,static_cast<int>(visible_.size())-1);
+        list_.selectRow(row);list_.scrollToEnsureRowIsOnscreen(row);updateActions();
+    }
     void selectRelative(int delta) {
         if (visible_.empty()) return;
         const int current=list_.getSelectedRow();
-        const int row=std::clamp((current<0?0:current)+delta,0,static_cast<int>(visible_.size())-1);
-        list_.selectRow(row); list_.scrollToEnsureRowIsOnscreen(row); updateActions();
+        selectAbsolute((current<0?0:current)+delta);
     }
     void updateActions() {
         const bool selected=!selectedPath().empty();
@@ -164,7 +176,8 @@ private:
                     if(auto*self=safe.getComponent()){
                         if(self->previewGeneration_.load(std::memory_order_relaxed)!=generation)return;
                         if(audio&&audio->frames()>0&&self->previewFn_)self->previewFn_(audio);
-                        self->previewStatus_.setText("Preview: "+juce::String(path.filename().string()),juce::dontSendNotification);
+                        const double seconds=audio&&audio->sampleRate>0?static_cast<double>(audio->frames())/audio->sampleRate:0.0;
+                        self->previewStatus_.setText("Preview: "+juce::String(path.filename().string())+" • "+juce::String(seconds,1)+"s • "+juce::String(audio?audio->sampleRate:0)+" Hz",juce::dontSendNotification);
                     }
                 });
             }catch(const std::exception&e){
@@ -190,9 +203,9 @@ private:
     void importSelected() { importPath(selectedPath()); }
 
     AppSettings& settings_; ImportFn importFn_; PreviewFn previewFn_; StopPreviewFn stopPreviewFn_; SettingsChangedFn settingsChanged_;
-    std::vector<std::filesystem::path> visible_; std::unique_ptr<juce::FileChooser> chooser_; bool showRecent_=false;
+    std::vector<std::filesystem::path> visible_; std::unique_ptr<juce::FileChooser> chooser_; bool showRecent_=false,showFavorites_=false;
     std::atomic<std::uint64_t> previewGeneration_{0}; juce::ThreadPool previewPool_;
     juce::Label title_, hint_, previewStatus_; juce::TextEditor search_; juce::ComboBox root_;
-    juce::TextButton addRoot_, favorite_, recent_, import_, preview_, stopPreview_; juce::ListBox list_;
+    juce::TextButton addRoot_, favorite_, recent_, favoritesOnly_, import_, preview_, stopPreview_; juce::ToggleButton autoPreview_; juce::ListBox list_;
 };
 }
