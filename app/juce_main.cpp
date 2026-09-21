@@ -126,7 +126,7 @@ public:
         scan_.setButtonText("Scan VST3/AU");scan_.onClick=[this]{scanPlugins();};addAndMakeVisible(scan_);
         openEditor_.setButtonText("Preview Scanned Plugin");openEditor_.onClick=[this]{openSelectedEditor();};addAndMakeVisible(openEditor_);
         addAndMakeVisible(pluginChoice_);pluginChoice_.setTextWhenNothingSelected("No plugin selected");
-        refreshRackTargets();rackTargetChoice_.setSelectedId(1,juce::dontSendNotification);rackTargetChoice_.onChange=[this]{if(!suppressRackCallbacks_)refreshRackControls();};addAndMakeVisible(rackTargetChoice_);
+        refreshRackTargets();rackTargetChoice_.setSelectedId(1,juce::dontSendNotification);rackTargetChoice_.onChange=[this]{if(!suppressRackCallbacks_){syncMixerTargetFromRack();refreshRackControls();}};addAndMakeVisible(rackTargetChoice_);
         rackPluginChoice_.setTextWhenNothingSelected("Rack empty");rackPluginChoice_.onChange=[this]{syncRackControls();};addAndMakeVisible(rackPluginChoice_);
         addRackGain_.setButtonText("+ FLOW Gain");addRackGain_.onClick=[this]{addBuiltinToRack("flow.gain");};addAndMakeVisible(addRackGain_);
         addRackClip_.setButtonText("+ Soft Clip");addRackClip_.onClick=[this]{addBuiltinToRack("flow.softclip");};addAndMakeVisible(addRackClip_);
@@ -150,9 +150,9 @@ public:
         undoButton_.setButtonText("Undo");undoButton_.onClick=[this]{undoEdit();};addAndMakeVisible(undoButton_);
         redoButton_.setButtonText("Redo");redoButton_.onClick=[this]{redoEdit();};addAndMakeVisible(redoButton_);
         commandPalette_.setButtonText("Commands");commandPalette_.setTooltip("Ctrl/Cmd+K");commandPalette_.onClick=[this]{showCommandPalette();};addAndMakeVisible(commandPalette_);
-        trackChoice_.onChange=[this]{refreshMixerTargets();syncMixerControls();refreshMixerRoutingControls();refreshRackControls();};
+        trackChoice_.onChange=[this]{refreshMixerTargets();syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();};
         mixerSectionLabel_.setText("MIXER • ACTIVE CHANNEL",juce::dontSendNotification);mixerSectionLabel_.setFont(juce::Font(14.0f,juce::Font::bold));mixerSectionLabel_.setColour(juce::Label::textColourId,juce::Colour(0xffdfe7f3));addAndMakeVisible(mixerSectionLabel_);
-        mixerTargetChoice_.setTextWhenNothingSelected("No mixer target");mixerTargetChoice_.onChange=[this]{if(!suppressMixerCallbacks_){syncMixerControls();refreshMixerRoutingControls();}};addAndMakeVisible(mixerTargetChoice_);
+        mixerTargetChoice_.setTextWhenNothingSelected("No mixer target");mixerTargetChoice_.onChange=[this]{if(!suppressMixerCallbacks_){syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();}};addAndMakeVisible(mixerTargetChoice_);
         mixerVolume_.setRange(0.0,2.0,0.01);mixerVolume_.setSliderStyle(juce::Slider::LinearHorizontal);mixerVolume_.setTextBoxStyle(juce::Slider::TextBoxRight,false,70,22);mixerVolume_.onDragStart=[this]{beginMixerGesture();};mixerVolume_.onValueChange=[this]{applyMixerSliders();};mixerVolume_.onDragEnd=[this]{endMixerGesture();};addAndMakeVisible(mixerVolume_);
         mixerPan_.setRange(-1.0,1.0,0.01);mixerPan_.setSliderStyle(juce::Slider::LinearHorizontal);mixerPan_.setTextBoxStyle(juce::Slider::TextBoxRight,false,70,22);mixerPan_.onDragStart=[this]{beginMixerGesture();};mixerPan_.onValueChange=[this]{applyMixerSliders();};mixerPan_.onDragEnd=[this]{endMixerGesture();};addAndMakeVisible(mixerPan_);
         mixerVolumeLabel_.setText("VOLUME",juce::dontSendNotification);mixerPanLabel_.setText("PAN",juce::dontSendNotification);addAndMakeVisible(mixerVolumeLabel_);addAndMakeVisible(mixerPanLabel_);
@@ -201,7 +201,7 @@ public:
         monitorInput_.setButtonText("Monitor");monitorInput_.onClick=[this]{toggleInputMonitor();};addAndMakeVisible(monitorInput_);
         prevTake_.setButtonText("Take -");prevTake_.onClick=[this]{cycleTake(-1);};addAndMakeVisible(prevTake_);
         nextTake_.setButtonText("Take +");nextTake_.onClick=[this]{cycleTake(1);};addAndMakeVisible(nextTake_);
-        refreshTrackChoice();refreshMixerTargets();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshMixerRoutingControls();refreshRackControls();syncChopControls();updateBpmLabel();setEditorMode(EditorMode::Arrangement);
+        refreshTrackChoice();refreshMixerTargets();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();syncChopControls();updateBpmLabel();setEditorMode(EditorMode::Arrangement);
         note_.setText("Workflow: New / Template starts fast, the Sample Browser supports favorites/recent + drag/drop, and Ctrl/Cmd+K opens Commands. Autosave/recovery and all file I/O stay off the audio callback.",juce::dontSendNotification);note_.setColour(juce::Label::textColourId,juce::Colour(0xff9aa5b5));note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
         meterLabel_.setText("Meters (TP estimate / sample peak / RMS): waiting for audio",juce::dontSendNotification);addAndMakeVisible(meterLabel_);
         setWantsKeyboardFocus(true);installShortcutListeners(*this);setSize(1440,1040);startTimer(100);if(firstRun){saveDeviceSettings();auto safe=juce::Component::SafePointer<MainComponent>(this);juce::MessageManager::callAsync([safe]()mutable{if(auto*self=safe.getComponent())self->showFirstRunOnboarding();});}
@@ -312,9 +312,22 @@ private:
     void installShortcutListeners(juce::Component&component){component.addKeyListener(this);for(auto*child:component.getChildren())if(child)installShortcutListeners(*child);}
 
     void refreshRackTargets(){
-        const int previous=rackTargetChoice_.getSelectedId();rackTargetChoice_.clear(juce::dontSendNotification);rackTargetChoice_.addItem("Master Rack",1);rackTargetChoice_.addItem("Selected Track Rack",2);
-        int id=100;for(auto const&bus:project_.buses)rackTargetChoice_.addItem("Bus: "+juce::String(bus.name),id++);
+        const int previous=rackTargetChoice_.getSelectedId();rackTargetChoice_.clear(juce::dontSendNotification);rackTargetChoice_.addItem("MASTER • Rack",1);
+        const int trackIndex=selectedTrackIndex();rackTargetChoice_.addItem(trackIndex>=0?"TRACK • "+juce::String(project_.tracks[static_cast<std::size_t>(trackIndex)].name)+" • Rack":"TRACK • none • Rack",2);
+        int id=100;for(auto const&bus:project_.buses)rackTargetChoice_.addItem("BUS • "+juce::String(bus.name)+" • Rack",id++);
         const bool previousValid=previous==1||previous==2||(previous>=100&&previous<100+static_cast<int>(project_.buses.size()));rackTargetChoice_.setSelectedId(previousValid?previous:1,juce::dontSendNotification);
+    }
+    int rackTargetForMixer()const{
+        const int target=mixerTargetChoice_.getSelectedId();if(target==2)return 1;if(target==1)return 2;if(target>=100)return target;return 1;
+    }
+    int mixerTargetForRack()const{
+        const int target=rackTargetChoice_.getSelectedId();if(target==1)return 2;if(target==2)return 1;if(target>=100)return target;return 1;
+    }
+    void syncRackTargetToMixer(){
+        suppressRackCallbacks_=true;refreshRackTargets();const int target=rackTargetForMixer();if(rackTargetChoice_.getSelectedId()!=target)rackTargetChoice_.setSelectedId(target,juce::dontSendNotification);suppressRackCallbacks_=false;
+    }
+    void syncMixerTargetFromRack(){
+        const int target=mixerTargetForRack();suppressMixerCallbacks_=true;refreshMixerTargets();mixerTargetChoice_.setSelectedId(target,juce::dontSendNotification);suppressMixerCallbacks_=false;syncMixerControls();refreshMixerRoutingControls();
     }
     int selectedRackBusIndex()const{const int id=rackTargetChoice_.getSelectedId();const int index=id>=100?id-100:-1;return index>=0&&index<static_cast<int>(project_.buses.size())?index:-1;}
     std::vector<PluginInstance>*rackPlugins(){
@@ -328,7 +341,7 @@ private:
     PluginInstance*selectedRackPlugin(){auto*rack=rackPlugins();const int index=rackPluginChoice_.getSelectedId()-1;return rack&&index>=0&&index<static_cast<int>(rack->size())?&(*rack)[static_cast<std::size_t>(index)]:nullptr;}
     const PluginInstance*selectedRackPlugin()const{auto*rack=rackPlugins();const int index=rackPluginChoice_.getSelectedId()-1;return rack&&index>=0&&index<static_cast<int>(rack->size())?&(*rack)[static_cast<std::size_t>(index)]:nullptr;}
     void refreshRackControls(){
-        suppressRackCallbacks_=true;refreshRackTargets();const int previous=rackPluginChoice_.getSelectedId();rackPluginChoice_.clear(juce::dontSendNotification);auto*rack=rackPlugins();if(rack){int id=1;for(auto const&p:*rack){auto label=juce::String(p.name)+" ["+juce::String(p.format)+"] "+(!p.enabled?"DISABLED":(p.bypass?"BYPASS":"ACTIVE"));rackPluginChoice_.addItem(label,id++);}if(!rack->empty())rackPluginChoice_.setSelectedId(previous>0&&previous<=static_cast<int>(rack->size())?previous:1,juce::dontSendNotification);}suppressRackCallbacks_=false;syncRackControls();
+        suppressRackCallbacks_=true;refreshRackTargets();const int previous=rackPluginChoice_.getSelectedId();rackPluginChoice_.clear(juce::dontSendNotification);auto*rack=rackPlugins();if(rack){int id=1;for(auto const&p:*rack){auto label=juce::String(id)+" • "+juce::String(p.name)+" ["+juce::String(p.format)+"] • "+(!p.enabled?"DISABLED":(p.bypass?"BYPASS":"ACTIVE"));rackPluginChoice_.addItem(label,id++);}if(!rack->empty())rackPluginChoice_.setSelectedId(previous>0&&previous<=static_cast<int>(rack->size())?previous:1,juce::dontSendNotification);}rackPluginChoice_.setTextWhenNothingSelected(rack&&rack->empty()?"Rack empty":"Select insert");suppressRackCallbacks_=false;syncRackControls();
     }
     void syncRackControls(){
         suppressRackCallbacks_=true;auto*p=selectedRackPlugin();auto*rack=rackPlugins();const int index=rackPluginChoice_.getSelectedId()-1;rackWet_.setEnabled(p!=nullptr);rackEnabled_.setEnabled(p!=nullptr);rackBypass_.setEnabled(p!=nullptr);rackRemove_.setEnabled(p!=nullptr);rackMoveUp_.setEnabled(p&&index>0);rackMoveDown_.setEnabled(p&&rack&&index+1<static_cast<int>(rack->size()));addRackExternal_.setEnabled(rack!=nullptr);openRackEditor_.setEnabled(p&&p->format!="builtin");
@@ -458,7 +471,7 @@ private:
         for(auto const&t:project_.tracks){std::string label=t.name;if(t.externalInstrumentEnabled&&!t.externalInstrument.name.empty())label+="  •  "+t.externalInstrument.name;trackChoice_.addItem(juce::String(label),id++);}
         if(!project_.tracks.empty())trackChoice_.setSelectedId(previous>0&&previous<=static_cast<int>(project_.tracks.size())?previous:1,juce::dontSendNotification);
     }
-    void publishEdit(const juce::String&message){engine_.publish(project_);refreshTrackChoice();refreshMixerTargets();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshMixerRoutingControls();refreshRackControls();syncChopControls();updateBpmLabel();if(arrangement_)arrangement_->projectChanged();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();status_.setText(message,juce::dontSendNotification);}
+    void publishEdit(const juce::String&message){engine_.publish(project_);refreshTrackChoice();refreshMixerTargets();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();syncChopControls();updateBpmLabel();if(arrangement_)arrangement_->projectChanged();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();status_.setText(message,juce::dontSendNotification);}
     enum class EditorMode{Arrangement,Piano,Step,Automation,Sampler};
     void setEditorMode(EditorMode mode){
         editorMode_=mode;const bool arrangement=mode==EditorMode::Arrangement,piano=mode==EditorMode::Piano,step=mode==EditorMode::Step,automation=mode==EditorMode::Automation,sampler=mode==EditorMode::Sampler;
