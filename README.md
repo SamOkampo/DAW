@@ -4,7 +4,7 @@ FLOWDAW is a hip-hop-first desktop DAW built around one principle: remove techni
 
 ## Current state
 
-**Phase 0 through Phase 8 are complete.**
+**Phase 0 through Phase 9 are complete. Phase 10 is in release-quality closure.**
 
 The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 shell remains source-available only as an explicit legacy regression/bootstrap target.
 
@@ -12,22 +12,22 @@ The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 s
 
 - C++20 domain/audio core separated from UI/device/plugin backends.
 - 960 PPQ musical clock and versioned non-destructive `.flow` projects with backward loading through v1.
-- Arrangement editing for audio and Pattern blocks, transport, BPM and Undo/Redo.
-- 16/32/64-step drum sequencer with native FLOW drums, Velocity, Probability, Microtiming, lane Volume/Pan/Mute/Solo, Swing/Humanize and Straight/Boom Bap/Loose presets.
+- Arrangement editing for audio and Pattern blocks with stable multi-selection, grouped Delete, horizontal navigation, zoom, 1/16 snapping, Alt-drag free placement, manipulation feedback and Undo/Redo.
+- 16/32/64-step drum sequencer with native FLOW drums, Velocity, Probability, Microtiming, lane Volume/Pan/Mute/Solo, Swing/Humanize, groove presets and keyboard step navigation/toggle/clear/duplicate.
 - Smart Sampling with WAV import, BPM/beat-grid analysis, Equal/Auto/Beat/Bar Chop, editable slices, multi-bank pads, Rename/Gain/Pan/Choke, keyboard performance and non-destructive Match BPM.
 - REC CHOPS with persistent performances, 1/8–1/32 grids, Quantize 0–100%, Humanize 0–100% and Reset Feel.
-- Piano Roll with note add/move/resize/delete, velocity/length, 1/8–1/32 grid, root/scale guidance, keyboard preview and octave navigation.
+- Piano Roll with bounded multi-selection, grouped Delete/nudge/velocity/length edits, note add/move/resize, 1/8–1/32 grid, root/scale guidance, keyboard preview and octave navigation.
 - Native FLOW Keys, FLOW 808, FLOW Bass and FLOW Lead with gain, pan, envelope, tone, Drive and tempo-aware Delay.
 - Realtime-safe audio recording, input monitoring, persistent takes and active-take selection.
-- Mixer routing with buses, sends, pre/post-fader mode, Track/Bus/Master automation and route metering.
+- Mixer with explicit Track/Bus/Master active targets, route metering, primary output routing, sends with gain/pre-post controls and synchronized plugin-rack targets.
 - Realtime Track/Bus/Master plugin graph with topology-aware plugin delay compensation.
 - Callback-safe sample peak, RMS and 4x inter-sample true-peak estimates for Track/Bus/Master routes.
-- Real VST3 execution through JUCE on Linux/Windows/macOS and AU runtime validation on macOS.
+- Real VST3 execution through JUCE on Linux/Windows/macOS and AU runtime validation on macOS, with searchable All/Instrument/Effect plugin selection.
 - Persistent Track/Bus/Master plugin racks with FLOW Gain/Soft Clip/Width, enabled/bypass, wet mix, insert reordering, native parameters and external-plugin editor state roundtrip.
 - External instrument slots driven by Pattern MIDI before Track inserts.
 - Realtime/offline routing parity, master WAV export and per-track stem export through the production PluginHost.
 - Production Assistant, Project Health and explicit Undoable workflow commands.
-- Machine-local audio/plugin settings, crash recovery/autosave infrastructure and plugin quarantine.
+- Machine-local audio/plugin settings, crash recovery/autosave infrastructure, plugin quarantine, and a Sample Browser with Favorites/Recent, search, asynchronous preview, Auto Preview and keyboard navigation.
 - `flowdaw-doctor` for runtime status, recovery and plugin-quarantine maintenance.
 - New sessions start with a usable native beat plus a FLOW Keys melodic Pattern.
 - Cross-platform CI validates Linux, Windows and macOS production builds; Windows creates a portable ZIP and macOS creates a DMG.
@@ -117,6 +117,7 @@ See:
 - `AUDIO_ENGINE.md`
 - `PROJECT_FORMAT.md`
 - `ROADMAP.md`
-- `PHASE1_STATUS.md` through `PHASE8_STATUS.md`
+- `PHASE1_STATUS.md` through `PHASE10_STATUS.md`
+- `PHASE10_AUDIT.md` — Phase 10 architecture/realtime/project-compatibility closure audit
 - `docs/PRODUCTION_GOLDEN_PATH.md` — manual installed-app acceptance flow from starter project through export
 - `docs/TIME_STRETCH_EVALUATION.md`
