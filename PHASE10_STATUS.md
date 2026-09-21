@@ -59,15 +59,14 @@ Planned sequence:
 ## Current checkpoint
 
 Completed in `main`:
-- **10.1.1** stable Arrangement selection and predictable click-to-select behavior.
-- **10.1.2** bounded multi-selection with Ctrl/Cmd-click toggling and one-transaction multi-selected Delete.
-- **10.1.3** horizontal navigation, bounded zoom and 1/16 musical snapping with Alt-drag free placement.
+- **10.1 Arrangement editing** — stable selection, bounded multi-selection/Delete, navigation/zoom/snapping, manipulation feedback and Undo/Redo-safe resynchronization.
 
-This branch implements **10.1.4 — manipulation feedback and Undo/Redo robustness**:
-- Active clip/Pattern drags show a vertical position guide plus Bar/Beat and SNAP/FREE feedback.
-- Project publication now asks Arrangement to resynchronize its index-based interaction target from the persistent selection IDs.
-- Undo/Redo and any whole-Project replacement cancel stale drag state, clear an invalid primary selection, clamp the viewport and repaint safely.
-- Existing move, Delete, Duplicate and Pattern-repeat edits continue to commit through the existing UndoStack; no project schema change is introduced.
-- All of this remains UI/control-thread work; the realtime audio contract is unchanged.
+This branch implements **10.2.1 — explicit Mixer active-target hierarchy**:
+- The Mixer exposes one clear active target selector covering the selected Track, every Bus and Master.
+- The visible channel header identifies the active target instead of presenting anonymous sliders.
+- Volume, Pan, Mute and Solo bind to Track/Bus mixer state; Master exposes its supported Volume control while unsupported Pan/Mute/Solo controls are disabled.
+- The channel meter follows the same active Track/Bus/Master target using existing callback-safe meter snapshots.
+- Mixer gestures still commit through the existing UndoStack and publish the same immutable realtime graph path.
+- No routing schema, plugin graph, PDC, audio callback or `.flow` v11 change is introduced.
 
-After this PR and its parent are green and merged, **10.1 Arrangement editing is DONE**. The next planned block is **10.2 — Mixer production workflow**.
+After this PR is green and merged, the next Mixer subpoint is **10.2.2 — routing and sends inspection/edit UX**.
