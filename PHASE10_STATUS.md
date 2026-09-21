@@ -58,7 +58,7 @@ Planned sequence:
 
 ## Current checkpoint
 
-Completed in the parent branch / `main` sequence:
+Completed in the current `main` sequence:
 - **10.1 Arrangement editing**.
 - **10.2.1** explicit Track / Bus / Master Mixer active-target hierarchy.
 
