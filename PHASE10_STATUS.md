@@ -1,6 +1,6 @@
 # Phase 10 Status — Production Editing / Mixer / Browser / Workflow
 
-**Status: IN PROGRESS**
+**Status: DONE**
 
 Phase 10 turns the broad production feature set completed through Phase 9 into a faster, clearer day-to-day music-production workflow. Work stays incremental: one bounded subpoint per branch/PR, green CI before merge, and no convenience feature may weaken the realtime contract.
 
@@ -58,28 +58,23 @@ Planned sequence:
 
 ## Current checkpoint
 
-**10.7.1 — RELEASE-QUALITY PRE-CLOSURE AUDIT**
+**PHASE 10 CLOSED — DONE**
 
-Completed on `main`:
-- **10.1 Arrangement editing**.
-- **10.2 Mixer production workflow**.
-- **10.3 Browser production workflow**.
-- **10.4 Piano Roll / Sequencer workflow**.
-- **10.5 Plugin workflow**.
-- **10.6 Performance / robustness**.
+All Phase 10 subpoints are integrated on `main`:
 
-This branch starts **10.7 — Release-quality closure** without adding product features:
-- refreshes README so documented product state includes Phase 9 and the Phase 10 closure state;
-- extends the production Golden Path with explicit Phase 10 Arrangement, Mixer, Browser, Piano Roll, Sequencer and Plugin workflow acceptance;
-- adds `PHASE10_AUDIT.md` covering architecture, realtime safety, project-v11 compatibility, Undo/determinism and regression evidence;
-- records the verified Phase 9 → current-main diff boundary for the final realtime/project audit;
-- keeps Phase 10 **IN PROGRESS** until this pre-closure PR is green and the final closure gates are completed;
-- keeps Phase 11 UI/UX & Productization **PLANNED** and unimplemented.
+- **10.1 Arrangement editing** — explicit/bounded selection, navigation, zoom/snapping and manipulation/Undo polish.
+- **10.2 Mixer production workflow** — Track/Bus/Master targeting, routing/sends and synchronized plugin-rack workflow.
+- **10.3 Browser production workflow** — safe asynchronous preview, keyboard navigation, Favorites/Recent/filter polish.
+- **10.4 Piano Roll / Sequencer workflow** — bounded grouped MIDI edits and deterministic keyboard step editing.
+- **10.5 Plugin workflow** — search/type filtering and safe selection mapping over the already-scanned catalogue.
+- **10.6 Performance / robustness** — publish/render stress coverage, finite-output/reclamation assertions and preview-queue saturation/recovery.
+- **10.7 Release-quality closure** — production golden path, architecture/realtime/v11/Undo audit and final multiplatform CI gate.
 
-Final gates before Phase 10 may be marked DONE:
-1. this 10.7 pre-closure branch must remain based on the fully integrated 10.6 `main`;
-2. core + legacy + Linux JUCE + Windows JUCE + macOS JUCE production CI must be green;
-3. confirm `.flow` remains v11 with backward loading intact;
-4. confirm no realtime-contract regression appears in the integrated diff;
-5. reconcile README, ROADMAP, PHASE10_STATUS and PHASE10_AUDIT on the final closure commit;
-6. only then change Phase 10 from IN PROGRESS to DONE.
+Final closure evidence:
+- FLOWDAW CI **#272** passed on the fully integrated Phase 10 pre-closure head: core tests, legacy X11 smoke, Linux JUCE/VST3/package, Windows JUCE/VST3/package, and macOS JUCE/VST3/AU/DMG.
+- `.flow` remains **v11** with backward loading intact.
+- The verified Phase 9 → Phase 10 diff did not modify core project serialization, `src/AudioEngine.cpp`, core routing/PDC, realtime plugin-graph implementation, WAV decode implementation or plugin-host core.
+- No Phase 10 work introduces filesystem access, locks, logging, UI calls, plugin scanning/instantiation or new heavy/dynamic-allocation work inside the audio callback.
+- Phase 11 remains **PLANNED only** and has not started.
+
+See `PHASE10_AUDIT.md` for the final audit record.
