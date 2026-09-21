@@ -58,18 +58,20 @@ Planned sequence:
 
 ## Current checkpoint
 
-Completed in the parent branch / `main` sequence:
-- **10.1 Arrangement editing**.
-- **10.2 Mixer production workflow**.
-- **10.3 Browser production workflow**.
-- **10.4 Piano Roll / Sequencer workflow**.
-- **10.5 Plugin workflow**.
+**10.7 — RELEASE-QUALITY PRE-CLOSURE**
 
-This branch implements **10.6 — Performance / robustness regression coverage**:
-- Adds a deterministic stress regression that repeatedly republishes edited Projects and renders realtime-sized blocks while checking output finiteness and retired-graph reclamation.
-- Captures a non-gating elapsed-time baseline for 500 publish/render iterations so future profiling has a repeatable reference without introducing machine-dependent pass/fail thresholds.
-- Saturates the bounded preview command queue, verifies producer rejection under saturation, consumes the queue on the engine callback path and verifies the queue recovers afterward.
-- The tests exercise existing prepared graph and preview infrastructure; no production hot path is modified simply to improve a benchmark.
-- No filesystem, locks, logging, UI, plugin scanning/instantiation or new allocation work is introduced into the audio callback.
+Phase 10 implementation is complete through 10.6 in the integration chain. This closure branch does not add product features.
 
-After this PR is green and merged, **10.6 Performance / robustness is DONE**. The next planned block is **10.7 — release-quality closure**, including cross-workflow golden-path validation, documentation audit, project-v11/realtime audit and full multiplatform CI before Phase 10 can be marked DONE.
+10.7 work in this branch:
+- refreshes README so documented product state includes Phase 9 and the Phase 10 closure state;
+- extends the production Golden Path with explicit Phase 10 Arrangement, Mixer, Browser, Piano Roll, Sequencer and Plugin workflow acceptance;
+- adds `PHASE10_AUDIT.md` covering architecture, realtime safety, project-v11 compatibility, Undo/determinism and regression evidence;
+- keeps Phase 10 status IN PROGRESS until all stacked implementation PRs are sequentially integrated and the full closure CI runs against the final current `main`;
+- keeps Phase 11 UI/UX & Productization PLANNED and unimplemented.
+
+Final gate before changing this file to DONE:
+1. merge all implementation PRs through 10.6 in order;
+2. rebase/retarget this 10.7 closure branch onto that integrated `main`;
+3. pass core + legacy + Linux JUCE + Windows JUCE + macOS JUCE production CI;
+4. confirm `.flow` remains v11 and no realtime-contract regression appears;
+5. only then update ROADMAP / PHASE10_STATUS from IN PROGRESS to DONE.
