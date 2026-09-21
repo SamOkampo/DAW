@@ -58,15 +58,16 @@ Planned sequence:
 
 ## Current checkpoint
 
-Completed in `main`:
-- **10.1 Arrangement editing** — stable selection, bounded multi-selection/Delete, navigation/zoom/snapping, manipulation feedback and Undo/Redo-safe resynchronization.
+Completed in the parent branch / `main` sequence:
+- **10.1 Arrangement editing**.
+- **10.2.1** explicit Track / Bus / Master Mixer active-target hierarchy.
 
-This branch implements **10.2.1 — explicit Mixer active-target hierarchy**:
-- The Mixer exposes one clear active target selector covering the selected Track, every Bus and Master.
-- The visible channel header identifies the active target instead of presenting anonymous sliders.
-- Volume, Pan, Mute and Solo bind to Track/Bus mixer state; Master exposes its supported Volume control while unsupported Pan/Mute/Solo controls are disabled.
-- The channel meter follows the same active Track/Bus/Master target using existing callback-safe meter snapshots.
-- Mixer gestures still commit through the existing UndoStack and publish the same immutable realtime graph path.
-- No routing schema, plugin graph, PDC, audio callback or `.flow` v11 change is introduced.
+This branch implements **10.2.2 — routing and sends inspection/edit UX**:
+- When the active Mixer target is the selected Track, the channel strip exposes its output route directly: Master or any existing Bus.
+- The same Mixer surface exposes one selected send Bus with gain, Pre/Post state, Set/Update and Remove actions.
+- Existing `Track::outputBusId` and `Track::sends` state are reused; no schema or serialization change is introduced.
+- Routing/send edits commit through the existing UndoStack and republish the prepared immutable routing graph on the control thread.
+- Routing/send controls disable automatically for Bus/Master targets or when no valid Bus exists.
+- The Automation/Assist surface remains compatible; common routing work is simply promoted into the primary Mixer.
 
-After this PR is green and merged, the next Mixer subpoint is **10.2.2 — routing and sends inspection/edit UX**.
+After this PR is green and merged, the next bounded Mixer subpoint is **10.2.3 — plugin-rack ergonomics and target synchronization**.
