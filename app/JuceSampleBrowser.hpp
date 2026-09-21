@@ -1,8 +1,11 @@
 #pragma once
 #include "flowdaw/AppSettings.hpp"
+#include "flowdaw/Wav.hpp"
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <algorithm>
+#include <atomic>
 #include <cctype>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -10,26 +13,39 @@
 #include <vector>
 
 namespace flowdaw::juceui {
-class SampleBrowserComponent final : public juce::Component, private juce::ListBoxModel {
+class SampleBrowserComponent final : public juce::Component, private juce::ListBoxModel, private juce::KeyListener {
 public:
     using ImportFn = std::function<void(const std::filesystem::path&)>;
+    using PreviewFn = std::function<void(std::shared_ptr<AudioBuffer>)>;
+    using StopPreviewFn = std::function<void()>;
     using SettingsChangedFn = std::function<void()>;
 
-    SampleBrowserComponent(AppSettings& settings, ImportFn importFn, SettingsChangedFn settingsChanged)
-        : settings_(settings), importFn_(std::move(importFn)), settingsChanged_(std::move(settingsChanged)), list_("Samples", this) {
+    SampleBrowserComponent(AppSettings& settings, ImportFn importFn, PreviewFn previewFn, StopPreviewFn stopPreviewFn, SettingsChangedFn settingsChanged)
+        : settings_(settings), importFn_(std::move(importFn)), previewFn_(std::move(previewFn)), stopPreviewFn_(std::move(stopPreviewFn)), settingsChanged_(std::move(settingsChanged)), list_("Samples", this), previewPool_(1) {
         title_.setText("SAMPLE BROWSER", juce::dontSendNotification);
         title_.setFont(juce::Font(14.0f, juce::Font::bold)); addAndMakeVisible(title_);
         search_.setTextToShowWhenEmpty("Search WAVs...", juce::Colour(0xff7f8796));
         search_.onTextChange = [this] { refresh(); }; addAndMakeVisible(search_);
         root_.setTextWhenNothingSelected("No sample folder"); root_.onChange = [this] { showRecent_=false; recent_.setToggleState(false, juce::dontSendNotification); refresh(); }; addAndMakeVisible(root_);
         addRoot_.setButtonText("+ Folder"); addRoot_.onClick = [this] { chooseRoot(); }; addAndMakeVisible(addRoot_);
-        favorite_.setButtonText("Favorite"); favorite_.onClick = [this] { toggleFavoriteSelected(); }; addAndMakeVisible(favorite_);
+        favorite_.setButtonText("Fav"); favorite_.onClick = [this] { toggleFavoriteSelected(); }; addAndMakeVisible(favorite_);
         recent_.setButtonText("Recent"); recent_.setClickingTogglesState(true); recent_.onClick = [this] { showRecent_=recent_.getToggleState(); refresh(); }; addAndMakeVisible(recent_);
         import_.setButtonText("Import"); import_.onClick = [this] { importSelected(); }; addAndMakeVisible(import_);
-        list_.setRowHeight(34); list_.setOutlineThickness(0); addAndMakeVisible(list_);
-        hint_.setText("Double-click to import · drag WAVs to the DAW", juce::dontSendNotification);
+        preview_.setButtonText("Preview"); preview_.onClick = [this] { previewSelected(); }; addAndMakeVisible(preview_);
+        stopPreview_.setButtonText("Stop"); stopPreview_.onClick = [this] { stopPreviewNow(); }; addAndMakeVisible(stopPreview_);
+        list_.setRowHeight(34); list_.setOutlineThickness(0); list_.setMultipleSelectionEnabled(false); list_.addKeyListener(this); addAndMakeVisible(list_);
+        search_.addKeyListener(this);
+        hint_.setText("↑/↓ navigate · Space preview · Enter import", juce::dontSendNotification);
         hint_.setColour(juce::Label::textColourId, juce::Colour(0xff8d95a5)); addAndMakeVisible(hint_);
+        previewStatus_.setText("Preview ready", juce::dontSendNotification);
+        previewStatus_.setColour(juce::Label::textColourId, juce::Colour(0xff6fca9b)); addAndMakeVisible(previewStatus_);
         refreshRoots(); refresh();
+    }
+
+    ~SampleBrowserComponent() override {
+        previewGeneration_.fetch_add(1, std::memory_order_relaxed);
+        previewPool_.removeAllJobs(true, 5000);
+        if (stopPreviewFn_) stopPreviewFn_();
     }
 
     void paint(juce::Graphics& g) override {
@@ -39,8 +55,8 @@ public:
     void resized() override {
         auto r = getLocalBounds().reduced(8); title_.setBounds(r.removeFromTop(24)); search_.setBounds(r.removeFromTop(30));
         auto roots = r.removeFromTop(30); root_.setBounds(roots.removeFromLeft(std::max(0, roots.getWidth()-82)).reduced(2)); addRoot_.setBounds(roots.reduced(2));
-        auto actions = r.removeFromTop(30); import_.setBounds(actions.removeFromLeft(72).reduced(2)); favorite_.setBounds(actions.removeFromLeft(82).reduced(2)); recent_.setBounds(actions.removeFromLeft(70).reduced(2));
-        hint_.setBounds(r.removeFromBottom(22)); list_.setBounds(r.reduced(2));
+        auto actions = r.removeFromTop(30); import_.setBounds(actions.removeFromLeft(48).reduced(2)); preview_.setBounds(actions.removeFromLeft(56).reduced(2)); stopPreview_.setBounds(actions.removeFromLeft(44).reduced(2)); favorite_.setBounds(actions.removeFromLeft(60).reduced(2)); recent_.setBounds(actions.removeFromLeft(52).reduced(2));
+        previewStatus_.setBounds(r.removeFromBottom(20)); hint_.setBounds(r.removeFromBottom(20)); list_.setBounds(r.reduced(2));
     }
 
 private:
@@ -52,6 +68,7 @@ private:
         g.setColour(juce::Colour(0xfff0f3f8)); g.drawText((favorite ? juce::String::fromUTF8("★ ") : juce::String()) + juce::String(p.filename().string()), 8, 2, width-16, 16, juce::Justification::centredLeft, true);
         g.setColour(juce::Colour(0xff7f8796)); g.setFont(11.0f); g.drawText(juce::String(p.parent_path().string()), 8, 18, width-16, std::max(12,height-18), juce::Justification::centredLeft, true);
     }
+    void selectedRowsChanged(int) override { updateActions(); }
     void listBoxItemDoubleClicked(int row, const juce::MouseEvent&) override {
         if (row >= 0 && row < static_cast<int>(visible_.size())) importPath(visible_[static_cast<std::size_t>(row)]);
     }
@@ -60,6 +77,14 @@ private:
         const int row = selectedRows[0]; if (row < 0 || row >= static_cast<int>(visible_.size())) return {};
         const auto& p = visible_[static_cast<std::size_t>(row)];
         return juce::String("flowdaw-sample:") + juce::String(p.string());
+    }
+    bool keyPressed(const juce::KeyPress& key, juce::Component*) override {
+        if (key == juce::KeyPress::spaceKey) { previewSelected(); return true; }
+        if (key == juce::KeyPress::returnKey) { importSelected(); return true; }
+        if (key == juce::KeyPress::escapeKey) { stopPreviewNow(); return true; }
+        if (key.getKeyCode() == juce::KeyPress::upKey) { selectRelative(-1); return true; }
+        if (key.getKeyCode() == juce::KeyPress::downKey) { selectRelative(1); return true; }
+        return false;
     }
     static std::string lower(std::string s) { for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); return s; }
     bool matchesSearch(const std::filesystem::path& p) const {
@@ -73,6 +98,7 @@ private:
         if (!settings_.sampleRoots.empty()) root_.setSelectedId(previous>0 && previous<=static_cast<int>(settings_.sampleRoots.size()) ? previous : 1, juce::dontSendNotification);
     }
     void refresh() {
+        const auto previousPath = selectedPath();
         visible_.clear();
         if(showRecent_){
             for(const auto&p:settings_.recentSamples){std::error_code ec;if(std::filesystem::is_regular_file(p,ec)&&lower(p.extension().string())==".wav"&&matchesSearch(p))visible_.push_back(p);}
@@ -87,7 +113,16 @@ private:
                 std::sort(visible_.begin(), visible_.end(), [](const auto& a,const auto& b){return lower(a.filename().string()) < lower(b.filename().string());});
             }
         }
-        list_.updateContent(); list_.repaint(); import_.setEnabled(!visible_.empty()); favorite_.setEnabled(!visible_.empty());
+        list_.updateContent(); list_.repaint();
+        if (!visible_.empty()) {
+            int row=0;
+            if (!previousPath.empty()) {
+                auto it=std::find(visible_.begin(),visible_.end(),previousPath);
+                if(it!=visible_.end())row=static_cast<int>(std::distance(visible_.begin(),it));
+            }
+            list_.selectRow(row);
+        } else list_.deselectAllRows();
+        updateActions();
     }
     void addRootPath(const std::filesystem::path& p) {
         if (p.empty() || !std::filesystem::is_directory(p)) return;
@@ -101,10 +136,52 @@ private:
         chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectDirectories, [this](const juce::FileChooser& fc){ auto f=fc.getResult(); if(f.isDirectory()) addRootPath(std::filesystem::path(f.getFullPathName().toStdString())); chooser_.reset(); });
     }
     std::filesystem::path selectedPath() const { const int row=list_.getSelectedRow(); return row>=0 && row<static_cast<int>(visible_.size()) ? visible_[static_cast<std::size_t>(row)] : std::filesystem::path{}; }
+    void selectRelative(int delta) {
+        if (visible_.empty()) return;
+        const int current=list_.getSelectedRow();
+        const int row=std::clamp((current<0?0:current)+delta,0,static_cast<int>(visible_.size())-1);
+        list_.selectRow(row); list_.scrollToEnsureRowIsOnscreen(row); updateActions();
+    }
+    void updateActions() {
+        const bool selected=!selectedPath().empty();
+        import_.setEnabled(selected); favorite_.setEnabled(selected); preview_.setEnabled(selected);
+    }
     void toggleFavoriteSelected() {
         auto p=selectedPath(); if(p.empty()) return; auto& favorites=settings_.favoriteSamples;
         auto it=std::find(favorites.begin(),favorites.end(),p); if(it==favorites.end()){favorites.push_back(p);if(favorites.size()>256)favorites.erase(favorites.begin());}else favorites.erase(it);
         notifySettingsChanged(); list_.repaint();
+    }
+    void previewSelected() {
+        const auto path=selectedPath(); if(path.empty()||!previewFn_)return;
+        const auto generation=previewGeneration_.fetch_add(1,std::memory_order_relaxed)+1;
+        previewStatus_.setText("Loading "+juce::String(path.filename().string())+"…",juce::dontSendNotification);
+        previewPool_.removeAllJobs(false,0);
+        auto safe=juce::Component::SafePointer<SampleBrowserComponent>(this);
+        previewPool_.addJob([safe,path,generation]{
+            try{
+                auto audio=std::make_shared<AudioBuffer>(WavFile::read(path));
+                juce::MessageManager::callAsync([safe,path,generation,audio]{
+                    if(auto*self=safe.getComponent()){
+                        if(self->previewGeneration_.load(std::memory_order_relaxed)!=generation)return;
+                        if(audio&&audio->frames()>0&&self->previewFn_)self->previewFn_(audio);
+                        self->previewStatus_.setText("Preview: "+juce::String(path.filename().string()),juce::dontSendNotification);
+                    }
+                });
+            }catch(const std::exception&e){
+                const juce::String error=e.what();
+                juce::MessageManager::callAsync([safe,generation,error]{
+                    if(auto*self=safe.getComponent()){
+                        if(self->previewGeneration_.load(std::memory_order_relaxed)!=generation)return;
+                        self->previewStatus_.setText("Preview failed: "+error,juce::dontSendNotification);
+                    }
+                });
+            }
+        });
+    }
+    void stopPreviewNow() {
+        previewGeneration_.fetch_add(1,std::memory_order_relaxed);
+        if(stopPreviewFn_)stopPreviewFn_();
+        previewStatus_.setText("Preview stopped",juce::dontSendNotification);
     }
     void importPath(const std::filesystem::path& p) {
         if(p.empty() || !std::filesystem::exists(p) || !importFn_) return;
@@ -112,7 +189,10 @@ private:
     }
     void importSelected() { importPath(selectedPath()); }
 
-    AppSettings& settings_; ImportFn importFn_; SettingsChangedFn settingsChanged_; std::vector<std::filesystem::path> visible_; std::unique_ptr<juce::FileChooser> chooser_; bool showRecent_=false;
-    juce::Label title_, hint_; juce::TextEditor search_; juce::ComboBox root_; juce::TextButton addRoot_, favorite_, recent_, import_; juce::ListBox list_;
+    AppSettings& settings_; ImportFn importFn_; PreviewFn previewFn_; StopPreviewFn stopPreviewFn_; SettingsChangedFn settingsChanged_;
+    std::vector<std::filesystem::path> visible_; std::unique_ptr<juce::FileChooser> chooser_; bool showRecent_=false;
+    std::atomic<std::uint64_t> previewGeneration_{0}; juce::ThreadPool previewPool_;
+    juce::Label title_, hint_, previewStatus_; juce::TextEditor search_; juce::ComboBox root_;
+    juce::TextButton addRoot_, favorite_, recent_, import_, preview_, stopPreview_; juce::ListBox list_;
 };
 }

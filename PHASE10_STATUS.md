@@ -60,15 +60,14 @@ Planned sequence:
 
 Completed in the parent branch / `main` sequence:
 - **10.1 Arrangement editing**.
-- **10.2.1** explicit Track / Bus / Master Mixer active-target hierarchy.
-- **10.2.2** primary-Mixer output routing and send inspection/edit controls.
+- **10.2 Mixer production workflow** — active Track/Bus/Master hierarchy, primary routing/sends UX and synchronized plugin-rack targets.
 
-This branch implements **10.2.3 — plugin-rack ergonomics and target synchronization**:
-- Mixer and Plugin Rack targets are synchronized bidirectionally: Track maps to the selected Track rack, Bus maps to the same Bus rack, and Master maps to the Master rack.
-- Changing either target updates the other surface without callback loops.
-- Rack target labels use the same TRACK / BUS / MASTER hierarchy as the Mixer.
-- Rack insert choices are numbered and expose ACTIVE / BYPASS / DISABLED state directly.
-- Existing insert add/remove/reorder/wet/native-parameter/external-editor behavior is preserved on the control-thread publish path.
-- No DSP, PDC, audio-callback or `.flow` v11 schema changes are introduced.
+This branch implements **10.3.1 — safe sample preview and faster Browser navigation**:
+- The Sample Browser adds Preview and Stop controls plus keyboard workflow: Up/Down navigates, Space previews, Enter imports and Escape stops preview.
+- WAV decode runs on a dedicated single-worker JUCE ThreadPool; only a prepared shared AudioBuffer is handed to the existing `AudioEngine::triggerPreview` command path.
+- New preview requests supersede older queued work using a generation token, so stale decodes cannot start playback.
+- Search/root refresh preserves the selected sample when possible and automatically selects the first visible result when needed.
+- Existing Favorites, Recent, drag/drop and Import behavior is preserved.
+- No filesystem traversal, WAV decode, allocation or UI work is added to the audio callback; `.flow` remains v11.
 
-After this PR is green and merged, **10.2 Mixer production workflow is DONE**. The next planned block is **10.3 — Browser production workflow**, starting with safe sample preview and faster navigation.
+After this PR is green and merged, the next Browser subpoint is **10.3.2 — Browser navigation/filter polish and preview workflow integration**, keeping project import compatibility and machine-local settings boundaries.

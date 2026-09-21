@@ -172,7 +172,13 @@ public:
         sampler_=std::make_unique<juceui::SamplerComponent>(project_,engine_,commitEdit,[this](Id sampleId,Id sliceId){recordChopTrigger(sampleId,sliceId);});addChildComponent(*sampler_);
         sequencer_=std::make_unique<juceui::StepSequencerComponent>(project_,commitEdit);addChildComponent(*sequencer_);
         automationAssist_=std::make_unique<juceui::AutomationAssistComponent>(project_,[this]{return MusicalTime::samplesToTicks(engine_.playheadSamples(),project_.transport.bpm,engine_.sampleRate());},commitEdit);addChildComponent(*automationAssist_);
-        sampleBrowser_=std::make_unique<juceui::SampleBrowserComponent>(settings_,[this](const std::filesystem::path& path){importWavFile(path);},[this]{try{saveAppSettings(settings_,settingsPath_);}catch(const std::exception&e){status_.setText("Sample library settings failed: "+juce::String(e.what()),juce::dontSendNotification);}});addAndMakeVisible(*sampleBrowser_);
+        sampleBrowser_=std::make_unique<juceui::SampleBrowserComponent>(
+            settings_,
+            [this](const std::filesystem::path& path){importWavFile(path);},
+            [this](std::shared_ptr<AudioBuffer> audio){if(!audio||audio->frames()<=0)return;engine_.stopPreviews();engine_.triggerPreview(audio,0,audio->frames(),0.85f,0.0f,0);},
+            [this]{engine_.stopPreviews();},
+            [this]{try{saveAppSettings(settings_,settingsPath_);}catch(const std::exception&e){status_.setText("Sample library settings failed: "+juce::String(e.what()),juce::dontSendNotification);}}
+        );addAndMakeVisible(*sampleBrowser_);
         arrangementTab_.setButtonText("Arrangement");arrangementTab_.onClick=[this]{setEditorMode(EditorMode::Arrangement);};addAndMakeVisible(arrangementTab_);
         pianoTab_.setButtonText("Piano Roll");pianoTab_.onClick=[this]{setEditorMode(EditorMode::Piano);};addAndMakeVisible(pianoTab_);
         sequencerTab_.setButtonText("Sequencer");sequencerTab_.onClick=[this]{setEditorMode(EditorMode::Step);};addAndMakeVisible(sequencerTab_);
