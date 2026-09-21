@@ -61,13 +61,14 @@ Planned sequence:
 Completed in the parent branch / `main` sequence:
 - **10.1 Arrangement editing**.
 - **10.2.1** explicit Track / Bus / Master Mixer active-target hierarchy.
+- **10.2.2** primary-Mixer output routing and send inspection/edit controls.
 
-This branch implements **10.2.2 — routing and sends inspection/edit UX**:
-- When the active Mixer target is the selected Track, the channel strip exposes its output route directly: Master or any existing Bus.
-- The same Mixer surface exposes one selected send Bus with gain, Pre/Post state, Set/Update and Remove actions.
-- Existing `Track::outputBusId` and `Track::sends` state are reused; no schema or serialization change is introduced.
-- Routing/send edits commit through the existing UndoStack and republish the prepared immutable routing graph on the control thread.
-- Routing/send controls disable automatically for Bus/Master targets or when no valid Bus exists.
-- The Automation/Assist surface remains compatible; common routing work is simply promoted into the primary Mixer.
+This branch implements **10.2.3 — plugin-rack ergonomics and target synchronization**:
+- Mixer and Plugin Rack targets are synchronized bidirectionally: Track maps to the selected Track rack, Bus maps to the same Bus rack, and Master maps to the Master rack.
+- Changing either target updates the other surface without callback loops.
+- Rack target labels use the same TRACK / BUS / MASTER hierarchy as the Mixer.
+- Rack insert choices are numbered and expose ACTIVE / BYPASS / DISABLED state directly.
+- Existing insert add/remove/reorder/wet/native-parameter/external-editor behavior is preserved on the control-thread publish path.
+- No DSP, PDC, audio-callback or `.flow` v11 schema changes are introduced.
 
-After this PR is green and merged, the next bounded Mixer subpoint is **10.2.3 — plugin-rack ergonomics and target synchronization**.
+After this PR is green and merged, **10.2 Mixer production workflow is DONE**. The next planned block is **10.3 — Browser production workflow**, starting with safe sample preview and faster navigation.
