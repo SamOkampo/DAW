@@ -130,6 +130,23 @@ Expected: the portable project round-trip is complete and clean exit behavior is
 
 Expected: realtime and offline/export paths agree closely enough for the same project to be delivered.
 
+### 10. Phase 10 production-workflow closure
+
+1. In Arrangement, select multiple audio/Pattern blocks with Ctrl/Cmd-click and confirm selected blocks remain visually identifiable.
+2. Delete a multi-selection, then Undo/Redo and confirm the grouped edit behaves as one transaction.
+3. Scroll the Arrangement horizontally, zoom with Ctrl/Cmd+wheel, drag a block with 1/16 snapping, then Alt-drag for free placement.
+4. In the Mixer, switch the active target between a Track, a Bus and Master; confirm the header, supported controls and meter follow the same target.
+5. On a Track target, change Output between Master and a Bus, create/update/remove a send, and exercise send gain plus pre/post mode.
+6. Confirm changing Mixer Track/Bus/Master target also points the Plugin Rack at the corresponding rack, and changing the Rack target synchronizes the Mixer.
+7. In the Sample Browser, search a folder, switch between Recent and Favorites, navigate with Up/Down and Home/End, preview with Space, stop with Escape and import with Enter.
+8. Enable Auto Preview and confirm changing Browser selection auditions the newly selected WAV without blocking the UI.
+9. In Piano Roll, Ctrl/Cmd-click multiple notes, use Ctrl/Cmd+A, grouped nudge/velocity/length edits and grouped Delete; confirm each grouped action is one Undo/Redo transaction.
+10. In Step Sequencer, use arrows to navigate, Space to toggle, Delete to clear and Ctrl/Cmd+D to copy the selected step to the next step.
+11. Scan plugins, search by name, filter All/Instruments/Effects and confirm instrument assignment, FX insertion, rack insertion and editor preview resolve the selected filtered plugin correctly.
+12. Save/reopen the project and confirm all persisted musical/routing/plugin state remains intact as project format v11.
+
+Expected: Phase 10 workflows are reachable from the production JUCE UI, remain Undo/Redo coherent, and do not require developer-only tooling.
+
 ## Failure conditions
 
 Mark the run **FAIL** if any required flow needs X11, developer scripts, project-file hand editing, plugin creation/destruction from the audio callback, or if a normal user action causes a crash/hang. Also fail on silent loss of plugin state, rack order, recording takes, routing, automation or imported sample references after save/reopen.
@@ -148,6 +165,8 @@ The manual run does not replace CI. Keep the existing automated coverage green f
 - external instrument MIDI note-on/note-off;
 - realtime/offline parity;
 - mix/stem export;
-- install/package smoke tests.
+- install/package smoke tests;
+- Phase 10 repeated graph-publication/render stress coverage;
+- bounded preview-command saturation/recovery coverage.
 
 The manual path verifies that those capabilities are actually reachable as one coherent product workflow.
