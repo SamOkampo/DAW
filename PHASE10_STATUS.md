@@ -61,14 +61,15 @@ Planned sequence:
 Completed in the parent branch / `main` sequence:
 - **10.1 Arrangement editing**.
 - **10.2 Mixer production workflow**.
-- **10.3.1** asynchronous Browser preview and keyboard navigation.
+- **10.3 Browser production workflow** — async preview, keyboard navigation, Favorites/Recent filtering and preview integration.
 
-This branch implements **10.3.2 — Browser filter/navigation polish and preview integration**:
-- Adds an explicit Favorites-only Browser view alongside Recent and folder-root browsing.
-- Adds optional Auto Preview so moving selection can audition samples through the already-prepared worker/preview path.
-- Adds Home/End jumping and `/` search focus in addition to Up/Down, Space, Enter and Escape.
-- Preview status reports sample name, duration and sample rate after background decode.
-- Root/Recent/Favorites modes are mutually exclusive and preserve existing machine-local Favorites/Recent settings semantics.
-- No project state or serialization changes are introduced; filesystem/decode work remains outside the audio callback.
+This branch implements **10.4.1 — bounded Piano Roll multi-selection and grouped note edits**:
+- Ctrl/Cmd-click toggles MIDI notes in a fixed-capacity selection of up to 256 persistent note IDs; normal click remains exclusive.
+- Ctrl/Cmd+A selects all notes up to the bounded capacity.
+- Delete/Backspace removes the selected notes in one project edit / Undo transaction.
+- Arrow-key nudge and Shift+Up/Down velocity edits apply to the complete selection in one Undo transaction.
+- Velocity and note-length slider edits apply consistently to all selected notes while retaining one primary note for control feedback.
+- Piano Roll rendering distinguishes the primary note from other selected notes.
+- Timing remains grid-deterministic and no project schema, audio callback or realtime graph behavior changes.
 
-After this PR is green and merged, **10.3 Browser production workflow is DONE**. The next planned block is **10.4 — Piano Roll / Sequencer workflow**.
+After this PR is green and merged, the next bounded block is **10.4.2 — Step Sequencer interaction/selection polish and common deterministic step operations**.
