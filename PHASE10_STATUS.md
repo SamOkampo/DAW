@@ -58,18 +58,28 @@ Planned sequence:
 
 ## Current checkpoint
 
-Completed in the parent branch / `main` sequence:
+**10.7.1 — RELEASE-QUALITY PRE-CLOSURE AUDIT**
+
+Completed on `main`:
 - **10.1 Arrangement editing**.
 - **10.2 Mixer production workflow**.
 - **10.3 Browser production workflow**.
 - **10.4 Piano Roll / Sequencer workflow**.
 - **10.5 Plugin workflow**.
+- **10.6 Performance / robustness**.
 
-This branch implements **10.6 — Performance / robustness regression coverage**:
-- Adds a deterministic stress regression that repeatedly republishes edited Projects and renders realtime-sized blocks while checking output finiteness and retired-graph reclamation.
-- Captures a non-gating elapsed-time baseline for 500 publish/render iterations so future profiling has a repeatable reference without introducing machine-dependent pass/fail thresholds.
-- Saturates the bounded preview command queue, verifies producer rejection under saturation, consumes the queue on the engine callback path and verifies the queue recovers afterward.
-- The tests exercise existing prepared graph and preview infrastructure; no production hot path is modified simply to improve a benchmark.
-- No filesystem, locks, logging, UI, plugin scanning/instantiation or new allocation work is introduced into the audio callback.
+This branch starts **10.7 — Release-quality closure** without adding product features:
+- refreshes README so documented product state includes Phase 9 and the Phase 10 closure state;
+- extends the production Golden Path with explicit Phase 10 Arrangement, Mixer, Browser, Piano Roll, Sequencer and Plugin workflow acceptance;
+- adds `PHASE10_AUDIT.md` covering architecture, realtime safety, project-v11 compatibility, Undo/determinism and regression evidence;
+- records the verified Phase 9 → current-main diff boundary for the final realtime/project audit;
+- keeps Phase 10 **IN PROGRESS** until this pre-closure PR is green and the final closure gates are completed;
+- keeps Phase 11 UI/UX & Productization **PLANNED** and unimplemented.
 
-After this PR is green and merged, **10.6 Performance / robustness is DONE**. The next planned block is **10.7 — release-quality closure**, including cross-workflow golden-path validation, documentation audit, project-v11/realtime audit and full multiplatform CI before Phase 10 can be marked DONE.
+Final gates before Phase 10 may be marked DONE:
+1. this 10.7 pre-closure branch must remain based on the fully integrated 10.6 `main`;
+2. core + legacy + Linux JUCE + Windows JUCE + macOS JUCE production CI must be green;
+3. confirm `.flow` remains v11 with backward loading intact;
+4. confirm no realtime-contract regression appears in the integrated diff;
+5. reconcile README, ROADMAP, PHASE10_STATUS and PHASE10_AUDIT on the final closure commit;
+6. only then change Phase 10 from IN PROGRESS to DONE.
