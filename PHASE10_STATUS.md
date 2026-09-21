@@ -61,15 +61,15 @@ Planned sequence:
 Completed in the parent branch / `main` sequence:
 - **10.1 Arrangement editing**.
 - **10.2 Mixer production workflow**.
-- **10.3 Browser production workflow** — async preview, keyboard navigation, Favorites/Recent filtering and preview integration.
+- **10.3 Browser production workflow**.
+- **10.4.1** bounded Piano Roll multi-selection and grouped note edits.
 
-This branch implements **10.4.1 — bounded Piano Roll multi-selection and grouped note edits**:
-- Ctrl/Cmd-click toggles MIDI notes in a fixed-capacity selection of up to 256 persistent note IDs; normal click remains exclusive.
-- Ctrl/Cmd+A selects all notes up to the bounded capacity.
-- Delete/Backspace removes the selected notes in one project edit / Undo transaction.
-- Arrow-key nudge and Shift+Up/Down velocity edits apply to the complete selection in one Undo transaction.
-- Velocity and note-length slider edits apply consistently to all selected notes while retaining one primary note for control feedback.
-- Piano Roll rendering distinguishes the primary note from other selected notes.
-- Timing remains grid-deterministic and no project schema, audio callback or realtime graph behavior changes.
+This branch implements **10.4.2 — Step Sequencer keyboard workflow and deterministic step operations**:
+- The Sequencer accepts keyboard focus and arrow keys move the selected lane/step without editing pattern data.
+- Space toggles the selected step, Delete/Backspace clears it, and Ctrl/Cmd+D copies the selected step event to the next step.
+- Horizontal navigation updates the visible 16-step page automatically while keeping the selected absolute step stable.
+- Mouse clicks still use the existing toggle behavior and now explicitly focus the Sequencer for immediate keyboard editing.
+- All edits remain single command/Undo transactions and reuse existing StepEvent timing/velocity/probability/microtiming state.
+- No project schema, groove algorithm, audio callback or realtime graph behavior changes.
 
-After this PR is green and merged, the next bounded block is **10.4.2 — Step Sequencer interaction/selection polish and common deterministic step operations**.
+After this PR is green and merged, **10.4 Piano Roll / Sequencer workflow is DONE**. The next planned block is **10.5 — Plugin workflow**.
