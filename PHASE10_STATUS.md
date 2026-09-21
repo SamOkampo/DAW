@@ -63,14 +63,13 @@ Completed in the parent branch / `main` sequence:
 - **10.2 Mixer production workflow**.
 - **10.3 Browser production workflow**.
 - **10.4 Piano Roll / Sequencer workflow**.
+- **10.5 Plugin workflow**.
 
-This branch implements **10.5 — Plugin workflow search/selection polish**:
-- Adds a text search field over the already-scanned plugin catalogue; matching covers plugin name, format and identifier.
-- Adds All / Instruments / Effects filtering without rescanning or instantiating plugins.
-- Maintains an explicit filtered-to-source index map so instrument assignment, track/master FX, rack insertion and editor preview all resolve the correct underlying PluginDescriptor.
-- Attempts to preserve the previously selected plugin by identifier when filters change.
-- Scan status reports total discovered plugin types, currently shown matches and quarantined records.
-- Existing plugin discovery, quarantine, instantiation, editor/state handling and rack operations remain outside the realtime callback.
-- No plugin state schema, PDC, DSP or `.flow` v11 changes are introduced.
+This branch implements **10.6 — Performance / robustness regression coverage**:
+- Adds a deterministic stress regression that repeatedly republishes edited Projects and renders realtime-sized blocks while checking output finiteness and retired-graph reclamation.
+- Captures a non-gating elapsed-time baseline for 500 publish/render iterations so future profiling has a repeatable reference without introducing machine-dependent pass/fail thresholds.
+- Saturates the bounded preview command queue, verifies producer rejection under saturation, consumes the queue on the engine callback path and verifies the queue recovers afterward.
+- The tests exercise existing prepared graph and preview infrastructure; no production hot path is modified simply to improve a benchmark.
+- No filesystem, locks, logging, UI, plugin scanning/instantiation or new allocation work is introduced into the audio callback.
 
-After this PR is green and merged, **10.5 Plugin workflow is DONE**. The next planned block is **10.6 — Performance / robustness**, beginning with focused profiling/regression coverage before optimization.
+After this PR is green and merged, **10.6 Performance / robustness is DONE**. The next planned block is **10.7 — release-quality closure**, including cross-workflow golden-path validation, documentation audit, project-v11/realtime audit and full multiplatform CI before Phase 10 can be marked DONE.

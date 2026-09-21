@@ -224,6 +224,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase8_routing_tests tests/test_phase8_routing.cpp)
     target_link_libraries(flowdaw_phase8_routing_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase8_routing_tests COMMAND flowdaw_phase8_routing_tests)
+
+    add_executable(flowdaw_phase10_stress_tests tests/test_phase10_stress.cpp)
+    target_link_libraries(flowdaw_phase10_stress_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase10_stress_tests COMMAND flowdaw_phase10_stress_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
