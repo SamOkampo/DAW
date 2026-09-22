@@ -24,7 +24,7 @@ The interface should feel intentional, readable and fast rather than exposing im
 
 ## Phase structure
 
-### 11.1 — FLOWDAW design system and shell architecture [ACTIVE]
+### 11.1 — FLOWDAW design system and shell architecture [DONE]
 
 Define the reusable visual language and workspace hierarchy before restyling individual production surfaces.
 
@@ -52,9 +52,17 @@ Acceptance:
 - Current technical controls have a documented target surface: primary workspace, contextual inspector, settings/device panel or diagnostics.
 - This planning block changes documentation only; implementation begins in the next bounded PR.
 
-### 11.2 — Application shell and transport
+### 11.2 — Application shell and transport [ACTIVE]
 
 Implement the shared theme and restructure the top-level Studio shell: transport, project identity, workspace navigation, status and secondary controls.
+
+Current bounded subpoint:
+- project identity and file actions occupy the first shell row;
+- Play/Stop/BPM/Undo/Redo form the dedicated transport row;
+- Arrangement/Piano Roll/Sequencer/Automation/Sampler form the dedicated workspace row;
+- status/workflow guidance and meter summary are demoted to compact context;
+- plugin discovery, instrument/rack, sample/chop/recording controls remain functionally unchanged below the primary shell until their later dedicated productization work;
+- no editor-internal, DSP, callback, routing, plugin graph, persistence or project-format behavior changes.
 
 ### 11.3 — Arrangement + Browser workspace
 
@@ -129,10 +137,12 @@ The main creative workspace should not require users to visually parse device se
 ## Current checkpoint
 
 - Phase 10 is closed and its final main-branch CI passed.
-- **11.1 planning/design-system architecture is merged to `main`.**
-- **11.2 shell theme foundation is active** on a bounded implementation branch.
-- Current implementation introduces centralized semantic theme tokens plus a distinct top-level Studio treatment: asymmetric dark gradient, restrained rose/indigo/teal diffusion, notched shell controls, focus-visible styling and themed workspace selectors.
-- Arrangement, Mixer, Browser internals, Piano Roll, Sequencer, Sampler, Automation, DSP and project serialization are intentionally untouched in this block.
+- **11.1 design-system architecture is merged.**
+- **11.2 theme foundation is merged to `main` at `98a80ff`; main CI #279 is green.**
+- **11.2 shell/transport hierarchy is the active bounded subpoint.**
+- The active branch changes layout hierarchy only: project/file actions → transport/BPM → workspace navigation → compact status/context.
+- Technical plugin/rack/device surfaces remain available and unchanged; relocating them into dedicated Settings/diagnostic surfaces is intentionally deferred to 11.7.
+- Arrangement, Mixer, Browser internals, Piano Roll, Sequencer, Sampler, Automation, DSP and serialization remain outside this block.
 - `.flow` remains v11 and the realtime contract is unchanged.
 
-Next step after this implementation PR is green and merged: continue 11.2 by simplifying/restructuring the application shell and transport hierarchy without folding in the separate Arrangement/Mixer redesigns.
+Next step after this PR passes its required CI matrix: merge it, then continue the next bounded 11.2 shell/transport refinement without entering 11.3.
