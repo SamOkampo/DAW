@@ -71,19 +71,20 @@ public:
         (void)backgroundColour;
         auto r=button.getLocalBounds().toFloat().reduced(0.75f);
         const bool active=button.getToggleState();
-        auto top=active?FlowTheme::accentDeep():FlowTheme::surfaceRaised();
-        auto bottom=active?FlowTheme::accent().darker(0.28f):FlowTheme::surface();
-        if(isMouseOver){top=top.interpolatedWith(FlowTheme::aqua(),active?0.12f:0.09f);bottom=bottom.brighter(0.08f);}
+        const bool transportPlay=button.getComponentID()=="transport-play";
+        auto top=active?(transportPlay?FlowTheme::aqua().darker(0.42f):FlowTheme::accentDeep()):FlowTheme::surfaceRaised();
+        auto bottom=active?(transportPlay?FlowTheme::aqua().darker(0.72f):FlowTheme::accent().darker(0.28f)):FlowTheme::surface();
+        if(isMouseOver){top=top.interpolatedWith(FlowTheme::aqua(),active?0.14f:0.09f);bottom=bottom.brighter(0.08f);}
         if(isButtonDown){top=top.darker(0.16f);bottom=bottom.darker(0.12f);}
         if(!button.isEnabled()){top=top.withMultipliedAlpha(0.42f);bottom=bottom.withMultipliedAlpha(0.42f);}
 
         auto shape=makeNotchedControlPath(r);
         juce::ColourGradient fill(top,r.getX(),r.getY(),bottom,r.getRight(),r.getBottom(),false);
-        fill.addColour(0.56,active?FlowTheme::accent().withAlpha(0.94f):FlowTheme::surfaceHover().withAlpha(0.88f));
+        fill.addColour(0.56,active?(transportPlay?FlowTheme::aqua().withAlpha(0.88f):FlowTheme::accent().withAlpha(0.94f)):FlowTheme::surfaceHover().withAlpha(0.88f));
         g.setGradientFill(fill);
         g.fillPath(shape);
 
-        g.setColour((active?FlowTheme::accentHot():FlowTheme::borderSubtle()).withAlpha(button.isEnabled()?0.90f:0.42f));
+        g.setColour((active?(transportPlay?FlowTheme::focus():FlowTheme::accentHot()):FlowTheme::borderSubtle()).withAlpha(button.isEnabled()?0.90f:0.42f));
         g.strokePath(shape,juce::PathStrokeType(active?1.35f:1.0f));
 
         if(button.hasKeyboardFocus(true)){
@@ -109,6 +110,29 @@ public:
         juce::Path arrow;arrow.startNewSubPath(cx-4.0f,cy-2.0f);arrow.lineTo(cx,cy+2.0f);arrow.lineTo(cx+4.0f,cy-2.0f);
         g.setColour(FlowTheme::aqua().withAlpha(box.isEnabled()?0.92f:0.35f));
         g.strokePath(arrow,juce::PathStrokeType(1.7f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
+    }
+
+    void drawLabel(juce::Graphics&g,juce::Label&label)override{
+        const auto id=label.getComponentID();
+        if(id=="transport-bpm"){
+            auto r=label.getLocalBounds().toFloat().reduced(0.75f);
+            auto shape=makeNotchedControlPath(r,7.0f);
+            juce::ColourGradient fill(FlowTheme::accentDeep().withAlpha(0.38f),r.getX(),r.getY(),FlowTheme::aqua().darker(0.72f).withAlpha(0.72f),r.getRight(),r.getBottom(),false);
+            fill.addColour(0.55,FlowTheme::surfaceRaised().withAlpha(0.96f));
+            g.setGradientFill(fill);g.fillPath(shape);
+            g.setColour(FlowTheme::aqua().withAlpha(label.isEnabled()?0.82f:0.34f));
+            g.strokePath(shape,juce::PathStrokeType(1.1f));
+            g.setColour(FlowTheme::textPrimary().withMultipliedAlpha(label.isEnabled()?1.0f:0.45f));
+            g.setFont(label.getFont());
+            g.drawFittedText(label.getText(),label.getBorderSize().subtractedFrom(label.getLocalBounds()),label.getJustificationType(),1,0.92f);
+            return;
+        }
+        if(id=="project-identity"){
+            auto r=label.getLocalBounds().toFloat();
+            juce::ColourGradient underline(FlowTheme::accent().withAlpha(0.0f),r.getX(),r.getBottom()-2.0f,FlowTheme::aqua().withAlpha(0.68f),r.getRight(),r.getBottom()-2.0f,false);
+            g.setGradientFill(underline);g.fillRect(r.getX(),r.getBottom()-1.5f,r.getWidth(),1.0f);
+        }
+        juce::LookAndFeel_V4::drawLabel(g,label);
     }
 };
 
