@@ -82,6 +82,10 @@ Cross-workflow polish, installed-app golden path, layout smoke/visual regression
 
 ## 11.1 visual language baseline
 
+### Identity rule — mandatory
+
+FLOWDAW must not look like a generic AI-generated SaaS dashboard, admin panel or marketing landing page. The product should have a recognisable music-software identity of its own. Creative use of colour, gradients, diffusion/glow, depth, asymmetry and distinctive control silhouettes is encouraged when it improves hierarchy and feel. Avoid interchangeable rounded-card UI patterns. Visual personality must never reduce readability, focus visibility, input clarity or professional DAW ergonomics.
+
 The first implementation PR should introduce semantic names, not screen-specific magic values.
 
 Suggested semantic roles:
@@ -124,6 +128,11 @@ The main creative workspace should not require users to visually parse device se
 
 ## Current checkpoint
 
-Phase 10 is closed and its final main-branch CI passed. Phase 11 has now started with **11.1 design/planning only**. No Phase 11 implementation has been merged yet.
+- Phase 10 is closed and its final main-branch CI passed.
+- **11.1 planning/design-system architecture is merged to `main`.**
+- **11.2 shell theme foundation is active** on a bounded implementation branch.
+- Current implementation introduces centralized semantic theme tokens plus a distinct top-level Studio treatment: asymmetric dark gradient, restrained rose/indigo/teal diffusion, notched shell controls, focus-visible styling and themed workspace selectors.
+- Arrangement, Mixer, Browser internals, Piano Roll, Sequencer, Sampler, Automation, DSP and project serialization are intentionally untouched in this block.
+- `.flow` remains v11 and the realtime contract is unchanged.
 
-Next bounded step after this planning PR is green and merged: implement the centralized theme/design-token layer and apply it only to the top-level shell foundation, without simultaneously redesigning Arrangement, Mixer or other editors.
+Next step after this implementation PR is green and merged: continue 11.2 by simplifying/restructuring the application shell and transport hierarchy without folding in the separate Arrangement/Mixer redesigns.
