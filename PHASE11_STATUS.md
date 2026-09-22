@@ -35,35 +35,30 @@ Deliverables:
 4. Typography hierarchy for app title, workspace title, section title, labels, metadata and compact controls.
 5. Explicit component states: normal, hover, pressed, selected/active, disabled and focus-visible.
 6. Consistent corner/border treatment and icon/text-button rules.
-7. Shell hierarchy that separates:
-   - top app/transport layer,
-   - workspace navigation,
-   - browser/inspector side surfaces,
-   - central editor/workspace,
-   - mixer/detail surfaces,
-   - status/secondary diagnostics.
+7. Shell hierarchy that separates top app/transport, workspace navigation, browser/inspector, central workspace, mixer/detail and secondary diagnostics.
 8. Minimum-window and high-DPI behavior documented before adaptive-panel work.
 9. No project-format or audio-engine change.
 
-Acceptance:
-- Design tokens and shell rules are documented and can be implemented without inventing per-screen styling.
-- Primary/secondary/action hierarchy is defined for Arrangement, Mixer, Browser, Piano Roll, Sequencer, Sampler, Automation and Plugins.
-- Focus-visible and contrast expectations are explicit.
-- Current technical controls have a documented target surface: primary workspace, contextual inspector, settings/device panel or diagnostics.
-- This planning block changes documentation only; implementation begins in the next bounded PR.
-
 ### 11.2 — Application shell and transport [ACTIVE]
 
-Implement the shared theme and restructure the top-level Studio shell: transport, project identity, workspace navigation, status and secondary controls.
+The theme foundation, shell hierarchy and live transport-state treatment are merged. One final bounded shell refinement remains before closure: **status/context hierarchy**.
 
-Current bounded subpoint:
-- live Play/Pause state is surfaced visually using the existing FLOWDAW notched control language;
-- the active transport state gets a distinct teal/aqua treatment instead of looking like a generic pressed button;
-- BPM is promoted into a dedicated notched tempo readout with stronger typography;
-- project identity gets a subtle branded underline so the active project is easier to scan;
-- transport state is synchronized only from the message/control path; no audio callback work is introduced;
-- plugin discovery, instrument/rack, sample/chop/recording controls remain functionally unchanged;
-- no editor-internal, DSP, routing, plugin graph, persistence or project-format behavior changes.
+Final bounded subpoint acceptance:
+- replace the long tutorial-style workflow sentence in the permanent shell with concise context appropriate to a professional DAW;
+- keep transient operation feedback in `status_` and meter health in `meterLabel_`, with clearly different visual priority;
+- preserve project identity, transport, BPM and workspace navigation as the dominant shell layers;
+- do not relocate plugin/device/diagnostic controls yet; that remains explicitly owned by 11.7;
+- no Arrangement, Mixer, Browser or editor-internal redesign;
+- no DSP, audio callback, routing, plugin graph, persistence or project-format behavior change;
+- `.flow` remains v11;
+- required CI matrix must be green before merge.
+
+Tests / verification:
+- build and existing core tests;
+- JUCE runtime smoke;
+- legacy X11 smoke;
+- Windows and macOS JUCE jobs;
+- code review confirming no audio-callback or serialization diff.
 
 ### 11.3 — Arrangement + Browser workspace
 
@@ -89,62 +84,27 @@ Move device/plugin scanning/diagnostic-style controls away from the main creativ
 
 Cross-workflow polish, installed-app golden path, layout smoke/visual regression coverage where practical, Linux/Windows/macOS validation and final architecture/realtime/project-compatibility audit.
 
-## 11.1 visual language baseline
+## Visual language baseline
 
 ### Identity rule — mandatory
 
 FLOWDAW must not look like a generic AI-generated SaaS dashboard, admin panel or marketing landing page. The product should have a recognisable music-software identity of its own. Creative use of colour, gradients, diffusion/glow, depth, asymmetry and distinctive control silhouettes is encouraged when it improves hierarchy and feel. Avoid interchangeable rounded-card UI patterns. Visual personality must never reduce readability, focus visibility, input clarity or professional DAW ergonomics.
 
-The first implementation PR should introduce semantic names, not screen-specific magic values.
+Primary creative surfaces: Arrangement, Mixer, Piano Roll, Sequencer, Sampler and Automation.
 
-Suggested semantic roles:
-- `canvas` — deepest workspace background.
-- `surface` — panels and editor chrome.
-- `surfaceRaised` — dialogs, popovers, active inspectors.
-- `borderSubtle` / `borderStrong`.
-- `textPrimary` / `textSecondary` / `textMuted`.
-- `accent` / `accentHover` / `accentPressed`.
-- `selection` / `focusRing`.
-- `success` / `warning` / `danger`.
-- `meterSafe` / `meterHot` / `meterClip`.
+Secondary/contextual surfaces: Sample Browser, plugin rack / plugin selector, inspector/details and export.
 
-Spacing should use a small repeatable scale (for example 4/8/12/16/24/32 logical px) instead of unrelated literals.
-
-Typography should use system-appropriate JUCE fonts and relative hierarchy rather than requiring bundled font assets.
-
-## Workspace hierarchy
-
-Primary creative surfaces:
-- Arrangement
-- Mixer
-- Piano Roll
-- Sequencer
-- Sampler
-- Automation
-
-Secondary/contextual surfaces:
-- Sample Browser
-- plugin rack / plugin selector
-- inspector/details
-- export
-
-Settings/diagnostics surfaces:
-- audio-device configuration
-- plugin scan/quarantine maintenance entry points
-- advanced runtime/health information
-
-The main creative workspace should not require users to visually parse device setup, plugin scanning and diagnostic controls during ordinary arrange/edit/mix work.
+Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantine maintenance and advanced runtime/health information.
 
 ## Current checkpoint
 
 - Phase 10 is closed and its final main-branch CI passed.
-- **11.1 design-system architecture is merged.**
-- **11.2 theme foundation and shell/transport hierarchy are merged to `main`; current main is `e792ba4` and CI #281 is green.**
-- **11.2 transport-state polish is the active bounded subpoint.**
-- The active branch changes presentation/state synchronization only: Play/Pause active state, BPM identity and project identity treatment.
-- Transport synchronization occurs on the JUCE message/control path; the realtime callback remains untouched.
-- Technical plugin/rack/device surfaces remain available and unchanged; relocating them into dedicated Settings/diagnostic surfaces is intentionally deferred to 11.7.
+- 11.1 design-system architecture is merged.
+- 11.2 theme foundation and shell/transport hierarchy are merged.
+- PR #86 transport-state polish passed full CI #282 and was squash-merged to `main` as `fda2dd67`.
+- The next and final bounded 11.2 subpoint is status/context hierarchy; its scope, acceptance criteria, tests and exclusions are now explicitly documented before implementation.
+- Technical plugin/rack/device surfaces remain available and unchanged; relocating them belongs to 11.7.
 - Arrangement, Mixer, Browser internals, Piano Roll, Sequencer, Sampler, Automation, DSP and serialization remain outside this block.
 - `.flow` remains v11 and the realtime contract is unchanged.
 
-Next step after this PR passes its required CI matrix: merge it, then evaluate whether one final bounded 11.2 shell refinement remains before closing 11.2 and moving to 11.3.
+Next step: implement only the documented status/context refinement on `phase11-shell-status-context`, run the required CI matrix, merge only if green, then perform the 11.2 closure audit before starting 11.3.
