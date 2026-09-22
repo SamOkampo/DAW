@@ -57,12 +57,13 @@ Acceptance:
 Implement the shared theme and restructure the top-level Studio shell: transport, project identity, workspace navigation, status and secondary controls.
 
 Current bounded subpoint:
-- project identity and file actions occupy the first shell row;
-- Play/Stop/BPM/Undo/Redo form the dedicated transport row;
-- Arrangement/Piano Roll/Sequencer/Automation/Sampler form the dedicated workspace row;
-- status/workflow guidance and meter summary are demoted to compact context;
-- plugin discovery, instrument/rack, sample/chop/recording controls remain functionally unchanged below the primary shell until their later dedicated productization work;
-- no editor-internal, DSP, callback, routing, plugin graph, persistence or project-format behavior changes.
+- live Play/Pause state is surfaced visually using the existing FLOWDAW notched control language;
+- the active transport state gets a distinct teal/aqua treatment instead of looking like a generic pressed button;
+- BPM is promoted into a dedicated notched tempo readout with stronger typography;
+- project identity gets a subtle branded underline so the active project is easier to scan;
+- transport state is synchronized only from the message/control path; no audio callback work is introduced;
+- plugin discovery, instrument/rack, sample/chop/recording controls remain functionally unchanged;
+- no editor-internal, DSP, routing, plugin graph, persistence or project-format behavior changes.
 
 ### 11.3 — Arrangement + Browser workspace
 
@@ -138,11 +139,12 @@ The main creative workspace should not require users to visually parse device se
 
 - Phase 10 is closed and its final main-branch CI passed.
 - **11.1 design-system architecture is merged.**
-- **11.2 theme foundation is merged to `main` at `98a80ff`; main CI #279 is green.**
-- **11.2 shell/transport hierarchy is the active bounded subpoint.**
-- The active branch changes layout hierarchy only: project/file actions → transport/BPM → workspace navigation → compact status/context.
+- **11.2 theme foundation and shell/transport hierarchy are merged to `main`; current main is `e792ba4` and CI #281 is green.**
+- **11.2 transport-state polish is the active bounded subpoint.**
+- The active branch changes presentation/state synchronization only: Play/Pause active state, BPM identity and project identity treatment.
+- Transport synchronization occurs on the JUCE message/control path; the realtime callback remains untouched.
 - Technical plugin/rack/device surfaces remain available and unchanged; relocating them into dedicated Settings/diagnostic surfaces is intentionally deferred to 11.7.
 - Arrangement, Mixer, Browser internals, Piano Roll, Sequencer, Sampler, Automation, DSP and serialization remain outside this block.
 - `.flow` remains v11 and the realtime contract is unchanged.
 
-Next step after this PR passes its required CI matrix: merge it, then continue the next bounded 11.2 shell/transport refinement without entering 11.3.
+Next step after this PR passes its required CI matrix: merge it, then evaluate whether one final bounded 11.2 shell refinement remains before closing 11.2 and moving to 11.3.
