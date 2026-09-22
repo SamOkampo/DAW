@@ -230,25 +230,71 @@ public:
         juce::ColourGradient aquaGlow(juceui::FlowTheme::aqua().withAlpha(0.10f),bounds.getRight()-90.0f,90.0f,juce::Colours::transparentBlack,bounds.getRight()-520.0f,420.0f,true);
         g.setGradientFill(aquaGlow);g.fillEllipse(bounds.getRight()-650.0f,-150.0f,760.0f,620.0f);
 
-        auto shell=bounds.reduced(12.0f);shell.setHeight(std::min(236.0f,shell.getHeight()));
+        auto shell=bounds.reduced(12.0f);shell.setHeight(std::min(170.0f,shell.getHeight()));
         juce::ColourGradient deck(juce::Colour(0xff171425).withAlpha(0.94f),shell.getX(),shell.getY(),juce::Colour(0xff0d151c).withAlpha(0.91f),shell.getRight(),shell.getBottom(),false);
         deck.addColour(0.52,juce::Colour(0xff1b1426).withAlpha(0.86f));
         g.setGradientFill(deck);g.fillRoundedRectangle(shell,juceui::FlowTheme::radiusPanel);
         g.setColour(juceui::FlowTheme::borderSubtle().withAlpha(0.74f));g.drawRoundedRectangle(shell,juceui::FlowTheme::radiusPanel,1.0f);
+        g.setColour(juceui::FlowTheme::borderSubtle().withAlpha(0.52f));
+        g.drawLine(shell.getX()+18.0f,shell.getY()+48.0f,shell.getRight()-18.0f,shell.getY()+48.0f,1.0f);
+        g.drawLine(shell.getX()+18.0f,shell.getY()+96.0f,shell.getRight()-18.0f,shell.getY()+96.0f,1.0f);
 
         auto signature=juce::Rectangle<float>(shell.getX()+10.0f,shell.getY()+12.0f,5.0f,76.0f);
         juce::ColourGradient signatureFill(juceui::FlowTheme::accentHot(),signature.getX(),signature.getY(),juceui::FlowTheme::aqua(),signature.getX(),signature.getBottom(),false);
         g.setGradientFill(signatureFill);g.fillRoundedRectangle(signature,2.5f);
     }
     void resized()override{
-        auto r=getLocalBounds().reduced(16);title_.setBounds(r.removeFromTop(38));status_.setBounds(r.removeFromTop(26));projectLabel_.setBounds(r.removeFromTop(26));note_.setBounds(r.removeFromTop(54));meterLabel_.setBounds(r.removeFromTop(28));
-        auto transport=r.removeFromTop(38);newProject_.setBounds(transport.removeFromLeft(72).reduced(3));loadProject_.setBounds(transport.removeFromLeft(100).reduced(3));importWav_.setBounds(transport.removeFromLeft(100).reduced(3));saveProject_.setBounds(transport.removeFromLeft(105).reduced(3));play_.setBounds(transport.removeFromLeft(66).reduced(3));stop_.setBounds(transport.removeFromLeft(66).reduced(3));bpmMinus_.setBounds(transport.removeFromLeft(60).reduced(3));bpmLabel_.setBounds(transport.removeFromLeft(80).reduced(3));bpmPlus_.setBounds(transport.removeFromLeft(60).reduced(3));undoButton_.setBounds(transport.removeFromLeft(66).reduced(3));redoButton_.setBounds(transport.removeFromLeft(66).reduced(3));commandPalette_.setBounds(transport.removeFromLeft(96).reduced(3));
+        auto r=getLocalBounds().reduced(16);
+
+        auto header=r.removeFromTop(46);
+        title_.setBounds(header.removeFromLeft(215).reduced(4,2));
+        projectLabel_.setBounds(header.removeFromLeft(330).reduced(6,3));
+        header.removeFromLeft(12);
+        commandPalette_.setBounds(header.removeFromRight(104).reduced(3,5));
+        saveProject_.setBounds(header.removeFromRight(106).reduced(3,5));
+        loadProject_.setBounds(header.removeFromRight(96).reduced(3,5));
+        newProject_.setBounds(header.removeFromRight(112).reduced(3,5));
+        importWav_.setBounds(header.removeFromRight(102).reduced(3,5));
+
+        auto transport=r.removeFromTop(48);
+        transport.removeFromLeft(8);
+        play_.setBounds(transport.removeFromLeft(78).reduced(3,5));
+        stop_.setBounds(transport.removeFromLeft(68).reduced(3,5));
+        transport.removeFromLeft(12);
+        bpmMinus_.setBounds(transport.removeFromLeft(58).reduced(3,5));
+        bpmLabel_.setBounds(transport.removeFromLeft(92).reduced(3,5));
+        bpmPlus_.setBounds(transport.removeFromLeft(58).reduced(3,5));
+        transport.removeFromLeft(14);
+        undoButton_.setBounds(transport.removeFromLeft(70).reduced(3,5));
+        redoButton_.setBounds(transport.removeFromLeft(70).reduced(3,5));
+        transport.removeFromLeft(16);
+        status_.setBounds(transport.reduced(8,4));
+
+        auto workspace=r.removeFromTop(44);
+        workspace.removeFromLeft(8);
+        arrangementTab_.setBounds(workspace.removeFromLeft(112).reduced(3,4));
+        pianoTab_.setBounds(workspace.removeFromLeft(98).reduced(3,4));
+        sequencerTab_.setBounds(workspace.removeFromLeft(100).reduced(3,4));
+        automationTab_.setBounds(workspace.removeFromLeft(104).reduced(3,4));
+        samplerTab_.setBounds(workspace.removeFromLeft(90).reduced(3,4));
+        workspace.removeFromLeft(16);
+        patternChoice_.setBounds(workspace.removeFromLeft(230).reduced(3,4));
+        sampleChoice_.setBounds(workspace.removeFromLeft(238).reduced(3,4));
+        bankPrev_.setBounds(workspace.removeFromLeft(72).reduced(3,4));
+        bankNext_.setBounds(workspace.removeFromLeft(72).reduced(3,4));
+
+        auto context=r.removeFromTop(28);
+        note_.setBounds(context.removeFromLeft(std::max(420,context.getWidth()*2/3)).reduced(4,2));
+        meterLabel_.setBounds(context.reduced(4,2));
+
+        r.removeFromTop(8);
+
         auto controls=r.removeFromTop(38);scan_.setBounds(controls.removeFromLeft(135).reduced(3));pluginSearch_.setBounds(controls.removeFromLeft(210).reduced(3));pluginKindChoice_.setBounds(controls.removeFromLeft(125).reduced(3));pluginChoice_.setBounds(controls.removeFromLeft(380).reduced(3));openEditor_.setBounds(controls.removeFromLeft(170).reduced(3));
         auto instrument=r.removeFromTop(38);trackChoice_.setBounds(instrument.removeFromLeft(300).reduced(3));setInstrument_.setBounds(instrument.removeFromLeft(130).reduced(3));clearInstrument_.setBounds(instrument.removeFromLeft(135).reduced(3));addTrackFx_.setBounds(instrument.removeFromLeft(120).reduced(3));addMasterFx_.setBounds(instrument.removeFromLeft(125).reduced(3));
         auto rack=r.removeFromTop(38);rackTargetChoice_.setBounds(rack.removeFromLeft(150).reduced(3));rackPluginChoice_.setBounds(rack.removeFromLeft(205).reduced(3));addRackGain_.setBounds(rack.removeFromLeft(92).reduced(3));addRackClip_.setBounds(rack.removeFromLeft(82).reduced(3));addRackWidth_.setBounds(rack.removeFromLeft(70).reduced(3));addRackExternal_.setBounds(rack.removeFromLeft(78).reduced(3));rackMoveUp_.setBounds(rack.removeFromLeft(38).reduced(3));rackMoveDown_.setBounds(rack.removeFromLeft(45).reduced(3));rackEnabled_.setBounds(rack.removeFromLeft(68).reduced(3));rackBypass_.setBounds(rack.removeFromLeft(62).reduced(3));rackRemove_.setBounds(rack.removeFromLeft(62).reduced(3));openRackEditor_.setBounds(rack.removeFromLeft(90).reduced(3));rackWet_.setBounds(rack.removeFromLeft(120).reduced(3));rackParamLabel_.setBounds(rack.removeFromLeft(60).reduced(3));rackParam_.setBounds(rack.reduced(3));
-        auto editorBar=r.removeFromTop(38);arrangementTab_.setBounds(editorBar.removeFromLeft(105).reduced(3));pianoTab_.setBounds(editorBar.removeFromLeft(95).reduced(3));sequencerTab_.setBounds(editorBar.removeFromLeft(95).reduced(3));automationTab_.setBounds(editorBar.removeFromLeft(100).reduced(3));samplerTab_.setBounds(editorBar.removeFromLeft(85).reduced(3));patternChoice_.setBounds(editorBar.removeFromLeft(245).reduced(3));sampleChoice_.setBounds(editorBar.removeFromLeft(255).reduced(3));bankPrev_.setBounds(editorBar.removeFromLeft(72).reduced(3));bankNext_.setBounds(editorBar.removeFromLeft(72).reduced(3));
         auto sampleTools=r.removeFromTop(38);analyzeSample_.setBounds(sampleTools.removeFromLeft(82).reduced(3));chop8_.setBounds(sampleTools.removeFromLeft(72).reduced(3));autoChop_.setBounds(sampleTools.removeFromLeft(88).reduced(3));chopBeat_.setBounds(sampleTools.removeFromLeft(88).reduced(3));chopBar_.setBounds(sampleTools.removeFromLeft(84).reduced(3));matchBpm_.setBounds(sampleTools.removeFromLeft(92).reduced(3));exportMix_.setBounds(sampleTools.removeFromLeft(90).reduced(3));exportStems_.setBounds(sampleTools.removeFromLeft(100).reduced(3));padName_.setBounds(sampleTools.removeFromLeft(118).reduced(3));renamePad_.setBounds(sampleTools.removeFromLeft(70).reduced(3));padGainMinus_.setBounds(sampleTools.removeFromLeft(64).reduced(3));padGainPlus_.setBounds(sampleTools.removeFromLeft(64).reduced(3));padPanMinus_.setBounds(sampleTools.removeFromLeft(60).reduced(3));padPanPlus_.setBounds(sampleTools.removeFromLeft(60).reduced(3));
         auto recordTools=r.removeFromTop(38);stopPreview_.setBounds(recordTools.removeFromLeft(88).reduced(3));recChops_.setBounds(recordTools.removeFromLeft(88).reduced(3));chopGridChoice_.setBounds(recordTools.removeFromLeft(92).reduced(3));chopQuantizeStrength_.setBounds(recordTools.removeFromLeft(160).reduced(3));chopHumanizeStrength_.setBounds(recordTools.removeFromLeft(160).reduced(3));chopReset_.setBounds(recordTools.removeFromLeft(82).reduced(3));recAudio_.setBounds(recordTools.removeFromLeft(88).reduced(3));monitorInput_.setBounds(recordTools.removeFromLeft(80).reduced(3));prevTake_.setBounds(recordTools.removeFromLeft(70).reduced(3));nextTake_.setBounds(recordTools.removeFromLeft(70).reduced(3));padChokeMinus_.setBounds(recordTools.removeFromLeft(74).reduced(3));padChokePlus_.setBounds(recordTools.removeFromLeft(74).reduced(3));
+
         r.removeFromTop(4);auto editorArea=r.removeFromTop(320);auto browserArea=editorArea.removeFromLeft(std::min(280,editorArea.getWidth()/3));if(sampleBrowser_)sampleBrowser_->setBounds(browserArea.reduced(0,2));editorArea.removeFromLeft(6);if(arrangement_)arrangement_->setBounds(editorArea);if(piano_)piano_->setBounds(editorArea);if(sampler_)sampler_->setBounds(editorArea);if(sequencer_)sequencer_->setBounds(editorArea);if(automationAssist_)automationAssist_->setBounds(editorArea);
         auto mixer=r.removeFromTop(162);auto mixerHeader=mixer.removeFromTop(34);mixerSectionLabel_.setBounds(mixerHeader.removeFromLeft(220).reduced(3));mixerTargetChoice_.setBounds(mixerHeader.removeFromLeft(320).reduced(3));auto mixerControls=mixer.removeFromTop(38);mixerVolumeLabel_.setBounds(mixerControls.removeFromLeft(72).reduced(3));mixerVolume_.setBounds(mixerControls.removeFromLeft(260).reduced(3));mixerPanLabel_.setBounds(mixerControls.removeFromLeft(45).reduced(3));mixerPan_.setBounds(mixerControls.removeFromLeft(220).reduced(3));muteTrack_.setBounds(mixerControls.removeFromLeft(72).reduced(3));soloTrack_.setBounds(mixerControls.removeFromLeft(72).reduced(3));auto mixerRouting=mixer.removeFromTop(42);mixerRoutingLabel_.setBounds(mixerRouting.removeFromLeft(120).reduced(3));mixerOutputChoice_.setBounds(mixerRouting.removeFromLeft(220).reduced(3));mixerSendBusChoice_.setBounds(mixerRouting.removeFromLeft(200).reduced(3));mixerSendGain_.setBounds(mixerRouting.removeFromLeft(180).reduced(3));mixerSendPre_.setBounds(mixerRouting.removeFromLeft(58).reduced(3));mixerSetSend_.setBounds(mixerRouting.removeFromLeft(92).reduced(3));mixerRemoveSend_.setBounds(mixerRouting.removeFromLeft(82).reduced(3));auto mixerMeter=mixer;trackMeterLabel_.setBounds(mixerMeter.removeFromLeft(120).reduced(3));trackMeter_.setBounds(mixerMeter.reduced(3));
         r.removeFromTop(6);selector_->setBounds(r);
