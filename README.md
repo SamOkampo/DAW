@@ -4,7 +4,7 @@ FLOWDAW is a hip-hop-first desktop DAW built around one principle: remove techni
 
 ## Current state
 
-**Phase 0 through Phase 10 are complete. Phase 11 is planned and has not started.**
+**Phase 0 through Phase 10 are complete. Phase 11 (UI/UX & Productization) is now in progress, starting with the design-system and application-shell architecture.**
 
 The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 shell remains source-available only as an explicit legacy regression/bootstrap target.
 
@@ -117,7 +117,7 @@ See:
 - `AUDIO_ENGINE.md`
 - `PROJECT_FORMAT.md`
 - `ROADMAP.md`
-- `PHASE1_STATUS.md` through `PHASE10_STATUS.md`
+- `PHASE1_STATUS.md` through `PHASE11_STATUS.md`
 - `PHASE10_AUDIT.md` — Phase 10 architecture/realtime/project-compatibility closure audit
 - `docs/PRODUCTION_GOLDEN_PATH.md` — manual installed-app acceptance flow from starter project through export
 - `docs/TIME_STRETCH_EVALUATION.md`
