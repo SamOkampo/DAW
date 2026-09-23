@@ -36,11 +36,14 @@ The shared theme, project/transport hierarchy, live Play/Pause treatment, BPM id
 
 The bounded design is recorded in `PHASE11_3_DESIGN.md`. 11.3.1 Arrangement visual hierarchy, 11.3.2 Browser visual hierarchy and 11.3.3 Arrangement/Browser drag/drop integration are integrated. `PHASE11_3_AUDIT.md` records the architecture/realtime/project-compatibility/regression review. PR #93 passed CI #298 before implementation merge; closure PR #94 passed CI #300 and was merged to `main`.
 
-### 11.4 — Mixer + plugin workflow [DESIGNED — IMPLEMENTATION NEXT]
+### 11.4 — Mixer + plugin workflow [IN PROGRESS]
 
-The bounded design is recorded in `PHASE11_4_DESIGN.md`. It productizes existing Track / Bus / Master mixing, routing/sends and plugin racks without changing DSP, routing/PDC, plugin-state architecture or `.flow` v11. Implementation is split into 11.4.1 Mixer visual hierarchy/target state, 11.4.2 routing/sends presentation, 11.4.3 plugin-rack workflow/insert state and 11.4.4 regression/closure audit.
+The bounded design is recorded in `PHASE11_4_DESIGN.md`. It productizes existing Track / Bus / Master mixing, routing/sends and plugin racks without changing DSP, routing/PDC, plugin-state architecture or `.flow` v11.
 
-The next implementation PR must contain **only 11.4.1** after this design PR is green and merged.
+- **11.4.1 Mixer visual hierarchy / target state — DONE.** PR #96 passed FLOWDAW CI #304 and was merged to `main` as `ec4ca74e`. Track / Bus / Master now have distinct target identity, stronger channel-strip hierarchy and more prominent live metering without changing mixer semantics.
+- **11.4.2 Routing / sends presentation — IN PROGRESS.** The presentation-only `JuceMixerRoutingPresentation.hpp` primitive landed through PR #97 after FLOWDAW CI #306 passed; merge commit `d4ad8a21`. It owns no project state and performs no DSP/audio/filesystem/plugin work. The remaining 11.4.2 task is to wire that primitive to the existing `juce_main.cpp` output/send controls while preserving the existing route/send callbacks and Undo/Redo semantics, then pass the required CI matrix.
+- **11.4.3 Plugin-rack workflow / insert state — NOT STARTED.** Must not begin before 11.4.2 is integrated and green.
+- **11.4.4 Regression / closure audit — NOT STARTED.**
 
 ### 11.5 — Piano Roll / Sequencer / Sampler / Automation
 
@@ -76,7 +79,9 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 - 11.1 is DONE.
 - 11.2 is DONE.
 - 11.3 is DONE; closure PR #94 passed FLOWDAW CI #300 and is merged.
-- 11.4 is designed in `PHASE11_4_DESIGN.md`; no 11.4 production implementation has started.
+- 11.4.1 is DONE; PR #96 passed FLOWDAW CI #304 and is merged.
+- 11.4.2 is active; its presentation primitive is merged from PR #97 after FLOWDAW CI #306, but integration with the existing routing/send controls is still pending.
+- No 11.4.3 work has started.
 - `.flow` remains v11 and the realtime contract is unchanged.
 
-Next gate: run the Phase 11.4 design PR CI. If green, merge it; then implement only **11.4.1 Mixer visual hierarchy and target state** on a fresh branch.
+Next gate: complete only the 11.4.2 wiring of `MixerRoutingPresentation` into the existing output/send controls, verify routing/send behavior and Undo/Redo are unchanged, and require green CI before merge. Do not start 11.4.3 until that gate passes.
