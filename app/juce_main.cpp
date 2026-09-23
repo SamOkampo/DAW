@@ -212,8 +212,8 @@ public:
         prevTake_.setButtonText("Take -");prevTake_.onClick=[this]{cycleTake(-1);};addAndMakeVisible(prevTake_);
         nextTake_.setButtonText("Take +");nextTake_.onClick=[this]{cycleTake(1);};addAndMakeVisible(nextTake_);
         refreshTrackChoice();refreshMixerTargets();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();syncChopControls();updateBpmLabel();setEditorMode(EditorMode::Arrangement);
-        note_.setText("Workflow: New / Template starts fast, the Sample Browser supports favorites/recent + drag/drop, and Ctrl/Cmd+K opens Commands. Autosave/recovery and all file I/O stay off the audio callback.",juce::dontSendNotification);note_.setColour(juce::Label::textColourId,juce::Colour(0xff9aa5b5));note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
-        meterLabel_.setText("Meters (TP estimate / sample peak / RMS): waiting for audio",juce::dontSendNotification);addAndMakeVisible(meterLabel_);
+        note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
+        meterLabel_.setText("MASTER • waiting for audio",juce::dontSendNotification);meterLabel_.setJustificationType(juce::Justification::centredRight);addAndMakeVisible(meterLabel_);
         applyShellTheme();
         setWantsKeyboardFocus(true);installShortcutListeners(*this);setSize(1440,1040);startTimer(100);if(firstRun){saveDeviceSettings();auto safe=juce::Component::SafePointer<MainComponent>(this);juce::MessageManager::callAsync([safe]()mutable{if(auto*self=safe.getComponent())self->showFirstRunOnboarding();});}
     }
@@ -302,10 +302,10 @@ public:
 private:
     void applyShellTheme(){
         title_.setColour(juce::Label::textColourId,juceui::FlowTheme::textPrimary());
-        status_.setColour(juce::Label::textColourId,juceui::FlowTheme::aqua().withAlpha(0.82f));
+        status_.setColour(juce::Label::textColourId,juceui::FlowTheme::aqua().withAlpha(0.88f));status_.setFont(juce::Font(13.0f,juce::Font::bold));
         projectLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textSecondary());
-        note_.setColour(juce::Label::textColourId,juceui::FlowTheme::textMuted());
-        meterLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textSecondary());
+        note_.setColour(juce::Label::textColourId,juceui::FlowTheme::textSecondary());note_.setFont(juce::Font(11.5f,juce::Font::bold));
+        meterLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textMuted());meterLabel_.setFont(juce::Font(11.0f));
         bpmLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textPrimary());
         for(auto*button:{&newProject_,&loadProject_,&importWav_,&saveProject_,&play_,&stop_,&bpmMinus_,&bpmPlus_,&undoButton_,&redoButton_,&commandPalette_,&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_})button->setLookAndFeel(&shellLookAndFeel_);
         for(auto*choice:{&patternChoice_,&sampleChoice_})choice->setLookAndFeel(&shellLookAndFeel_);
@@ -583,6 +583,7 @@ private:
         if(arrangement_)arrangement_->setVisible(arrangement);if(piano_)piano_->setVisible(piano);if(sequencer_)sequencer_->setVisible(step);if(automationAssist_)automationAssist_->setVisible(automation);if(sampler_)sampler_->setVisible(sampler);
         patternChoice_.setVisible(piano||step);sampleChoice_.setVisible(sampler);bankPrev_.setVisible(sampler);bankNext_.setVisible(sampler);
         arrangementTab_.setToggleState(arrangement,juce::dontSendNotification);pianoTab_.setToggleState(piano,juce::dontSendNotification);sequencerTab_.setToggleState(step,juce::dontSendNotification);automationTab_.setToggleState(automation,juce::dontSendNotification);samplerTab_.setToggleState(sampler,juce::dontSendNotification);
+        note_.setText(arrangement?"ARRANGE • Timeline + Browser":(piano?"EDIT • Piano Roll":(step?"EDIT • Step Sequencer":(automation?"AUTOMATE • Lanes + Assist":"SAMPLE • Chops + Pads"))),juce::dontSendNotification);
         if(piano||step)syncPatternEditors();if(automation&&automationAssist_)automationAssist_->refresh();if(sampler)syncSamplerSample();
     }
     void refreshPatternChoice(){
@@ -716,11 +717,10 @@ private:
         if(arrangement_){const auto tick=MusicalTime::samplesToTicks(engine_.playheadSamples(),project_.transport.bpm,engine_.sampleRate());arrangement_->setPlayheadTick(tick);}
         const auto meters=engine_.meterSnapshot();
         const auto db=[](float value){return value>0.000001f?20.0f*std::log10(value):-120.0f;};
-        meterLabel_.setText("Meters (TP est / sample / RMS) | Master L "
-                            +juce::String(db(meters.master.truePeakLeft),1)+" / "+juce::String(db(meters.master.samplePeakLeft),1)+" / "+juce::String(db(meters.master.rmsLeft),1)
-                            +" dB | R "+juce::String(db(meters.master.truePeakRight),1)+" / "+juce::String(db(meters.master.samplePeakRight),1)+" / "+juce::String(db(meters.master.rmsRight),1)
-                            +" dB | "+juce::String(static_cast<int>(meters.tracks.size()))+" track meter(s), "
-                            +juce::String(static_cast<int>(meters.buses.size()))+" bus meter(s)",juce::dontSendNotification);
+        meterLabel_.setText("MASTER • TP "
+                            +juce::String(std::max(db(meters.master.truePeakLeft),db(meters.master.truePeakRight)),1)
+                            +" dB • PK "+juce::String(std::max(db(meters.master.samplePeakLeft),db(meters.master.samplePeakRight)),1)
+                            +" dB • RMS "+juce::String(std::max(db(meters.master.rmsLeft),db(meters.master.rmsRight)),1)+" dB",juce::dontSendNotification);
         const int mixerTarget=mixerTargetChoice_.getSelectedId();bool found=false;
         if(mixerTarget==2){trackMeter_.setReading(meters.master);found=true;}
         else if(mixerTarget>=100){const int busIndex=selectedMixerBusIndex();if(busIndex>=0){const Id id=project_.buses[static_cast<std::size_t>(busIndex)].id;for(auto const&route:meters.buses)if(route.id==id){trackMeter_.setReading(route.level);found=true;break;}}}
