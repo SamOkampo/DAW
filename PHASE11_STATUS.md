@@ -26,43 +26,15 @@ The interface should feel intentional, readable and fast rather than exposing im
 
 ### 11.1 — FLOWDAW design system and shell architecture [DONE]
 
-Define the reusable visual language and workspace hierarchy before restyling individual production surfaces.
+Centralized JUCE-facing theme/design tokens, spacing/typography/state language, distinctive control treatment and shell hierarchy are integrated without project-format or audio-engine changes.
 
-Deliverables:
-1. A centralized JUCE-facing theme/design-token layer rather than scattered one-off colours and spacing values.
-2. Semantic tokens for background/surface/elevated surface, primary/secondary text, accent, selection, warning/error/success, borders and meters.
-3. A spacing scale and minimum interactive hit-area rules.
-4. Typography hierarchy for app title, workspace title, section title, labels, metadata and compact controls.
-5. Explicit component states: normal, hover, pressed, selected/active, disabled and focus-visible.
-6. Consistent corner/border treatment and icon/text-button rules.
-7. Shell hierarchy that separates top app/transport, workspace navigation, browser/inspector, central workspace, mixer/detail and secondary diagnostics.
-8. Minimum-window and high-DPI behavior documented before adaptive-panel work.
-9. No project-format or audio-engine change.
+### 11.2 — Application shell and transport [DONE]
 
-### 11.2 — Application shell and transport [ACTIVE]
+The shared theme, project/transport hierarchy, live Play/Pause treatment, BPM identity, workspace navigation, concise context and separate transient-status/Master-health layers are integrated. Final closure is recorded in `PHASE11_2_AUDIT.md`; CI #288 passed the required core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE matrix before PR #88 was merged.
 
-The theme foundation, shell hierarchy and live transport-state treatment are merged. One final bounded shell refinement remains before closure: **status/context hierarchy**.
+### 11.3 — Arrangement + Browser workspace [NEXT — DESIGN REQUIRED]
 
-Final bounded subpoint acceptance:
-- replace the long tutorial-style workflow sentence in the permanent shell with concise context appropriate to a professional DAW;
-- keep transient operation feedback in `status_` and meter health in `meterLabel_`, with clearly different visual priority;
-- preserve project identity, transport, BPM and workspace navigation as the dominant shell layers;
-- do not relocate plugin/device/diagnostic controls yet; that remains explicitly owned by 11.7;
-- no Arrangement, Mixer, Browser or editor-internal redesign;
-- no DSP, audio callback, routing, plugin graph, persistence or project-format behavior change;
-- `.flow` remains v11;
-- required CI matrix must be green before merge.
-
-Tests / verification:
-- build and existing core tests;
-- JUCE runtime smoke;
-- legacy X11 smoke;
-- Windows and macOS JUCE jobs;
-- code review confirming no audio-callback or serialization diff.
-
-### 11.3 — Arrangement + Browser workspace
-
-Clarify timeline hierarchy, track headers, clip selection, Browser integration, drag/drop targets, empty states and contextual actions.
+Clarify timeline hierarchy, track headers, clip selection, Browser integration, drag/drop targets, empty states and contextual actions. Before implementation, document a bounded 11.3 design with acceptance criteria, dependencies, tests and explicit exclusions. Preserve existing Arrangement editing semantics, Browser asynchronous preview/import behavior, Undo/Redo and realtime safety.
 
 ### 11.4 — Mixer + plugin workflow
 
@@ -99,15 +71,10 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 ## Current checkpoint
 
 - Phase 10 is closed and its final main-branch CI passed.
-- 11.1 design-system architecture is merged.
-- 11.2 theme foundation, shell hierarchy and live transport-state treatment are merged.
-- **The final 11.2 status/context implementation is active on `phase11-shell-status-context-impl`.**
-- Permanent tutorial copy has been removed from the Studio shell and replaced with concise workspace context: Arrange, Piano Roll, Step Sequencer, Automation or Sampler.
-- Transient operation feedback remains in `status_` with stronger visual priority.
-- Master meter health is now a compact, separate summary showing max-channel true peak, sample peak and RMS.
-- No plugin/device/diagnostic relocation is included; that remains owned by 11.7.
-- No Arrangement, Mixer, Browser or editor-internal redesign is included.
-- Audio callback, DSP, routing/PDC, plugin graph, persistence and serialization remain unchanged.
-- `.flow` remains v11.
+- 11.1 is DONE.
+- 11.2 is DONE; final implementation passed CI #288 and PR #88 was squash-merged to `main` as `8595508b9003d6b8bb7fcf77e37b8aca2e9eb8cd`.
+- `PHASE11_2_AUDIT.md` records PASS for architecture, realtime safety, `.flow` v11 compatibility, interaction hierarchy, visual identity and multiplatform CI.
+- No 11.3 implementation has started.
+- `.flow` remains v11 and the realtime contract is unchanged.
 
-Next gate: full required CI matrix. If green, merge this implementation and perform the bounded 11.2 closure audit before entering 11.3.
+Next step: design/document only the bounded 11.3 Arrangement + Browser workspace subpoint before implementation.
