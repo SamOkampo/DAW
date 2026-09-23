@@ -32,15 +32,15 @@ Centralized JUCE-facing theme/design tokens, spacing/typography/state language, 
 
 The shared theme, project/transport hierarchy, live Play/Pause treatment, BPM identity, workspace navigation, concise context and separate transient-status/Master-health layers are integrated. Final closure is recorded in `PHASE11_2_AUDIT.md`; CI #288 passed the required core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE matrix before PR #88 was merged. Closure PR #89 subsequently passed CI #290 and was merged to `main`.
 
-### 11.3 — Arrangement + Browser workspace [CLOSURE CANDIDATE]
+### 11.3 — Arrangement + Browser workspace [DONE]
 
-The bounded design is recorded in `PHASE11_3_DESIGN.md`. 11.3.1 Arrangement visual hierarchy, 11.3.2 Browser visual hierarchy and 11.3.3 Arrangement/Browser drag/drop integration are integrated into `main`. PR #93 passed FLOWDAW CI #298 across core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE before merge. The final architecture/realtime/project-compatibility/regression review is recorded in `PHASE11_3_AUDIT.md`.
+The bounded design is recorded in `PHASE11_3_DESIGN.md`. 11.3.1 Arrangement visual hierarchy, 11.3.2 Browser visual hierarchy and 11.3.3 Arrangement/Browser drag/drop integration are integrated. `PHASE11_3_AUDIT.md` records the architecture/realtime/project-compatibility/regression review. PR #93 passed CI #298 before implementation merge; closure PR #94 passed CI #300 and was merged to `main`.
 
-11.3 must not be marked DONE until the closure documentation PR itself passes CI and is merged.
+### 11.4 — Mixer + plugin workflow [DESIGNED — IMPLEMENTATION NEXT]
 
-### 11.4 — Mixer + plugin workflow
+The bounded design is recorded in `PHASE11_4_DESIGN.md`. It productizes existing Track / Bus / Master mixing, routing/sends and plugin racks without changing DSP, routing/PDC, plugin-state architecture or `.flow` v11. Implementation is split into 11.4.1 Mixer visual hierarchy/target state, 11.4.2 routing/sends presentation, 11.4.3 plugin-rack workflow/insert state and 11.4.4 regression/closure audit.
 
-Redesign Track/Bus/Master strips, metering, routing/sends and plugin-rack presentation while preserving the existing immutable realtime graph and PDC.
+The next implementation PR must contain **only 11.4.1** after this design PR is green and merged.
 
 ### 11.5 — Piano Roll / Sequencer / Sampler / Automation
 
@@ -75,11 +75,8 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 - Phase 10 is closed and its final main-branch CI passed.
 - 11.1 is DONE.
 - 11.2 is DONE.
-- 11.3.1, 11.3.2 and 11.3.3 are integrated into `main`.
-- PR #93 / 11.3.3 passed FLOWDAW CI #298 completely green before merge.
-- `PHASE11_3_AUDIT.md` records the bounded 11.3 closure review on `phase11-arrangement-browser-closure`.
-- 11.3 remains CLOSURE CANDIDATE until that documentation PR is green and merged.
-- 11.4 implementation has not started.
+- 11.3 is DONE; closure PR #94 passed FLOWDAW CI #300 and is merged.
+- 11.4 is designed in `PHASE11_4_DESIGN.md`; no 11.4 production implementation has started.
 - `.flow` remains v11 and the realtime contract is unchanged.
 
-Next gate: run the closure PR CI. If green, merge it and mark 11.3 DONE; only then design 11.4 before implementation.
+Next gate: run the Phase 11.4 design PR CI. If green, merge it; then implement only **11.4.1 Mixer visual hierarchy and target state** on a fresh branch.
