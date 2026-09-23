@@ -32,12 +32,21 @@ private:
     AudioMeterReading reading_;
 };
 
-class ArrangementComponent final:public juce::Component {
+class ArrangementComponent final:public juce::Component,public juce::DragAndDropTarget {
 public:
     using CommitFn=std::function<void(Project,std::string)>;
     ArrangementComponent(Project&project,CommitFn commit):project_(project),commit_(std::move(commit)){setMouseCursor(juce::MouseCursor::NormalCursor);setWantsKeyboardFocus(true);}
     void setPlayheadTick(Tick tick){playheadTick_=std::max<Tick>(0,tick);repaint();}
-    void projectChanged(){drag_=Hit{};dragFree_=false;setMouseCursor(juce::MouseCursor::NormalCursor);syncSelectedFromPrimarySelection();if(!selection_.empty()&&selected_.kind==Kind::None)selection_.clear();clampView();repaint();}
+    void projectChanged(){drag_=Hit{};dragFree_=false;externalDragActive_=false;setMouseCursor(juce::MouseCursor::NormalCursor);syncSelectedFromPrimarySelection();if(!selection_.empty()&&selected_.kind==Kind::None)selection_.clear();clampView();repaint();}
+
+    bool isInterestedInDragSource(const SourceDetails&details)override{const auto d=details.description.toString();return d.startsWith("flowdaw-sample:")&&d.substring(15).endsWithIgnoreCase(".wav");}
+    void itemDragEnter(const SourceDetails&details)override{externalDragActive_=isInterestedInDragSource(details);repaint();}
+    void itemDragMove(const SourceDetails&details)override{const bool interested=isInterestedInDragSource(details);if(interested!=externalDragActive_){externalDragActive_=interested;repaint();}}
+    void itemDragExit(const SourceDetails&)override{externalDragActive_=false;repaint();}
+    void itemDropped(const SourceDetails&details)override{
+        const bool accepted=isInterestedInDragSource(details);externalDragActive_=false;repaint();if(!accepted)return;
+        for(auto*p=getParentComponent();p!=nullptr;p=p->getParentComponent())if(auto*target=dynamic_cast<juce::DragAndDropTarget*>(p)){target->itemDropped(details);return;}
+    }
 
     void paint(juce::Graphics&g)override{
         const auto bounds=getLocalBounds();const int header=kHeaderHeight,labelWidth=kTrackHeaderWidth,rowHeight=kRowHeight;
@@ -83,6 +92,11 @@ public:
         if(playheadTick_>=viewStartTick_&&playheadTick_<=end){const int px=xForTick(playheadTick_);g.setColour(juce::Colour(0xff52d6c7).withAlpha(0.16f));g.fillRect(px-3,0,7,bounds.getHeight());g.setColour(juce::Colour(0xff85e8dc));g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));juce::Path marker;marker.addTriangle(static_cast<float>(px-5),0.0f,static_cast<float>(px+5),0.0f,static_cast<float>(px),8.0f);g.fillPath(marker);}
         juce::String hint="SCROLL • Wheel    ZOOM • Ctrl/Cmd+Wheel    FREE MOVE • Alt-drag";
         if(drag_.kind!=Kind::None){const Tick start=currentStart();const int guideX=xForTick(start);const Tick barTicks=kPPQ*4;g.setColour(juce::Colour(0xff85e8dc));g.drawVerticalLine(guideX,static_cast<float>(header),static_cast<float>(bounds.getBottom()));const int bar=static_cast<int>(start/barTicks)+1;const int beat=static_cast<int>((start%barTicks)/kPPQ)+1;hint="MOVE • BAR "+juce::String(bar)+" • BEAT "+juce::String(beat)+(dragFree_?" • FREE":" • SNAP 1/16");}
+        if(externalDragActive_){
+            auto target=juce::Rectangle<float>(static_cast<float>(labelWidth+8),static_cast<float>(header+8),static_cast<float>(std::max(1,bounds.getWidth()-labelWidth-16)),static_cast<float>(std::max(1,bounds.getHeight()-header-16)));
+            g.setColour(juce::Colour(0xff52d6c7).withAlpha(0.08f));g.fillRoundedRectangle(target,10.0f);g.setColour(juce::Colour(0xff85e8dc).withAlpha(0.95f));g.drawRoundedRectangle(target.reduced(1.0f),10.0f,2.0f);
+            auto badge=juce::Rectangle<float>(target.getCentreX()-105.0f,target.getY()+12.0f,210.0f,28.0f);juce::ColourGradient badgeFill(juce::Colour(0xff8f4cff).withAlpha(0.94f),badge.getX(),badge.getY(),juce::Colour(0xff52d6c7).withAlpha(0.90f),badge.getRight(),badge.getBottom(),false);g.setGradientFill(badgeFill);g.fillRoundedRectangle(badge,7.0f);g.setColour(juce::Colours::white);g.setFont(juce::Font(11.0f,juce::Font::bold));g.drawText("DROP WAV • IMPORT TO ARRANGEMENT",badge.toNearestInt(),juce::Justification::centred,false);hint="DROP • Existing FLOWDAW import path";
+        }
         g.setColour(juce::Colour(0xffbbb7c9));g.setFont(10.0f);g.drawFittedText(hint,labelWidth+8,3,std::max(1,bounds.getWidth()-labelWidth-16),18,juce::Justification::centredRight,1);
     }
 
@@ -118,7 +132,7 @@ private:
     void deleteSelected(){if(selection_.empty())return;Project before=project_;const auto selectedCount=selection_.size();bool changed=false;for(auto&t:project_.tracks){const auto clipsBefore=t.clips.size();std::erase_if(t.clips,[&](const Clip&clip){return selection_.contains(ArrangementSelection::Kind::AudioClip,t.id,clip.id);});const auto patternsBefore=t.patternClips.size();std::erase_if(t.patternClips,[&](const PatternPlacement&placement){return selection_.contains(ArrangementSelection::Kind::PatternClip,t.id,placement.id);});changed=changed||clipsBefore!=t.clips.size()||patternsBefore!=t.patternClips.size();}if(!changed)return;drag_=Hit{};selected_=Hit{};selection_.clear();if(commit_)commit_(std::move(before),selectedCount>1?"Delete arrangement blocks":"Delete arrangement block");repaint();}
     void duplicateSelected(){if(selected_.track>=project_.tracks.size())return;Project before=project_;auto&t=project_.tracks[selected_.track];if(selected_.kind==Kind::Audio&&selected_.index<t.clips.size()){auto copy=t.clips[selected_.index];copy.id=nextId();copy.startTick+=std::max<Tick>(copy.lengthTicks,kPPQ/2);t.clips.push_back(copy);selected_={Kind::Audio,selected_.track,t.clips.size()-1};}else if(selected_.kind==Kind::Pattern&&selected_.index<t.patternClips.size()){auto copy=t.patternClips[selected_.index];copy.id=nextId();Tick len=kPPQ;if(auto*p=project_.findPattern(copy.patternId))len=p->lengthTicks()*std::max(1,copy.repeats);copy.startTick+=len;t.patternClips.push_back(copy);selected_={Kind::Pattern,selected_.track,t.patternClips.size()-1};}else return;syncSelectionFromHit(selected_);if(commit_)commit_(std::move(before),"Duplicate arrangement block");repaint();}
     void adjustRepeats(int delta){if(selected_.kind!=Kind::Pattern||selected_.track>=project_.tracks.size())return;auto&t=project_.tracks[selected_.track];if(selected_.index>=t.patternClips.size())return;const int next=std::clamp(t.patternClips[selected_.index].repeats+delta,1,64);if(next==t.patternClips[selected_.index].repeats)return;Project before=project_;t.patternClips[selected_.index].repeats=next;if(commit_)commit_(std::move(before),"Change pattern repeats");repaint();}
-    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0,viewStartTick_=0,viewSpanTicks_=kPPQ*32;int anchorX_=0;bool dragFree_=false;Hit drag_,selected_;ArrangementSelection selection_;Project before_;
+    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0,viewStartTick_=0,viewSpanTicks_=kPPQ*32;int anchorX_=0;bool dragFree_=false,externalDragActive_=false;Hit drag_,selected_;ArrangementSelection selection_;Project before_;
 };
 
 } // namespace flowdaw::juceui
