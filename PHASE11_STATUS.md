@@ -32,11 +32,11 @@ Centralized JUCE-facing theme/design tokens, spacing/typography/state language, 
 
 The shared theme, project/transport hierarchy, live Play/Pause treatment, BPM identity, workspace navigation, concise context and separate transient-status/Master-health layers are integrated. Final closure is recorded in `PHASE11_2_AUDIT.md`; CI #288 passed the required core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE matrix before PR #88 was merged. Closure PR #89 subsequently passed CI #290 and was merged to `main`.
 
-### 11.3 — Arrangement + Browser workspace [DESIGNED — IMPLEMENTATION NEXT]
+### 11.3 — Arrangement + Browser workspace [CLOSURE CANDIDATE]
 
-The bounded design is recorded in `PHASE11_3_DESIGN.md`. It preserves existing Arrangement editing semantics, Browser asynchronous preview/import behavior, Undo/Redo, `.flow` v11 and realtime safety. Implementation is split into four focused blocks: 11.3.1 Arrangement visual hierarchy/track/clip state; 11.3.2 Browser visual hierarchy/selection state; 11.3.3 Arrangement/Browser drag/drop affordance using the existing import route; 11.3.4 regression and closure audit.
+The bounded design is recorded in `PHASE11_3_DESIGN.md`. 11.3.1 Arrangement visual hierarchy, 11.3.2 Browser visual hierarchy and 11.3.3 Arrangement/Browser drag/drop integration are integrated into `main`. PR #93 passed FLOWDAW CI #298 across core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE before merge. The final architecture/realtime/project-compatibility/regression review is recorded in `PHASE11_3_AUDIT.md`.
 
-The next implementation PR must contain **only 11.3.1**.
+11.3 must not be marked DONE until the closure documentation PR itself passes CI and is merged.
 
 ### 11.4 — Mixer + plugin workflow
 
@@ -74,9 +74,12 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 
 - Phase 10 is closed and its final main-branch CI passed.
 - 11.1 is DONE.
-- 11.2 is DONE; implementation passed CI #288, closure PR #89 passed CI #290 and is merged.
-- 11.3 design is complete on `phase11-arrangement-browser-design` in `PHASE11_3_DESIGN.md`.
-- No 11.3 production implementation has started.
+- 11.2 is DONE.
+- 11.3.1, 11.3.2 and 11.3.3 are integrated into `main`.
+- PR #93 / 11.3.3 passed FLOWDAW CI #298 completely green before merge.
+- `PHASE11_3_AUDIT.md` records the bounded 11.3 closure review on `phase11-arrangement-browser-closure`.
+- 11.3 remains CLOSURE CANDIDATE until that documentation PR is green and merged.
+- 11.4 implementation has not started.
 - `.flow` remains v11 and the realtime contract is unchanged.
 
-Next step after this design is integrated: implement only **11.3.1 Arrangement visual hierarchy and track/clip state** on a fresh branch.
+Next gate: run the closure PR CI. If green, merge it and mark 11.3 DONE; only then design 11.4 before implementation.
