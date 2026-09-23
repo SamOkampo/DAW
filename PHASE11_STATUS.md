@@ -30,11 +30,13 @@ Centralized JUCE-facing theme/design tokens, spacing/typography/state language, 
 
 ### 11.2 — Application shell and transport [DONE]
 
-The shared theme, project/transport hierarchy, live Play/Pause treatment, BPM identity, workspace navigation, concise context and separate transient-status/Master-health layers are integrated. Final closure is recorded in `PHASE11_2_AUDIT.md`; CI #288 passed the required core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE matrix before PR #88 was merged.
+The shared theme, project/transport hierarchy, live Play/Pause treatment, BPM identity, workspace navigation, concise context and separate transient-status/Master-health layers are integrated. Final closure is recorded in `PHASE11_2_AUDIT.md`; CI #288 passed the required core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE matrix before PR #88 was merged. Closure PR #89 subsequently passed CI #290 and was merged to `main`.
 
-### 11.3 — Arrangement + Browser workspace [NEXT — DESIGN REQUIRED]
+### 11.3 — Arrangement + Browser workspace [DESIGNED — IMPLEMENTATION NEXT]
 
-Clarify timeline hierarchy, track headers, clip selection, Browser integration, drag/drop targets, empty states and contextual actions. Before implementation, document a bounded 11.3 design with acceptance criteria, dependencies, tests and explicit exclusions. Preserve existing Arrangement editing semantics, Browser asynchronous preview/import behavior, Undo/Redo and realtime safety.
+The bounded design is recorded in `PHASE11_3_DESIGN.md`. It preserves existing Arrangement editing semantics, Browser asynchronous preview/import behavior, Undo/Redo, `.flow` v11 and realtime safety. Implementation is split into four focused blocks: 11.3.1 Arrangement visual hierarchy/track/clip state; 11.3.2 Browser visual hierarchy/selection state; 11.3.3 Arrangement/Browser drag/drop affordance using the existing import route; 11.3.4 regression and closure audit.
+
+The next implementation PR must contain **only 11.3.1**.
 
 ### 11.4 — Mixer + plugin workflow
 
@@ -72,9 +74,9 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 
 - Phase 10 is closed and its final main-branch CI passed.
 - 11.1 is DONE.
-- 11.2 is DONE; final implementation passed CI #288 and PR #88 was squash-merged to `main` as `8595508b9003d6b8bb7fcf77e37b8aca2e9eb8cd`.
-- `PHASE11_2_AUDIT.md` records PASS for architecture, realtime safety, `.flow` v11 compatibility, interaction hierarchy, visual identity and multiplatform CI.
-- No 11.3 implementation has started.
+- 11.2 is DONE; implementation passed CI #288, closure PR #89 passed CI #290 and is merged.
+- 11.3 design is complete on `phase11-arrangement-browser-design` in `PHASE11_3_DESIGN.md`.
+- No 11.3 production implementation has started.
 - `.flow` remains v11 and the realtime contract is unchanged.
 
-Next step: design/document only the bounded 11.3 Arrangement + Browser workspace subpoint before implementation.
+Next step after this design is integrated: implement only **11.3.1 Arrangement visual hierarchy and track/clip state** on a fresh branch.
