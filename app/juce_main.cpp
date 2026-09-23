@@ -162,7 +162,10 @@ public:
         mixerVolumeLabel_.setText("VOLUME",juce::dontSendNotification);mixerPanLabel_.setText("PAN",juce::dontSendNotification);addAndMakeVisible(mixerVolumeLabel_);addAndMakeVisible(mixerPanLabel_);
         muteTrack_.setButtonText("Mute");muteTrack_.onClick=[this]{toggleMixerFlag(false);};addAndMakeVisible(muteTrack_);
         soloTrack_.setButtonText("Solo");soloTrack_.onClick=[this]{toggleMixerFlag(true);};addAndMakeVisible(soloTrack_);
-        trackMeterLabel_.setText("CHANNEL METER",juce::dontSendNotification);addAndMakeVisible(trackMeterLabel_);addAndMakeVisible(trackMeter_);
+        trackMeterLabel_.setText("CHANNEL METER",juce::dontSendNotification);trackMeterLabel_.setFont(juce::Font(11.0f,juce::Font::bold));trackMeterLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::aqua());addAndMakeVisible(trackMeterLabel_);addAndMakeVisible(trackMeter_);
+        mixerTargetChoice_.setLookAndFeel(&shellLookAndFeel_);mixerVolume_.setLookAndFeel(&shellLookAndFeel_);mixerPan_.setLookAndFeel(&shellLookAndFeel_);muteTrack_.setLookAndFeel(&shellLookAndFeel_);soloTrack_.setLookAndFeel(&shellLookAndFeel_);
+        mixerVolumeLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textMuted());mixerPanLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textMuted());
+        muteTrack_.setColour(juce::TextButton::buttonOnColourId,juceui::FlowTheme::accentHot());soloTrack_.setColour(juce::TextButton::buttonOnColourId,juceui::FlowTheme::aqua());
         mixerRoutingLabel_.setText("ROUTING / SENDS",juce::dontSendNotification);mixerRoutingLabel_.setColour(juce::Label::textColourId,juce::Colour(0xffaeb8c8));addAndMakeVisible(mixerRoutingLabel_);
         mixerOutputChoice_.setTextWhenNothingSelected("Output route");mixerOutputChoice_.onChange=[this]{if(!suppressMixerCallbacks_)setMixerOutputRoute();};addAndMakeVisible(mixerOutputChoice_);
         mixerSendBusChoice_.setTextWhenNothingSelected("Send bus");mixerSendBusChoice_.onChange=[this]{if(!suppressMixerCallbacks_)syncMixerSendControls();};addAndMakeVisible(mixerSendBusChoice_);
@@ -242,6 +245,20 @@ public:
         auto signature=juce::Rectangle<float>(shell.getX()+10.0f,shell.getY()+12.0f,5.0f,76.0f);
         juce::ColourGradient signatureFill(juceui::FlowTheme::accentHot(),signature.getX(),signature.getY(),juceui::FlowTheme::aqua(),signature.getX(),signature.getBottom(),false);
         g.setGradientFill(signatureFill);g.fillRoundedRectangle(signature,2.5f);
+
+        if(mixerSectionLabel_.isShowing()){
+            auto mixerDeck=mixerSectionLabel_.getBounds().getUnion(trackMeter_.getBounds()).expanded(7,5).toFloat();
+            juce::ColourGradient mixerFill(juce::Colour(0xff171323).withAlpha(0.97f),mixerDeck.getX(),mixerDeck.getY(),juce::Colour(0xff08171b).withAlpha(0.96f),mixerDeck.getRight(),mixerDeck.getBottom(),false);
+            mixerFill.addColour(0.48,juce::Colour(0xff111a27).withAlpha(0.98f));
+            g.setGradientFill(mixerFill);g.fillRoundedRectangle(mixerDeck,12.0f);
+            g.setColour(juceui::FlowTheme::borderSubtle().withAlpha(0.86f));g.drawRoundedRectangle(mixerDeck,12.0f,1.0f);
+            auto targetRail=juce::Rectangle<float>(mixerDeck.getX(),mixerDeck.getY(),5.0f,mixerDeck.getHeight());
+            juce::Colour targetColour=juceui::FlowTheme::accentHot();
+            const int target=mixerTargetChoice_.getSelectedId();if(target==2)targetColour=juceui::FlowTheme::aqua();else if(target>=100)targetColour=juce::Colour(0xff8d78ff);
+            juce::ColourGradient rail(targetColour.withAlpha(0.95f),targetRail.getX(),targetRail.getY(),targetColour.withAlpha(0.30f),targetRail.getX(),targetRail.getBottom(),false);
+            g.setGradientFill(rail);g.fillRoundedRectangle(targetRail,2.5f);
+            g.setColour(targetColour.withAlpha(0.08f));g.fillRoundedRectangle(mixerDeck.reduced(7.0f),9.0f);
+        }
     }
     void resized()override{
         auto r=getLocalBounds().reduced(16);
@@ -296,7 +313,7 @@ public:
         auto recordTools=r.removeFromTop(38);stopPreview_.setBounds(recordTools.removeFromLeft(88).reduced(3));recChops_.setBounds(recordTools.removeFromLeft(88).reduced(3));chopGridChoice_.setBounds(recordTools.removeFromLeft(92).reduced(3));chopQuantizeStrength_.setBounds(recordTools.removeFromLeft(160).reduced(3));chopHumanizeStrength_.setBounds(recordTools.removeFromLeft(160).reduced(3));chopReset_.setBounds(recordTools.removeFromLeft(82).reduced(3));recAudio_.setBounds(recordTools.removeFromLeft(88).reduced(3));monitorInput_.setBounds(recordTools.removeFromLeft(80).reduced(3));prevTake_.setBounds(recordTools.removeFromLeft(70).reduced(3));nextTake_.setBounds(recordTools.removeFromLeft(70).reduced(3));padChokeMinus_.setBounds(recordTools.removeFromLeft(74).reduced(3));padChokePlus_.setBounds(recordTools.removeFromLeft(74).reduced(3));
 
         r.removeFromTop(4);auto editorArea=r.removeFromTop(320);auto browserArea=editorArea.removeFromLeft(std::min(280,editorArea.getWidth()/3));if(sampleBrowser_)sampleBrowser_->setBounds(browserArea.reduced(0,2));editorArea.removeFromLeft(6);if(arrangement_)arrangement_->setBounds(editorArea);if(piano_)piano_->setBounds(editorArea);if(sampler_)sampler_->setBounds(editorArea);if(sequencer_)sequencer_->setBounds(editorArea);if(automationAssist_)automationAssist_->setBounds(editorArea);
-        auto mixer=r.removeFromTop(162);auto mixerHeader=mixer.removeFromTop(34);mixerSectionLabel_.setBounds(mixerHeader.removeFromLeft(220).reduced(3));mixerTargetChoice_.setBounds(mixerHeader.removeFromLeft(320).reduced(3));auto mixerControls=mixer.removeFromTop(38);mixerVolumeLabel_.setBounds(mixerControls.removeFromLeft(72).reduced(3));mixerVolume_.setBounds(mixerControls.removeFromLeft(260).reduced(3));mixerPanLabel_.setBounds(mixerControls.removeFromLeft(45).reduced(3));mixerPan_.setBounds(mixerControls.removeFromLeft(220).reduced(3));muteTrack_.setBounds(mixerControls.removeFromLeft(72).reduced(3));soloTrack_.setBounds(mixerControls.removeFromLeft(72).reduced(3));auto mixerRouting=mixer.removeFromTop(42);mixerRoutingLabel_.setBounds(mixerRouting.removeFromLeft(120).reduced(3));mixerOutputChoice_.setBounds(mixerRouting.removeFromLeft(220).reduced(3));mixerSendBusChoice_.setBounds(mixerRouting.removeFromLeft(200).reduced(3));mixerSendGain_.setBounds(mixerRouting.removeFromLeft(180).reduced(3));mixerSendPre_.setBounds(mixerRouting.removeFromLeft(58).reduced(3));mixerSetSend_.setBounds(mixerRouting.removeFromLeft(92).reduced(3));mixerRemoveSend_.setBounds(mixerRouting.removeFromLeft(82).reduced(3));auto mixerMeter=mixer;trackMeterLabel_.setBounds(mixerMeter.removeFromLeft(120).reduced(3));trackMeter_.setBounds(mixerMeter.reduced(3));
+        auto mixer=r.removeFromTop(176);auto mixerHeader=mixer.removeFromTop(38);mixerHeader.removeFromLeft(8);mixerSectionLabel_.setBounds(mixerHeader.removeFromLeft(270).reduced(5,3));mixerTargetChoice_.setBounds(mixerHeader.removeFromLeft(300).reduced(5,3));auto mixerControls=mixer.removeFromTop(42);mixerControls.removeFromLeft(8);mixerVolumeLabel_.setBounds(mixerControls.removeFromLeft(72).reduced(4));mixerVolume_.setBounds(mixerControls.removeFromLeft(280).reduced(4));mixerPanLabel_.setBounds(mixerControls.removeFromLeft(52).reduced(4));mixerPan_.setBounds(mixerControls.removeFromLeft(240).reduced(4));mixerControls.removeFromLeft(10);muteTrack_.setBounds(mixerControls.removeFromLeft(78).reduced(4));soloTrack_.setBounds(mixerControls.removeFromLeft(78).reduced(4));auto mixerRouting=mixer.removeFromTop(40);mixerRoutingLabel_.setBounds(mixerRouting.removeFromLeft(120).reduced(3));mixerOutputChoice_.setBounds(mixerRouting.removeFromLeft(220).reduced(3));mixerSendBusChoice_.setBounds(mixerRouting.removeFromLeft(200).reduced(3));mixerSendGain_.setBounds(mixerRouting.removeFromLeft(180).reduced(3));mixerSendPre_.setBounds(mixerRouting.removeFromLeft(58).reduced(3));mixerSetSend_.setBounds(mixerRouting.removeFromLeft(92).reduced(3));mixerRemoveSend_.setBounds(mixerRouting.removeFromLeft(82).reduced(3));auto mixerMeter=mixer;trackMeterLabel_.setBounds(mixerMeter.removeFromLeft(120).reduced(3));trackMeter_.setBounds(mixerMeter.reduced(3));
         r.removeFromTop(6);selector_->setBounds(r);
     }
 private:
@@ -314,7 +331,7 @@ private:
     void clearShellTheme(){
         for(auto*button:{&newProject_,&loadProject_,&importWav_,&saveProject_,&play_,&stop_,&bpmMinus_,&bpmPlus_,&undoButton_,&redoButton_,&commandPalette_,&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_})button->setLookAndFeel(nullptr);
         for(auto*choice:{&patternChoice_,&sampleChoice_})choice->setLookAndFeel(nullptr);
-        bpmLabel_.setLookAndFeel(nullptr);projectLabel_.setLookAndFeel(nullptr);
+        bpmLabel_.setLookAndFeel(nullptr);projectLabel_.setLookAndFeel(nullptr);mixerTargetChoice_.setLookAndFeel(nullptr);mixerVolume_.setLookAndFeel(nullptr);mixerPan_.setLookAndFeel(nullptr);muteTrack_.setLookAndFeel(nullptr);soloTrack_.setLookAndFeel(nullptr);
     }
     void audioDeviceAboutToStart(juce::AudioIODevice*device)override{if(!device)return;engine_.configureExternalDevice(static_cast<int>(device->getCurrentSampleRate()),static_cast<unsigned long>(device->getCurrentBufferSizeSamples()),device->getActiveInputChannels().countNumberOfSetBits()>0);engine_.publish(project_);}
     void audioDeviceStopped()override{engine_.configureExternalDevice(engine_.sampleRate(),256,false);}
@@ -621,7 +638,8 @@ private:
     }
     void syncMixerControls(){
         suppressMixerCallbacks_=true;const bool master=mixerTargetChoice_.getSelectedId()==2;auto*channel=selectedMixerChannel();const bool valid=master||channel!=nullptr;
-        mixerSectionLabel_.setText("MIXER • "+activeMixerName(),juce::dontSendNotification);mixerVolume_.setEnabled(valid);mixerPan_.setEnabled(channel!=nullptr);muteTrack_.setEnabled(channel!=nullptr);soloTrack_.setEnabled(channel!=nullptr);
+        mixerSectionLabel_.setText("MIXER  /  "+activeMixerName(),juce::dontSendNotification);mixerVolume_.setEnabled(valid);mixerPan_.setEnabled(channel!=nullptr);muteTrack_.setEnabled(channel!=nullptr);soloTrack_.setEnabled(channel!=nullptr);
+        const int target=mixerTargetChoice_.getSelectedId();const auto targetColour=target==2?juceui::FlowTheme::aqua():(target>=100?juce::Colour(0xff8d78ff):juceui::FlowTheme::accentHot());mixerSectionLabel_.setColour(juce::Label::textColourId,targetColour.brighter(0.18f));trackMeterLabel_.setColour(juce::Label::textColourId,targetColour);mixerSectionLabel_.setFont(juce::Font(14.5f,juce::Font::bold));
         if(master){mixerVolume_.setValue(project_.master.volume,juce::dontSendNotification);mixerPan_.setValue(0.0,juce::dontSendNotification);muteTrack_.setButtonText("Mute");soloTrack_.setButtonText("Solo");trackMeterLabel_.setText("MASTER METER",juce::dontSendNotification);}
         else if(channel){mixerVolume_.setValue(channel->volume,juce::dontSendNotification);mixerPan_.setValue(channel->pan,juce::dontSendNotification);muteTrack_.setButtonText(channel->mute?"Muted":"Mute");soloTrack_.setButtonText(channel->solo?"Soloed":"Solo");trackMeterLabel_.setText(mixerTargetChoice_.getSelectedId()>=100?"BUS METER":"TRACK METER",juce::dontSendNotification);}
         else{mixerVolume_.setValue(1.0,juce::dontSendNotification);mixerPan_.setValue(0.0,juce::dontSendNotification);muteTrack_.setButtonText("Mute");soloTrack_.setButtonText("Solo");trackMeterLabel_.setText("CHANNEL METER",juce::dontSendNotification);trackMeter_.clear();}
