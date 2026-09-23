@@ -100,11 +100,14 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 
 - Phase 10 is closed and its final main-branch CI passed.
 - 11.1 design-system architecture is merged.
-- 11.2 theme foundation and shell/transport hierarchy are merged.
-- PR #86 transport-state polish passed full CI #282 and was squash-merged to `main` as `fda2dd67`.
-- The next and final bounded 11.2 subpoint is status/context hierarchy; its scope, acceptance criteria, tests and exclusions are now explicitly documented before implementation.
-- Technical plugin/rack/device surfaces remain available and unchanged; relocating them belongs to 11.7.
-- Arrangement, Mixer, Browser internals, Piano Roll, Sequencer, Sampler, Automation, DSP and serialization remain outside this block.
-- `.flow` remains v11 and the realtime contract is unchanged.
+- 11.2 theme foundation, shell hierarchy and live transport-state treatment are merged.
+- **The final 11.2 status/context implementation is active on `phase11-shell-status-context-impl`.**
+- Permanent tutorial copy has been removed from the Studio shell and replaced with concise workspace context: Arrange, Piano Roll, Step Sequencer, Automation or Sampler.
+- Transient operation feedback remains in `status_` with stronger visual priority.
+- Master meter health is now a compact, separate summary showing max-channel true peak, sample peak and RMS.
+- No plugin/device/diagnostic relocation is included; that remains owned by 11.7.
+- No Arrangement, Mixer, Browser or editor-internal redesign is included.
+- Audio callback, DSP, routing/PDC, plugin graph, persistence and serialization remain unchanged.
+- `.flow` remains v11.
 
-Next step: implement only the documented status/context refinement on `phase11-shell-status-context`, run the required CI matrix, merge only if green, then perform the 11.2 closure audit before starting 11.3.
+Next gate: full required CI matrix. If green, merge this implementation and perform the bounded 11.2 closure audit before entering 11.3.
