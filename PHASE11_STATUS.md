@@ -101,13 +101,11 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 - Phase 10 is closed and its final main-branch CI passed.
 - 11.1 design-system architecture is merged.
 - 11.2 theme foundation, shell hierarchy and live transport-state treatment are merged.
-- **The final 11.2 status/context implementation is active on `phase11-shell-status-context-impl`.**
-- Permanent tutorial copy has been removed from the Studio shell and replaced with concise workspace context: Arrange, Piano Roll, Step Sequencer, Automation or Sampler.
-- Transient operation feedback remains in `status_` with stronger visual priority.
-- Master meter health is now a compact, separate summary showing max-channel true peak, sample peak and RMS.
-- No plugin/device/diagnostic relocation is included; that remains owned by 11.7.
-- No Arrangement, Mixer, Browser or editor-internal redesign is included.
-- Audio callback, DSP, routing/PDC, plugin graph, persistence and serialization remain unchanged.
+- PR #88 contains the final 11.2 status/context implementation and remains gated by CI #288.
+- **The bounded 11.2 closure audit is prepared on `phase11-shell-closure-audit` as `PHASE11_2_AUDIT.md`.**
+- Static audit currently passes architecture, diff-boundary, realtime-safety, project-compatibility, interaction hierarchy and visual-identity checks.
+- The audit remains PRE-CLOSURE and must not mark 11.2 DONE until CI #288 is fully green and PR #88 is integrated into `main`.
+- No 11.3 implementation has started.
 - `.flow` remains v11.
 
-Next gate: full required CI matrix. If green, merge this implementation and perform the bounded 11.2 closure audit before entering 11.3.
+Next gate: finish CI #288. If fully green, merge PR #88, finalize the 11.2 audit/status on top of the integrated main, and open the focused closure PR. If any required job fails, correct only that failure before closure.
