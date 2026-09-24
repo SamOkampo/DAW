@@ -3,7 +3,7 @@
 #include "JuceTheme.hpp"
 #include <juce_gui_basics/juce_gui_basics.h>
 
-namespace juceui {
+namespace flowdaw::juceui {
 
 // Presentation-only helper for the existing FLOWDAW Track routing/send controls.
 // It owns no project state and performs no audio, filesystem or plugin work.
@@ -77,4 +77,4 @@ public:
     }
 };
 
-} // namespace juceui
+} // namespace flowdaw::juceui
