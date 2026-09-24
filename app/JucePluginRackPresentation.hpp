@@ -47,6 +47,35 @@ public:
         remove.setColour(juce::TextButton::buttonOnColourId, FlowTheme::accentHot());
     }
 
+    static void layout(juce::Rectangle<int> row,
+                       juce::ComboBox& target,
+                       juce::ComboBox& insert,
+                       juce::Slider& wet,
+                       juce::Slider& parameter,
+                       juce::Label& parameterLabel,
+                       juce::TextButton& moveUp,
+                       juce::TextButton& moveDown,
+                       juce::TextButton& enabled,
+                       juce::TextButton& bypass,
+                       juce::TextButton& remove,
+                       juce::TextButton& editor)
+    {
+        row.removeFromLeft(8);
+        target.setBounds(row.removeFromLeft(184).reduced(4));
+        insert.setBounds(row.removeFromLeft(194).reduced(4));
+        moveUp.setBounds(row.removeFromLeft(76).reduced(4));
+        moveDown.setBounds(row.removeFromLeft(76).reduced(4));
+        enabled.setBounds(row.removeFromLeft(82).reduced(4));
+        bypass.setBounds(row.removeFromLeft(82).reduced(4));
+        remove.setBounds(row.removeFromLeft(82).reduced(4));
+        editor.setBounds(row.removeFromLeft(112).reduced(4));
+
+        auto parameterArea = row.reduced(4);
+        parameterLabel.setBounds(parameterArea.removeFromTop(16));
+        wet.setBounds(parameterArea.removeFromTop(24));
+        parameter.setBounds(parameterArea);
+    }
+
     static void clear(juce::ComboBox& target,
                       juce::ComboBox& insert,
                       juce::Slider& wet,
