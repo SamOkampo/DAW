@@ -17,6 +17,7 @@
 #include "JuceAutomationAssistSurface.hpp"
 #include "JuceSampleBrowser.hpp"
 #include "JuceTheme.hpp"
+#include "JuceMixerRoutingPresentation.hpp"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -166,13 +167,14 @@ public:
         mixerTargetChoice_.setLookAndFeel(&shellLookAndFeel_);mixerVolume_.setLookAndFeel(&shellLookAndFeel_);mixerPan_.setLookAndFeel(&shellLookAndFeel_);muteTrack_.setLookAndFeel(&shellLookAndFeel_);soloTrack_.setLookAndFeel(&shellLookAndFeel_);
         mixerVolumeLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textMuted());mixerPanLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textMuted());
         muteTrack_.setColour(juce::TextButton::buttonOnColourId,juceui::FlowTheme::accentHot());soloTrack_.setColour(juce::TextButton::buttonOnColourId,juceui::FlowTheme::aqua());
-        mixerRoutingLabel_.setText("ROUTING / SENDS",juce::dontSendNotification);mixerRoutingLabel_.setColour(juce::Label::textColourId,juce::Colour(0xffaeb8c8));addAndMakeVisible(mixerRoutingLabel_);
-        mixerOutputChoice_.setTextWhenNothingSelected("Output route");mixerOutputChoice_.onChange=[this]{if(!suppressMixerCallbacks_)setMixerOutputRoute();};addAndMakeVisible(mixerOutputChoice_);
-        mixerSendBusChoice_.setTextWhenNothingSelected("Send bus");mixerSendBusChoice_.onChange=[this]{if(!suppressMixerCallbacks_)syncMixerSendControls();};addAndMakeVisible(mixerSendBusChoice_);
-        mixerSendGain_.setRange(0.0,2.0,0.01);mixerSendGain_.setSliderStyle(juce::Slider::LinearHorizontal);mixerSendGain_.setTextBoxStyle(juce::Slider::TextBoxRight,false,64,22);mixerSendGain_.setTextValueSuffix(" send");addAndMakeVisible(mixerSendGain_);
-        mixerSendPre_.setButtonText("Pre");addAndMakeVisible(mixerSendPre_);
-        mixerSetSend_.setButtonText("Set Send");mixerSetSend_.onClick=[this]{setMixerSend();};addAndMakeVisible(mixerSetSend_);
-        mixerRemoveSend_.setButtonText("Remove");mixerRemoveSend_.onClick=[this]{removeMixerSend();};addAndMakeVisible(mixerRemoveSend_);
+        addAndMakeVisible(mixerRoutingLabel_);
+        mixerOutputChoice_.onChange=[this]{if(!suppressMixerCallbacks_)setMixerOutputRoute();};addAndMakeVisible(mixerOutputChoice_);
+        mixerSendBusChoice_.onChange=[this]{if(!suppressMixerCallbacks_)syncMixerSendControls();};addAndMakeVisible(mixerSendBusChoice_);
+        mixerSendGain_.setRange(0.0,2.0,0.01);mixerSendGain_.setSliderStyle(juce::Slider::LinearHorizontal);mixerSendGain_.setTextBoxStyle(juce::Slider::TextBoxRight,false,64,22);addAndMakeVisible(mixerSendGain_);
+        addAndMakeVisible(mixerSendPre_);
+        mixerSetSend_.onClick=[this]{setMixerSend();};addAndMakeVisible(mixerSetSend_);
+        mixerRemoveSend_.onClick=[this]{removeMixerSend();};addAndMakeVisible(mixerRemoveSend_);
+        juceui::MixerRoutingPresentation::style(mixerRoutingLabel_,mixerOutputChoice_,mixerSendBusChoice_,mixerSendGain_,mixerSendPre_,mixerSetSend_,mixerRemoveSend_,shellLookAndFeel_);
         auto commitEdit=[this](Project before,std::string name){undo_.commit(std::move(before),project_,name);publishEdit(juce::String(name));};
         arrangement_=std::make_unique<juceui::ArrangementComponent>(project_,commitEdit);addAndMakeVisible(*arrangement_);
         piano_=std::make_unique<juceui::PianoRollComponent>(project_,engine_,commitEdit);addChildComponent(*piano_);
@@ -313,7 +315,7 @@ public:
         auto recordTools=r.removeFromTop(38);stopPreview_.setBounds(recordTools.removeFromLeft(88).reduced(3));recChops_.setBounds(recordTools.removeFromLeft(88).reduced(3));chopGridChoice_.setBounds(recordTools.removeFromLeft(92).reduced(3));chopQuantizeStrength_.setBounds(recordTools.removeFromLeft(160).reduced(3));chopHumanizeStrength_.setBounds(recordTools.removeFromLeft(160).reduced(3));chopReset_.setBounds(recordTools.removeFromLeft(82).reduced(3));recAudio_.setBounds(recordTools.removeFromLeft(88).reduced(3));monitorInput_.setBounds(recordTools.removeFromLeft(80).reduced(3));prevTake_.setBounds(recordTools.removeFromLeft(70).reduced(3));nextTake_.setBounds(recordTools.removeFromLeft(70).reduced(3));padChokeMinus_.setBounds(recordTools.removeFromLeft(74).reduced(3));padChokePlus_.setBounds(recordTools.removeFromLeft(74).reduced(3));
 
         r.removeFromTop(4);auto editorArea=r.removeFromTop(320);auto browserArea=editorArea.removeFromLeft(std::min(280,editorArea.getWidth()/3));if(sampleBrowser_)sampleBrowser_->setBounds(browserArea.reduced(0,2));editorArea.removeFromLeft(6);if(arrangement_)arrangement_->setBounds(editorArea);if(piano_)piano_->setBounds(editorArea);if(sampler_)sampler_->setBounds(editorArea);if(sequencer_)sequencer_->setBounds(editorArea);if(automationAssist_)automationAssist_->setBounds(editorArea);
-        auto mixer=r.removeFromTop(176);auto mixerHeader=mixer.removeFromTop(38);mixerHeader.removeFromLeft(8);mixerSectionLabel_.setBounds(mixerHeader.removeFromLeft(270).reduced(5,3));mixerTargetChoice_.setBounds(mixerHeader.removeFromLeft(300).reduced(5,3));auto mixerControls=mixer.removeFromTop(42);mixerControls.removeFromLeft(8);mixerVolumeLabel_.setBounds(mixerControls.removeFromLeft(72).reduced(4));mixerVolume_.setBounds(mixerControls.removeFromLeft(280).reduced(4));mixerPanLabel_.setBounds(mixerControls.removeFromLeft(52).reduced(4));mixerPan_.setBounds(mixerControls.removeFromLeft(240).reduced(4));mixerControls.removeFromLeft(10);muteTrack_.setBounds(mixerControls.removeFromLeft(78).reduced(4));soloTrack_.setBounds(mixerControls.removeFromLeft(78).reduced(4));auto mixerRouting=mixer.removeFromTop(40);mixerRoutingLabel_.setBounds(mixerRouting.removeFromLeft(120).reduced(3));mixerOutputChoice_.setBounds(mixerRouting.removeFromLeft(220).reduced(3));mixerSendBusChoice_.setBounds(mixerRouting.removeFromLeft(200).reduced(3));mixerSendGain_.setBounds(mixerRouting.removeFromLeft(180).reduced(3));mixerSendPre_.setBounds(mixerRouting.removeFromLeft(58).reduced(3));mixerSetSend_.setBounds(mixerRouting.removeFromLeft(92).reduced(3));mixerRemoveSend_.setBounds(mixerRouting.removeFromLeft(82).reduced(3));auto mixerMeter=mixer;trackMeterLabel_.setBounds(mixerMeter.removeFromLeft(120).reduced(3));trackMeter_.setBounds(mixerMeter.reduced(3));
+        auto mixer=r.removeFromTop(176);auto mixerHeader=mixer.removeFromTop(38);mixerHeader.removeFromLeft(8);mixerSectionLabel_.setBounds(mixerHeader.removeFromLeft(270).reduced(5,3));mixerTargetChoice_.setBounds(mixerHeader.removeFromLeft(300).reduced(5,3));auto mixerControls=mixer.removeFromTop(42);mixerControls.removeFromLeft(8);mixerVolumeLabel_.setBounds(mixerControls.removeFromLeft(72).reduced(4));mixerVolume_.setBounds(mixerControls.removeFromLeft(280).reduced(4));mixerPanLabel_.setBounds(mixerControls.removeFromLeft(52).reduced(4));mixerPan_.setBounds(mixerControls.removeFromLeft(240).reduced(4));mixerControls.removeFromLeft(10);muteTrack_.setBounds(mixerControls.removeFromLeft(78).reduced(4));soloTrack_.setBounds(mixerControls.removeFromLeft(78).reduced(4));auto mixerRouting=mixer.removeFromTop(40);juceui::MixerRoutingPresentation::layout(mixerRouting,mixerRoutingLabel_,mixerOutputChoice_,mixerSendBusChoice_,mixerSendGain_,mixerSendPre_,mixerSetSend_,mixerRemoveSend_);auto mixerMeter=mixer;trackMeterLabel_.setBounds(mixerMeter.removeFromLeft(120).reduced(3));trackMeter_.setBounds(mixerMeter.reduced(3));
         r.removeFromTop(6);selector_->setBounds(r);
     }
 private:
@@ -332,6 +334,7 @@ private:
         for(auto*button:{&newProject_,&loadProject_,&importWav_,&saveProject_,&play_,&stop_,&bpmMinus_,&bpmPlus_,&undoButton_,&redoButton_,&commandPalette_,&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_})button->setLookAndFeel(nullptr);
         for(auto*choice:{&patternChoice_,&sampleChoice_})choice->setLookAndFeel(nullptr);
         bpmLabel_.setLookAndFeel(nullptr);projectLabel_.setLookAndFeel(nullptr);mixerTargetChoice_.setLookAndFeel(nullptr);mixerVolume_.setLookAndFeel(nullptr);mixerPan_.setLookAndFeel(nullptr);muteTrack_.setLookAndFeel(nullptr);soloTrack_.setLookAndFeel(nullptr);
+        juceui::MixerRoutingPresentation::clear(mixerOutputChoice_,mixerSendBusChoice_,mixerSendGain_,mixerSendPre_,mixerSetSend_,mixerRemoveSend_);
     }
     void audioDeviceAboutToStart(juce::AudioIODevice*device)override{if(!device)return;engine_.configureExternalDevice(static_cast<int>(device->getCurrentSampleRate()),static_cast<unsigned long>(device->getCurrentBufferSizeSamples()),device->getActiveInputChannels().countNumberOfSetBits()>0);engine_.publish(project_);}
     void audioDeviceStopped()override{engine_.configureExternalDevice(engine_.sampleRate(),256,false);}
