@@ -60,10 +60,10 @@ public:
         else selection=juce::String(static_cast<int>(selectedNoteCount_))+(selectedNoteCount_==1?" NOTE SELECTED":" NOTES SELECTED");
         g.drawText(juce::String(p->name)+"  •  "+juce::String(p->scaleType)+"  •  "+gridLabel(std::max<Tick>(1,p->midiGridTicks)),6,2,std::max(1,getWidth()-300),18,juce::Justification::centredLeft,false);
         g.setColour(selectedNoteCount_>0?FlowTheme::aqua():FlowTheme::textMuted());
-        g.setFont(10.0f,juce::Font::bold);
+        g.setFont(juce::Font(10.0f,juce::Font::bold));
         g.drawText(selection,std::max(6,getWidth()-286),2,280,18,juce::Justification::centredRight,false);
 
-        g.setColour(FlowTheme::textMuted());g.setFont(9.0f,juce::Font::bold);
+        g.setColour(FlowTheme::textMuted());g.setFont(juce::Font(9.0f,juce::Font::bold));
         g.drawText("MUSICAL CONTEXT",6,24,220,10,juce::Justification::centredLeft,false);
         g.drawText("NOTE SELECTION",6,64,230,10,juce::Justification::centredLeft,false);
         g.setColour(FlowTheme::accentHot().withAlpha(0.9f));
@@ -84,7 +84,7 @@ public:
             g.setColour(FlowTheme::borderSubtle().withAlpha(0.52f));g.drawHorizontalLine(y,static_cast<float>(grid.getX()),static_cast<float>(grid.getRight()));
             if((pitch%12)==0){
                 g.setColour(root?FlowTheme::aqua():FlowTheme::textSecondary());
-                g.setFont(10.0f,root?juce::Font::bold:juce::Font::plain);
+                g.setFont(juce::Font(10.0f,root?juce::Font::bold:juce::Font::plain));
                 g.drawFittedText(midiNoteName(pitch),4,y,kKeyboardWidth-8,std::max(1,y2-y),juce::Justification::centredLeft,1);
             }
         }
@@ -112,7 +112,7 @@ public:
                 g.setColour(FlowTheme::focus().withAlpha(0.90f));
                 g.fillRoundedRectangle(juce::Rectangle<float>(r.getRight()-4.0f,r.getY()+2.0f,2.0f,std::max(2.0f,r.getHeight()-4.0f)),1.0f);
             }
-            g.setColour(FlowTheme::textPrimary().withAlpha(0.94f));g.setFont(9.5f,primary?juce::Font::bold:juce::Font::plain);
+            g.setColour(FlowTheme::textPrimary().withAlpha(0.94f));g.setFont(juce::Font(9.5f,primary?juce::Font::bold:juce::Font::plain));
             g.drawFittedText(midiNoteName(note.pitch),r.toNearestInt().reduced(4,0),juce::Justification::centredLeft,1);
         }
 
