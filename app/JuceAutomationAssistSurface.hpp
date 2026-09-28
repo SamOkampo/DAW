@@ -3,6 +3,7 @@
 #include "flowdaw/ProductionAssistant.hpp"
 #include "flowdaw/Project.hpp"
 #include "flowdaw/Workflow.hpp"
+#include "JuceFlowTheme.hpp"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <algorithm>
 #include <functional>
@@ -59,20 +60,26 @@ public:
     }
 
     void paint(juce::Graphics&g)override{
-        g.fillAll(juce::Colour(0xff0f1115));
-        g.setColour(juce::Colour(0xffdfe2e8));g.setFont(12.0f);
-        g.drawText("Automation",6,2,360,18,juce::Justification::centredLeft,false);
-        g.drawText("Bus Mixer",382,2,320,18,juce::Justification::centredLeft,false);
+        g.fillAll(FlowTheme::canvasBottom());
+        g.setColour(FlowTheme::textPrimary());g.setFont(juce::Font(11.5f,juce::Font::bold));
+        g.drawText("AUTOMATION  •  "+juce::String(targetLabel()),6,2,360,18,juce::Justification::centredLeft,false);
+        g.setColour(FlowTheme::textSecondary());g.drawText("Bus Mixer",382,2,320,18,juce::Justification::centredLeft,false);
         g.drawText("Assist / Project Health",716,2,std::max(1,getWidth()-722),18,juce::Justification::centredLeft,false);
 
         auto graph=automationGraph();
-        g.setColour(juce::Colour(0xff171a20));g.fillRoundedRectangle(graph.toFloat(),5.0f);
-        g.setColour(juce::Colour(0xff343944));for(int i=1;i<4;++i)g.drawVerticalLine(graph.getX()+i*graph.getWidth()/4,static_cast<float>(graph.getY()),static_cast<float>(graph.getBottom()));
+        juce::ColourGradient graphFill(FlowTheme::surfaceRaised(),static_cast<float>(graph.getX()),static_cast<float>(graph.getY()),FlowTheme::surface(),static_cast<float>(graph.getRight()),static_cast<float>(graph.getBottom()),false);
+        graphFill.addColour(0.55,FlowTheme::accentDeep().withAlpha(0.10f));g.setGradientFill(graphFill);g.fillRoundedRectangle(graph.toFloat(),7.0f);
+        g.setColour(FlowTheme::borderSubtle().withAlpha(0.9f));g.drawRoundedRectangle(graph.toFloat(),7.0f,1.0f);
+        const Tick playhead=std::max<Tick>(0,playhead_?playhead_():0);
+        Tick maxTick=kPPQ*4;if(auto*lane=currentLane();lane&&!lane->points.empty())maxTick=std::max(maxTick,lane->points.back().tick);maxTick=std::max(maxTick,playhead);
+        for(int beat=1;beat<4;++beat){const int x=graph.getX()+beat*graph.getWidth()/4;g.setColour((beat==2?FlowTheme::borderStrong():FlowTheme::borderSubtle()).withAlpha(0.72f));g.drawVerticalLine(x,static_cast<float>(graph.getY()+1),static_cast<float>(graph.getBottom()-1));}
         if(auto*lane=currentLane();lane&&!lane->points.empty()){
-            Tick maxTick=std::max<Tick>(kPPQ*4,lane->points.back().tick);juce::Path path;bool first=true;
-            for(auto const&pt:lane->points){const float x=graph.getX()+static_cast<float>(pt.tick)/maxTick*graph.getWidth();const float norm=normalizeValue(pt.value);const float y=graph.getBottom()-norm*graph.getHeight();if(first){path.startNewSubPath(x,y);first=false;}else path.lineTo(x,y);g.setColour(juce::Colour(0xffffc06a));g.fillEllipse(x-3,y-3,6,6);}
-            g.setColour(juce::Colour(0xff8e78ff));g.strokePath(path,juce::PathStrokeType(2.0f));
-        }
+            juce::Path path;bool first=true;
+            for(auto const&pt:lane->points){const float x=graph.getX()+static_cast<float>(pt.tick)/maxTick*graph.getWidth();const float norm=normalizeValue(pt.value);const float y=graph.getBottom()-norm*graph.getHeight();if(first){path.startNewSubPath(x,y);first=false;}else path.lineTo(x,y);g.setColour(FlowTheme::warning());g.fillEllipse(x-3.5f,y-3.5f,7.0f,7.0f);}
+            g.setColour(FlowTheme::accentHot());g.strokePath(path,juce::PathStrokeType(2.2f));
+        }else{g.setColour(FlowTheme::textMuted());g.setFont(10.5f);g.drawText("No automation points — set a value and Write Point at the playhead",graph.reduced(10),juce::Justification::centred,false);}
+        const float playheadX=graph.getX()+static_cast<float>(playhead)/std::max<Tick>(1,maxTick)*graph.getWidth();g.setColour(FlowTheme::aqua().withAlpha(0.92f));g.drawVerticalLine(static_cast<int>(playheadX),static_cast<float>(graph.getY()),static_cast<float>(graph.getBottom()));
+        g.setFont(9.5f);g.setColour(FlowTheme::textMuted());g.drawText("PLAYHEAD  "+juce::String(playhead)+" ticks  •  linear read  •  "+juce::String(targetIsPan()?"-1 ↔ +1":"0 ↔ 2"),graph.getX()+7,graph.getY()+5,graph.getWidth()-14,14,juce::Justification::centredRight,false);
     }
 
     void resized()override{
@@ -107,6 +114,12 @@ private:
         if(index<0||index>=static_cast<int>(project_.tracks.size()))return targetIsPan()?0.0f:1.0f;auto const&t=project_.tracks[static_cast<std::size_t>(index)];return targetIsPan()?t.mixer.pan:t.mixer.volume;
     }
     float normalizeValue(float value)const{return targetIsPan()?std::clamp((value+1.0f)*0.5f,0.0f,1.0f):std::clamp(value*0.5f,0.0f,1.0f);}
+    std::string targetLabel()const{
+        std::string label=targetName();if(!targetNeedsRoute())return "MASTER • VOLUME";
+        const int index=routeChoice_.getSelectedId()-1;if(targetIsBus()){if(index>=0&&index<static_cast<int>(project_.buses.size()))label=project_.buses[static_cast<std::size_t>(index)].name+" • "+(targetIsPan()?"PAN":"VOLUME");}
+        else if(index>=0&&index<static_cast<int>(project_.tracks.size()))label=project_.tracks[static_cast<std::size_t>(index)].name+" • "+(targetIsPan()?"PAN":"VOLUME");
+        return label;
+    }
 
     void refreshRouteChoice(int preferred=0){
         routeChoice_.clear(juce::dontSendNotification);routeChoice_.setEnabled(targetNeedsRoute());
