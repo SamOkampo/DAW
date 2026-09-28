@@ -227,7 +227,7 @@ private:
     juce::Slider velocity_,length_,instGain_,instPan_,instTone_,instAttack_,instRelease_,instDrive_,instDelayMix_,instDelayTicks_;
 };
 
-class SamplerComponent final:public juce::Component {
+class SamplerComponent final:public juce::Component,private juce::Timer {
 public:
     using CommitFn=std::function<void(Project,std::string)>;
     using TriggerFn=std::function<void(Id,Id)>;
@@ -246,34 +246,80 @@ public:
     bool adjustSelectedPad(float gainDelta,float panDelta,int chokeDelta){auto*s=sample();if(!s||selectedSliceId_==0)return false;auto it=std::find_if(s->slices.begin(),s->slices.end(),[&](auto const&sl){return sl.id==selectedSliceId_;});if(it==s->slices.end())return false;Project before=project_;it->gain=std::clamp(it->gain+gainDelta,0.0f,2.0f);it->pan=std::clamp(it->pan+panDelta,-1.0f,1.0f);it->chokeGroup=std::clamp(it->chokeGroup+chokeDelta,0,8);if(commit_)commit_(std::move(before),"Edit sample pad");repaint();return true;}
 
     void paint(juce::Graphics&g)override{
-        g.fillAll(juce::Colour(0xff0f1115));auto*s=sample();
-        if(!s||!s->audio){g.setColour(juce::Colour(0xff9aa0ad));g.drawText("Select an audio sample",getLocalBounds(),juce::Justification::centred);return;}
-        auto wave=waveBounds();g.setColour(juce::Colour(0xff171a20));g.fillRoundedRectangle(wave.toFloat(),5.0f);
+        g.fillAll(FlowTheme::canvasBottom());
+        auto*s=sample();
+        if(!s||!s->audio){
+            g.setColour(FlowTheme::textMuted());g.setFont(12.0f,juce::Font::bold);
+            g.drawText("SAMPLER  •  select an audio sample",getLocalBounds(),juce::Justification::centred);
+            return;
+        }
+
+        auto header=juce::Rectangle<int>(0,0,getWidth(),30);
+        juce::ColourGradient headerFill(FlowTheme::surfaceRaised(),0.0f,0.0f,FlowTheme::surface(),static_cast<float>(getWidth()),30.0f,false);
+        headerFill.addColour(0.52,FlowTheme::aqua().withAlpha(0.10f));
+        g.setGradientFill(headerFill);g.fillRect(header);
+        g.setColour(FlowTheme::borderSubtle().withAlpha(0.82f));g.drawHorizontalLine(29,0.0f,static_cast<float>(getWidth()));
+
+        const int banks=std::max(1,(static_cast<int>(s->slices.size())+15)/16);
+        const auto bpm=s->detectedBpm>0.0?"  •  "+juce::String(s->detectedBpm,1)+" BPM":juce::String{};
+        g.setColour(FlowTheme::textPrimary());g.setFont(11.0f,juce::Font::bold);
+        g.drawText("SAMPLER  •  "+juce::String(s->name)+bpm+"  •  BANK "+juce::String(bank_+1)+"/"+juce::String(banks),6,3,std::max(1,getWidth()-360),20,juce::Justification::centredLeft,false);
+        auto selectedName=selectedPadName();
+        g.setColour(selectedSliceId_?FlowTheme::aqua():FlowTheme::textMuted());g.setFont(9.5f,juce::Font::bold);
+        g.drawText(selectedSliceId_?"SELECTED PAD  •  "+selectedName:"NO PAD SELECTED",std::max(6,getWidth()-350),3,344,20,juce::Justification::centredRight,false);
+
+        auto wave=waveBounds();
+        juce::ColourGradient waveFill(FlowTheme::surfaceRaised(),static_cast<float>(wave.getX()),static_cast<float>(wave.getY()),FlowTheme::surface(),static_cast<float>(wave.getRight()),static_cast<float>(wave.getBottom()),false);
+        g.setGradientFill(waveFill);g.fillRoundedRectangle(wave.toFloat(),7.0f);
+        g.setColour(FlowTheme::borderSubtle().withAlpha(0.86f));g.drawRoundedRectangle(wave.toFloat(),7.0f,1.0f);
+
         const auto frames=s->audio->frames();const int channels=std::max(1,s->audio->channels);const float mid=static_cast<float>(wave.getCentreY());const float amp=wave.getHeight()*0.43f;
-        g.setColour(juce::Colour(0xff4f8bd8));
+        g.setColour(FlowTheme::aqua().withAlpha(0.82f));
         for(int x=0;x<wave.getWidth();++x){
             const SampleIndex a=static_cast<SampleIndex>((static_cast<double>(x)/std::max(1,wave.getWidth()))*frames);const SampleIndex b=std::min<SampleIndex>(frames,std::max<SampleIndex>(a+1,static_cast<SampleIndex>((static_cast<double>(x+1)/std::max(1,wave.getWidth()))*frames)));
             float peak=0.0f;const SampleIndex span=std::max<SampleIndex>(1,b-a);const SampleIndex step=std::max<SampleIndex>(1,span/24);
-            for(SampleIndex f=a;f<b;f+=step){float v=0.0f;for(int c=0;c<channels;++c)v+=std::abs(s->audio->interleaved[static_cast<std::size_t>(f*channels+c)]);peak=std::max(peak,v/channels);}
+            for(SampleIndex f=a;f<b;f+=step){float v=0.0f;for(int ch=0;ch<channels;++ch)v+=std::abs(s->audio->interleaved[static_cast<std::size_t>(f*channels+ch)]);peak=std::max(peak,v/channels);}
             const float h=std::clamp(peak,0.0f,1.0f)*amp;g.drawVerticalLine(wave.getX()+x,mid-h,mid+h);
         }
-        g.setColour(juce::Colour(0xff5a5e69));g.drawHorizontalLine(wave.getCentreY(),static_cast<float>(wave.getX()),static_cast<float>(wave.getRight()));
+        g.setColour(FlowTheme::borderStrong().withAlpha(0.66f));g.drawHorizontalLine(wave.getCentreY(),static_cast<float>(wave.getX()),static_cast<float>(wave.getRight()));
 
         for(std::size_t i=0;i<s->slices.size();++i){
-            auto const&sl=s->slices[i];const int x=xForFrame(sl.startFrame,*s);if(i>0){g.setColour(juce::Colour(0xffffc06a));g.drawVerticalLine(x,static_cast<float>(wave.getY()),static_cast<float>(wave.getBottom()));}
-            if(sl.id==selectedSliceId_){const int x2=xForFrame(sl.endFrame,*s);g.setColour(juce::Colour(0x356550dc));g.fillRect(x,wave.getY(),std::max(1,x2-x),wave.getHeight());}
+            auto const&sl=s->slices[i];const int x=xForFrame(sl.startFrame,*s);
+            if(i>0){g.setColour(FlowTheme::warning().withAlpha(0.86f));g.drawVerticalLine(x,static_cast<float>(wave.getY()),static_cast<float>(wave.getBottom()));}
+            if(sl.id==selectedSliceId_){
+                const int x2=xForFrame(sl.endFrame,*s);
+                g.setColour(FlowTheme::accentDeep().withAlpha(0.18f));g.fillRect(x,wave.getY(),std::max(1,x2-x),wave.getHeight());
+                g.setColour(FlowTheme::focus().withAlpha(0.88f));g.drawRect(juce::Rectangle<int>(x,wave.getY(),std::max(1,x2-x),wave.getHeight()),1);
+            }
         }
-
-        g.setColour(juce::Colour(0xffdfe2e8));g.setFont(12.0f);
-        const auto bpm=s->detectedBpm>0.0?"  •  "+juce::String(s->detectedBpm,1)+" BPM":juce::String{};
-        g.drawText(juce::String(s->name)+bpm,6,2,getWidth()-12,18,juce::Justification::centredLeft,false);
 
         auto pads=padBounds();const int start=bank_*16;
-        for(int cell=0;cell<16;++cell){const int index=start+cell;const int col=cell%4,row=cell/4;auto r=juce::Rectangle<int>(pads.getX()+col*pads.getWidth()/4,pads.getY()+row*pads.getHeight()/4,pads.getWidth()/4-4,pads.getHeight()/4-4).reduced(2);
-            if(index>=static_cast<int>(s->slices.size())){g.setColour(juce::Colour(0xff1a1c21));g.fillRoundedRectangle(r.toFloat(),5.0f);continue;}
-            auto const&sl=s->slices[static_cast<std::size_t>(index)];g.setColour(sl.id==selectedSliceId_?juce::Colour(0xff8e78ff):juce::Colour(0xff303640));g.fillRoundedRectangle(r.toFloat(),5.0f);g.setColour(juce::Colours::white);g.setFont(10.5f);g.drawFittedText(juce::String(index+1)+"  "+juce::String(sl.name),r.reduced(5,2),juce::Justification::centredLeft,1);
+        for(int cell=0;cell<16;++cell){
+            const int index=start+cell;const int col=cell%4,row=cell/4;
+            auto r=juce::Rectangle<int>(pads.getX()+col*pads.getWidth()/4,pads.getY()+row*pads.getHeight()/4,pads.getWidth()/4-4,pads.getHeight()/4-4).reduced(2);
+            if(index>=static_cast<int>(s->slices.size())){
+                g.setColour(FlowTheme::surface().withAlpha(0.72f));g.fillRoundedRectangle(r.toFloat(),6.0f);
+                g.setColour(FlowTheme::borderSubtle().withAlpha(0.42f));g.drawRoundedRectangle(r.toFloat(),6.0f,1.0f);
+                continue;
+            }
+            auto const&sl=s->slices[static_cast<std::size_t>(index)];
+            const bool selected=sl.id==selectedSliceId_;
+            const bool auditioned=sl.id==auditionedSliceId_;
+            auto top=auditioned?FlowTheme::aqua():(selected?FlowTheme::accentHot():FlowTheme::surfaceHover());
+            auto bottom=auditioned?FlowTheme::aqua().darker(0.52f):(selected?FlowTheme::accentDeep():FlowTheme::surface());
+            juce::ColourGradient padFill(top,r.getX(),r.getY(),bottom,r.getRight(),r.getBottom(),false);
+            g.setGradientFill(padFill);g.fillRoundedRectangle(r.toFloat(),6.0f);
+            g.setColour((auditioned?FlowTheme::focus():(selected?FlowTheme::accentHot():FlowTheme::borderSubtle())).withAlpha(0.94f));
+            g.drawRoundedRectangle(r.toFloat(),6.0f,auditioned?1.7f:(selected?1.4f:1.0f));
+            g.setColour(FlowTheme::textPrimary());g.setFont(10.5f,selected||auditioned?juce::Font::bold:juce::Font::plain);
+            g.drawFittedText(juce::String(index+1)+"  "+juce::String(sl.name),r.reduced(6,2),juce::Justification::centredLeft,1);
         }
-        g.setColour(juce::Colour(0xffaeb4c0));g.setFont(10.5f);g.drawText("Bank "+juce::String(bank_+1)+" • click waveform/pad: preview • drag marker: move boundary • double-click: split • Delete: merge previous",6,getHeight()-18,getWidth()-12,16,juce::Justification::centredLeft,false);
+
+        if(hasKeyboardFocus(true)){
+            g.setColour(FlowTheme::focus().withAlpha(0.72f));g.drawRoundedRectangle(getLocalBounds().reduced(2).toFloat(),8.0f,1.0f);
+        }
+        g.setColour(FlowTheme::textMuted());g.setFont(9.5f);
+        g.drawText("Click waveform/pad: preview  •  drag marker: boundary  •  double-click: split  •  Delete: merge previous  •  1-4/QWER/ASDF/ZXCV: perform",6,getHeight()-18,getWidth()-12,16,juce::Justification::centredLeft,false);
     }
 
     void mouseDown(const juce::MouseEvent&e)override{
@@ -309,15 +355,22 @@ public:
 private:
     SampleAsset*sample(){return project_.findSample(sampleId_);}
     const SampleAsset*sample()const{return project_.findSample(sampleId_);}
-    juce::Rectangle<int>waveBounds()const{return{6,22,std::max(1,getWidth()-12),std::max(80,getHeight()-166)};}
-    juce::Rectangle<int>padBounds()const{return{6,std::max(108,getHeight()-136),std::max(1,getWidth()-12),118};}
+    juce::Rectangle<int>waveBounds()const{return{6,34,std::max(1,getWidth()-12),std::max(72,getHeight()-180)};}
+    juce::Rectangle<int>padBounds()const{return{6,std::max(112,getHeight()-136),std::max(1,getWidth()-12),118};}
     int xForFrame(SampleIndex frame,const SampleAsset&s)const{auto r=waveBounds();const auto frames=s.audio?std::max<SampleIndex>(1,s.audio->frames()):1;return r.getX()+static_cast<int>(std::llround(static_cast<double>(std::clamp<SampleIndex>(frame,0,frames))/frames*r.getWidth()));}
     SampleIndex frameAtX(int x,const SampleAsset&s)const{auto r=waveBounds();const auto frames=s.audio?std::max<SampleIndex>(1,s.audio->frames()):1;const double u=std::clamp(static_cast<double>(x-r.getX())/std::max(1,r.getWidth()),0.0,1.0);return std::clamp<SampleIndex>(static_cast<SampleIndex>(std::llround(u*frames)),0,frames);}
     int boundaryAtX(int x,const SampleAsset&s)const{for(std::size_t i=0;i+1<s.slices.size();++i)if(std::abs(x-xForFrame(s.slices[i].endFrame,s))<=5)return static_cast<int>(i);return-1;}
-    void preview(const SampleSlice&sl,SampleAsset&s,bool report=false){if(!s.audio)return;if(engine_.triggerPreview(s.audio,sl.startFrame,std::max<SampleIndex>(1,sl.endFrame-sl.startFrame),sl.gain,sl.pan,sl.chokeGroup)&&report&&trigger_)trigger_(s.id,sl.id);}
+    void preview(const SampleSlice&sl,SampleAsset&s,bool report=false){
+        if(!s.audio)return;
+        if(engine_.triggerPreview(s.audio,sl.startFrame,std::max<SampleIndex>(1,sl.endFrame-sl.startFrame),sl.gain,sl.pan,sl.chokeGroup)){
+            auditionedSliceId_=sl.id;startTimer(180);repaint();
+            if(report&&trigger_)trigger_(s.id,sl.id);
+        }
+    }
+    void timerCallback()override{stopTimer();auditionedSliceId_=0;repaint();}
     void selectPadAt(juce::Point<int>point,SampleAsset&s){auto r=padBounds();const int col=std::clamp((point.x-r.getX())*4/std::max(1,r.getWidth()),0,3);const int row=std::clamp((point.y-r.getY())*4/std::max(1,r.getHeight()),0,3);const int index=bank_*16+row*4+col;if(index<0||index>=static_cast<int>(s.slices.size()))return;auto&sl=s.slices[static_cast<std::size_t>(index)];selectedSliceId_=sl.id;preview(sl,s,true);repaint();}
 
-    Project&project_;AudioEngine&engine_;CommitFn commit_;TriggerFn trigger_;Id sampleId_=0,selectedSliceId_=0;int bank_=0,boundaryDrag_=-1;SampleIndex originalBoundary_=0;Project before_;
+    Project&project_;AudioEngine&engine_;CommitFn commit_;TriggerFn trigger_;Id sampleId_=0,selectedSliceId_=0,auditionedSliceId_=0;int bank_=0,boundaryDrag_=-1;SampleIndex originalBoundary_=0;Project before_;
 };
 
 } // namespace flowdaw::juceui
