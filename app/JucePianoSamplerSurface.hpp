@@ -249,7 +249,7 @@ public:
         g.fillAll(FlowTheme::canvasBottom());
         auto*s=sample();
         if(!s||!s->audio){
-            g.setColour(FlowTheme::textMuted());g.setFont(12.0f,juce::Font::bold);
+            g.setColour(FlowTheme::textMuted());g.setFont(juce::Font(12.0f,juce::Font::bold));
             g.drawText("SAMPLER  •  select an audio sample",getLocalBounds(),juce::Justification::centred);
             return;
         }
@@ -262,10 +262,10 @@ public:
 
         const int banks=std::max(1,(static_cast<int>(s->slices.size())+15)/16);
         const auto bpm=s->detectedBpm>0.0?"  •  "+juce::String(s->detectedBpm,1)+" BPM":juce::String{};
-        g.setColour(FlowTheme::textPrimary());g.setFont(11.0f,juce::Font::bold);
+        g.setColour(FlowTheme::textPrimary());g.setFont(juce::Font(11.0f,juce::Font::bold));
         g.drawText("SAMPLER  •  "+juce::String(s->name)+bpm+"  •  BANK "+juce::String(bank_+1)+"/"+juce::String(banks),6,3,std::max(1,getWidth()-360),20,juce::Justification::centredLeft,false);
         auto selectedName=selectedPadName();
-        g.setColour(selectedSliceId_?FlowTheme::aqua():FlowTheme::textMuted());g.setFont(9.5f,juce::Font::bold);
+        g.setColour(selectedSliceId_?FlowTheme::aqua():FlowTheme::textMuted());g.setFont(juce::Font(9.5f,juce::Font::bold));
         g.drawText(selectedSliceId_?"SELECTED PAD  •  "+selectedName:"NO PAD SELECTED",std::max(6,getWidth()-350),3,344,20,juce::Justification::centredRight,false);
 
         auto wave=waveBounds();
@@ -311,7 +311,7 @@ public:
             g.setGradientFill(padFill);g.fillRoundedRectangle(r.toFloat(),6.0f);
             g.setColour((auditioned?FlowTheme::focus():(selected?FlowTheme::accentHot():FlowTheme::borderSubtle())).withAlpha(0.94f));
             g.drawRoundedRectangle(r.toFloat(),6.0f,auditioned?1.7f:(selected?1.4f:1.0f));
-            g.setColour(FlowTheme::textPrimary());g.setFont(10.5f,selected||auditioned?juce::Font::bold:juce::Font::plain);
+            g.setColour(FlowTheme::textPrimary());g.setFont(juce::Font(10.5f,selected||auditioned?juce::Font::bold:juce::Font::plain));
             g.drawFittedText(juce::String(index+1)+"  "+juce::String(sl.name),r.reduced(6,2),juce::Justification::centredLeft,1);
         }
 
