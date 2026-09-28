@@ -3,7 +3,7 @@
 #include "flowdaw/ProductionAssistant.hpp"
 #include "flowdaw/Project.hpp"
 #include "flowdaw/Workflow.hpp"
-#include "JuceFlowTheme.hpp"
+#include "JuceTheme.hpp"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <algorithm>
 #include <functional>
