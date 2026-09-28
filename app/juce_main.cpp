@@ -200,7 +200,7 @@ public:
         addAndMakeVisible(sampleChoice_);sampleChoice_.setTextWhenNothingSelected("No audio sample");sampleChoice_.onChange=[this]{syncSamplerSample();};
         bankPrev_.setButtonText("Bank -");bankPrev_.onClick=[this]{if(sampler_)sampler_->previousBank();};addAndMakeVisible(bankPrev_);
         bankNext_.setButtonText("Bank +");bankNext_.onClick=[this]{if(sampler_)sampler_->nextBank();};addAndMakeVisible(bankNext_);
-        padName_.setTextToShowWhenEmpty("Pad name",juce::Colour(0xff8f96a3));addAndMakeVisible(padName_);
+        padName_.setTextToShowWhenEmpty("Selected pad name",juce::Colour(0xff8f96a3));addAndMakeVisible(padName_);
         renamePad_.setButtonText("Rename");renamePad_.onClick=[this]{if(!sampler_||!sampler_->renameSelectedPad(padName_.getText().toStdString()))status_.setText("Select a pad first",juce::dontSendNotification);};addAndMakeVisible(renamePad_);
         padGainMinus_.setButtonText("Gain -");padGainMinus_.onClick=[this]{if(!sampler_||!sampler_->adjustSelectedPad(-0.05f,0.0f,0))status_.setText("Select a pad first",juce::dontSendNotification);};addAndMakeVisible(padGainMinus_);
         padGainPlus_.setButtonText("Gain +");padGainPlus_.onClick=[this]{if(!sampler_||!sampler_->adjustSelectedPad(0.05f,0.0f,0))status_.setText("Select a pad first",juce::dontSendNotification);};addAndMakeVisible(padGainPlus_);
@@ -211,8 +211,8 @@ public:
         stopPreview_.setButtonText("Stop Preview");stopPreview_.onClick=[this]{engine_.stopPreviews();status_.setText("Preview stopped",juce::dontSendNotification);};addAndMakeVisible(stopPreview_);
         recChops_.setButtonText("REC CHOPS");recChops_.onClick=[this]{toggleChopRecording();};addAndMakeVisible(recChops_);
         chopGridChoice_.addItem("Grid 1/8",1);chopGridChoice_.addItem("Grid 1/16",2);chopGridChoice_.addItem("Grid 1/32",3);chopGridChoice_.setSelectedId(2,juce::dontSendNotification);chopGridChoice_.onChange=[this]{changeChopGrid();};addAndMakeVisible(chopGridChoice_);
-        chopQuantizeStrength_.setRange(0.0,100.0,1.0);chopQuantizeStrength_.setSliderStyle(juce::Slider::LinearHorizontal);chopQuantizeStrength_.setTextBoxStyle(juce::Slider::TextBoxRight,false,54,22);chopQuantizeStrength_.setTextValueSuffix("% Q");chopQuantizeStrength_.onDragStart=[this]{beginChopGesture();};chopQuantizeStrength_.onValueChange=[this]{applyChopControls();};chopQuantizeStrength_.onDragEnd=[this]{endChopGesture();};addAndMakeVisible(chopQuantizeStrength_);
-        chopHumanizeStrength_.setRange(0.0,100.0,1.0);chopHumanizeStrength_.setSliderStyle(juce::Slider::LinearHorizontal);chopHumanizeStrength_.setTextBoxStyle(juce::Slider::TextBoxRight,false,54,22);chopHumanizeStrength_.setTextValueSuffix("% H");chopHumanizeStrength_.onDragStart=[this]{beginChopGesture();};chopHumanizeStrength_.onValueChange=[this]{applyChopControls();};chopHumanizeStrength_.onDragEnd=[this]{endChopGesture();};addAndMakeVisible(chopHumanizeStrength_);
+        chopQuantizeStrength_.setRange(0.0,100.0,1.0);chopQuantizeStrength_.setSliderStyle(juce::Slider::LinearHorizontal);chopQuantizeStrength_.setTextBoxStyle(juce::Slider::TextBoxRight,false,66,22);chopQuantizeStrength_.setTextValueSuffix("% Quant");chopQuantizeStrength_.onDragStart=[this]{beginChopGesture();};chopQuantizeStrength_.onValueChange=[this]{applyChopControls();};chopQuantizeStrength_.onDragEnd=[this]{endChopGesture();};addAndMakeVisible(chopQuantizeStrength_);
+        chopHumanizeStrength_.setRange(0.0,100.0,1.0);chopHumanizeStrength_.setSliderStyle(juce::Slider::LinearHorizontal);chopHumanizeStrength_.setTextBoxStyle(juce::Slider::TextBoxRight,false,66,22);chopHumanizeStrength_.setTextValueSuffix("% Human");chopHumanizeStrength_.onDragStart=[this]{beginChopGesture();};chopHumanizeStrength_.onValueChange=[this]{applyChopControls();};chopHumanizeStrength_.onDragEnd=[this]{endChopGesture();};addAndMakeVisible(chopHumanizeStrength_);
         chopReset_.setButtonText("Reset Feel");chopReset_.onClick=[this]{resetLatestChops();};addAndMakeVisible(chopReset_);
         recAudio_.setButtonText("REC Audio");recAudio_.onClick=[this]{toggleAudioRecording();};addAndMakeVisible(recAudio_);
         monitorInput_.setButtonText("Monitor");monitorInput_.onClick=[this]{toggleInputMonitor();};addAndMakeVisible(monitorInput_);
@@ -329,12 +329,27 @@ private:
         meterLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textMuted());meterLabel_.setFont(juce::Font(11.0f));
         bpmLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textPrimary());
         for(auto*button:{&newProject_,&loadProject_,&importWav_,&saveProject_,&play_,&stop_,&bpmMinus_,&bpmPlus_,&undoButton_,&redoButton_,&commandPalette_,&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_})button->setLookAndFeel(&shellLookAndFeel_);
-        for(auto*choice:{&patternChoice_,&sampleChoice_})choice->setLookAndFeel(&shellLookAndFeel_);
+        for(auto*button:{&bankPrev_,&bankNext_,&analyzeSample_,&chop8_,&autoChop_,&chopBeat_,&chopBar_,&matchBpm_,&stopPreview_,&recChops_,&chopReset_,&renamePad_,&padGainMinus_,&padGainPlus_,&padPanMinus_,&padPanPlus_,&padChokeMinus_,&padChokePlus_})button->setLookAndFeel(&shellLookAndFeel_);
+        for(auto*choice:{&patternChoice_,&sampleChoice_,&chopGridChoice_})choice->setLookAndFeel(&shellLookAndFeel_);
+        for(auto*slider:{&chopQuantizeStrength_,&chopHumanizeStrength_}){
+            slider->setLookAndFeel(&shellLookAndFeel_);
+            slider->setColour(juce::Slider::thumbColourId,juceui::FlowTheme::aqua());
+            slider->setColour(juce::Slider::trackColourId,juceui::FlowTheme::accentDeep().withAlpha(0.84f));
+            slider->setColour(juce::Slider::backgroundColourId,juceui::FlowTheme::surfaceHover());
+            slider->setColour(juce::Slider::textBoxTextColourId,juceui::FlowTheme::textPrimary());
+            slider->setColour(juce::Slider::textBoxBackgroundColourId,juceui::FlowTheme::surface());
+            slider->setColour(juce::Slider::textBoxOutlineColourId,juceui::FlowTheme::borderSubtle());
+        }
+        padName_.setColour(juce::TextEditor::backgroundColourId,juceui::FlowTheme::surface());
+        padName_.setColour(juce::TextEditor::textColourId,juceui::FlowTheme::textPrimary());
+        padName_.setColour(juce::TextEditor::outlineColourId,juceui::FlowTheme::borderSubtle());
         bpmLabel_.setLookAndFeel(&shellLookAndFeel_);projectLabel_.setLookAndFeel(&shellLookAndFeel_);
     }
     void clearShellTheme(){
         for(auto*button:{&newProject_,&loadProject_,&importWav_,&saveProject_,&play_,&stop_,&bpmMinus_,&bpmPlus_,&undoButton_,&redoButton_,&commandPalette_,&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_})button->setLookAndFeel(nullptr);
-        for(auto*choice:{&patternChoice_,&sampleChoice_})choice->setLookAndFeel(nullptr);
+        for(auto*button:{&bankPrev_,&bankNext_,&analyzeSample_,&chop8_,&autoChop_,&chopBeat_,&chopBar_,&matchBpm_,&stopPreview_,&recChops_,&chopReset_,&renamePad_,&padGainMinus_,&padGainPlus_,&padPanMinus_,&padPanPlus_,&padChokeMinus_,&padChokePlus_})button->setLookAndFeel(nullptr);
+        for(auto*choice:{&patternChoice_,&sampleChoice_,&chopGridChoice_})choice->setLookAndFeel(nullptr);
+        chopQuantizeStrength_.setLookAndFeel(nullptr);chopHumanizeStrength_.setLookAndFeel(nullptr);
         bpmLabel_.setLookAndFeel(nullptr);projectLabel_.setLookAndFeel(nullptr);mixerTargetChoice_.setLookAndFeel(nullptr);mixerVolume_.setLookAndFeel(nullptr);mixerPan_.setLookAndFeel(nullptr);muteTrack_.setLookAndFeel(nullptr);soloTrack_.setLookAndFeel(nullptr);
         juceui::MixerRoutingPresentation::clear(mixerOutputChoice_,mixerSendBusChoice_,mixerSendGain_,mixerSendPre_,mixerSetSend_,mixerRemoveSend_);
         juceui::PluginRackPresentation::clear(rackTargetChoice_,rackPluginChoice_,rackWet_,rackParam_,rackMoveUp_,rackMoveDown_,rackEnabled_,rackBypass_,rackRemove_,openRackEditor_);
@@ -357,7 +372,7 @@ private:
     Pattern*latestChopPattern(){for(auto it=project_.patterns.rbegin();it!=project_.patterns.rend();++it)if(!it->chopEvents.empty())return&*it;return nullptr;}
     void startChopRecording(){
         auto*smp=selectedSample();if(!smp||!smp->audio||smp->slices.empty()){status_.setText("Create/select chops before REC CHOPS",juce::dontSendNotification);return;}
-        chopRecordBefore_=project_;Pattern take;take.name="Chop Take";take.stepCount=64;take.stepsPerBeat=4;chopRecordPatternId_=take.id;project_.patterns.push_back(std::move(take));auto*t=chopTrack();chopRecordStartTick_=playheadTick();PatternPlacement pp;pp.patternId=chopRecordPatternId_;pp.startTick=chopRecordStartTick_;pp.repeats=1;t->patternClips.push_back(pp);recordingChops_=true;if(!engine_.isPlaying())engine_.play();engine_.publish(project_);if(arrangement_)arrangement_->repaint();status_.setText("REC CHOPS - play 1-4/QWER/ASDF/ZXCV",juce::dontSendNotification);
+        chopRecordBefore_=project_;Pattern take;take.name="Chop Take";take.stepCount=64;take.stepsPerBeat=4;chopRecordPatternId_=take.id;project_.patterns.push_back(std::move(take));auto*t=chopTrack();chopRecordStartTick_=playheadTick();PatternPlacement pp;pp.patternId=chopRecordPatternId_;pp.startTick=chopRecordStartTick_;pp.repeats=1;t->patternClips.push_back(pp);recordingChops_=true;syncChopControls();if(!engine_.isPlaying())engine_.play();engine_.publish(project_);if(arrangement_)arrangement_->repaint();status_.setText("REC CHOPS - play 1-4/QWER/ASDF/ZXCV",juce::dontSendNotification);
     }
     void finishChopRecording(){
         if(!recordingChops_)return;recordingChops_=false;auto*p=project_.findPattern(chopRecordPatternId_);if(!p||p->chopEvents.empty()){project_=std::move(chopRecordBefore_);chopRecordPatternId_=0;publishEdit("Empty chop take discarded");return;}const auto hits=p->chopEvents.size();undo_.commit(std::move(chopRecordBefore_),project_,"Record chops");chopRecordPatternId_=0;publishEdit("Recorded "+juce::String(static_cast<int>(hits))+" chop hits");
@@ -367,7 +382,7 @@ private:
         if(!recordingChops_)return;auto*p=project_.findPattern(chopRecordPatternId_);if(!p)return;const Tick captured=std::max<Tick>(0,playheadTick()-chopRecordStartTick_);ChopEvent ev;ev.recordedTick=captured;ev.tick=captured;ev.sampleId=sampleId;ev.sliceId=sliceId;ev.recordedVelocity=1.0f;ev.velocity=1.0f;p->chopEvents.push_back(ev);const int need=static_cast<int>((captured*4+kPPQ-1)/kPPQ)+1;p->stepCount=std::max(p->stepCount,need);engine_.publish(project_);if(arrangement_)arrangement_->repaint();
     }
     void syncChopControls(){
-        suppressChopCallbacks_=true;auto*p=latestChopPattern();const Tick grid=p?p->chopQuantizeGridTicks:kPPQ/4;chopGridChoice_.setSelectedId(grid==kPPQ/2?1:(grid==kPPQ/8?3:2),juce::dontSendNotification);chopQuantizeStrength_.setValue(p?std::round(p->chopQuantizeStrength*100.0f):0.0,juce::dontSendNotification);chopHumanizeStrength_.setValue(p?std::round(p->chopHumanize*100.0f):0.0,juce::dontSendNotification);const bool enabled=p&&!p->chopEvents.empty()&&!recordingChops_;chopGridChoice_.setEnabled(enabled);chopQuantizeStrength_.setEnabled(enabled);chopHumanizeStrength_.setEnabled(enabled);chopReset_.setEnabled(enabled);suppressChopCallbacks_=false;
+        suppressChopCallbacks_=true;auto*p=latestChopPattern();const Tick grid=p?p->chopQuantizeGridTicks:kPPQ/4;chopGridChoice_.setSelectedId(grid==kPPQ/2?1:(grid==kPPQ/8?3:2),juce::dontSendNotification);chopQuantizeStrength_.setValue(p?std::round(p->chopQuantizeStrength*100.0f):0.0,juce::dontSendNotification);chopHumanizeStrength_.setValue(p?std::round(p->chopHumanize*100.0f):0.0,juce::dontSendNotification);recChops_.setToggleState(recordingChops_,juce::dontSendNotification);recChops_.setButtonText(recordingChops_?"STOP CHOPS":"REC CHOPS");const bool enabled=p&&!p->chopEvents.empty()&&!recordingChops_;chopGridChoice_.setEnabled(enabled);chopQuantizeStrength_.setEnabled(enabled);chopHumanizeStrength_.setEnabled(enabled);chopReset_.setEnabled(enabled);suppressChopCallbacks_=false;
     }
     void beginChopGesture(){if(suppressChopCallbacks_||chopGestureActive_||recordingChops_)return;auto*p=latestChopPattern();if(!p||p->chopEvents.empty())return;chopBefore_=project_;chopGestureActive_=true;}
     void applyChopControls(){
@@ -606,7 +621,7 @@ private:
         if(arrangement_)arrangement_->setVisible(arrangement);if(piano_)piano_->setVisible(piano);if(sequencer_)sequencer_->setVisible(step);if(automationAssist_)automationAssist_->setVisible(automation);if(sampler_)sampler_->setVisible(sampler);
         patternChoice_.setVisible(piano||step);sampleChoice_.setVisible(sampler);bankPrev_.setVisible(sampler);bankNext_.setVisible(sampler);
         arrangementTab_.setToggleState(arrangement,juce::dontSendNotification);pianoTab_.setToggleState(piano,juce::dontSendNotification);sequencerTab_.setToggleState(step,juce::dontSendNotification);automationTab_.setToggleState(automation,juce::dontSendNotification);samplerTab_.setToggleState(sampler,juce::dontSendNotification);
-        note_.setText(arrangement?"ARRANGE • Timeline + Browser":(piano?"EDIT • Piano Roll":(step?"EDIT • Step Sequencer":(automation?"AUTOMATE • Lanes + Assist":"SAMPLE • Chops + Pads"))),juce::dontSendNotification);
+        note_.setText(arrangement?"ARRANGE • Timeline + Browser":(piano?"EDIT • Piano Roll":(step?"EDIT • Step Sequencer":(automation?"AUTOMATE • Lanes + Assist":"SAMPLE • Slice → Perform → Shape Feel"))),juce::dontSendNotification);
         if(piano||step)syncPatternEditors();if(automation&&automationAssist_)automationAssist_->refresh();if(sampler)syncSamplerSample();
     }
     void refreshPatternChoice(){
