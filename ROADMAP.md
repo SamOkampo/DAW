@@ -109,6 +109,8 @@ Planned sequence:
 7. **11.7 Export/settings/diagnostics productization** — dialogs, export flow, recovery/error states and relocation of technical controls from the main creative surface.
 8. **11.8 Visual regression and closure** — cross-workflow polish, installed-app golden path, Linux/Windows/macOS layout validation and final architecture/realtime/project-compatibility audit.
 
+**Current Phase 11 checkpoint:** 11.1–11.5 are complete once the 11.5 closure PR passes the required CI matrix and is merged. The next permitted block is 11.6; 11.7 and 11.8 remain pending.
+
 See `PHASE11_STATUS.md` for the active checkpoint and acceptance criteria.
 
 **Production desktop path remains JUCE 9.0.2. Project format remains v11.**
