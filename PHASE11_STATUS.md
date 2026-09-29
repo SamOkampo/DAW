@@ -53,11 +53,20 @@ The bounded design is recorded in `PHASE11_5_DESIGN.md`. The four musical editin
 - **11.5.2 Step Sequencer interaction + rhythmic hierarchy — DONE.** PR #107 merged as `4f68112f3ba0d7268e0a051c97015053bb811af2`.
 - **11.5.3 Sampler / REC CHOPS performance hierarchy — DONE.** PR #108 merged as `9e30fb34877e482f2862131153f3af33a221fe09`.
 - **11.5.4 Automation editing hierarchy — DONE.** PR #109 passed the required core/legacy/Linux JUCE/Windows JUCE/macOS JUCE matrix and merged as `6e5fde92697c1ba0839913020d81c3478d00462e`.
-- **11.5.5 Musical-editor integration regression + closure audit — DONE when this closure PR is green and merged.** See `PHASE11_5_AUDIT.md`.
+- **11.5.5 Musical-editor integration regression + closure audit — DONE.** Closure PR #110 passed the required core/legacy/Linux JUCE/Windows JUCE/macOS JUCE matrix and was squash-merged as `a2ee3bc8`. See `PHASE11_5_AUDIT.md`.
 
-### 11.6 — Adaptive layout / panels / accessibility
+### 11.6 — Adaptive layout / panels / accessibility [DESIGNED]
 
-Add bounded resizable/adaptive panels where justified, minimum sizes, keyboard focus behavior, tooltips, accessible visible state and high-DPI validation.
+The bounded design is recorded in `PHASE11_6_DESIGN.md`. It defines a resizable production shell, deterministic compact/wide layout metrics, bounded Browser/editor/Mixer/utility panels, focus-visible keyboard traversal, tooltip/accessibility semantics and high-DPI validation while preserving DSP, project ownership and `.flow` v11.
+
+Implementation sequence:
+1. **11.6.1 Resizable shell + deterministic layout metrics.**
+2. **11.6.2 Bounded Browser / editor / Mixer / utility panels.**
+3. **11.6.3 Focus-visible + keyboard traversal.**
+4. **11.6.4 Tooltips / accessibility metadata / high-DPI validation.**
+5. **11.6.5 Adaptive/accessibility integration regression + closure audit.**
+
+Implementation must not begin until the 11.6 design PR is green and merged.
 
 ### 11.7 — Export / dialogs / settings / diagnostics productization
 
@@ -82,9 +91,8 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 ## Current checkpoint
 
 - Phase 10 is closed and its final main-branch CI passed.
-- 11.1, 11.2, 11.3 and 11.4 are DONE.
-- 11.5 implementation checkpoints 11.5.1–11.5.4 are integrated; the closure audit is recorded in `PHASE11_5_AUDIT.md`.
+- 11.1, 11.2, 11.3, 11.4 and 11.5 are DONE; 11.5 closure PR #110 merged as `a2ee3bc8`.
 - `.flow` remains v11 and the realtime contract is unchanged.
-- This closure branch contains no DSP/schema expansion; 11.5 becomes DONE only when its required CI matrix is green and the closure PR is merged.
+- 11.6 is now fully designed in `PHASE11_6_DESIGN.md`; no 11.6 implementation is included in this design checkpoint.
 
-Next gate after 11.5 closure: design only **11.6 — Adaptive layout / panels / accessibility** with bounded resizing, minimum sizes, keyboard focus, tooltips/accessibility and high-DPI acceptance criteria before implementation.
+Next gate after this design PR is green and merged: **11.6.1 — Resizable shell + deterministic layout metrics** only.
