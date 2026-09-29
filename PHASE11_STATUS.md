@@ -45,9 +45,15 @@ The bounded design is recorded in `PHASE11_4_DESIGN.md`. It productizes existing
 - **11.4.3 Plugin-rack workflow / insert state — DONE.** Presentation contract and wiring completed through PR #102; FLOWDAW CI #317 passed and the wiring merged as `64995f99`.
 - **11.4.4 Regression / closure audit — DONE.** `PHASE11_4_AUDIT.md` passed FLOWDAW CI #319 and PR #103 was squash-merged as `33922985`. The audit records architecture, realtime-safety, routing/PDC, plugin state/order, `.flow` v11, Undo/Redo, target synchronization and visual-identity preservation.
 
-### 11.5 — Piano Roll / Sequencer / Sampler / Automation
+### 11.5 — Piano Roll / Sequencer / Sampler / Automation [DONE]
 
-Unify musical editing surfaces, selection language, grids, keyboard/mouse interaction and contextual inspectors.
+The bounded design is recorded in `PHASE11_5_DESIGN.md`. The four musical editing surfaces were productized without changing their authoritative musical models, DSP, project schema or realtime contract.
+
+- **11.5.1 Piano Roll interaction + visual hierarchy — DONE.** PR #106 merged as `6664964478b172edf55f862af8dcdb53f420abdd`.
+- **11.5.2 Step Sequencer interaction + rhythmic hierarchy — DONE.** PR #107 merged as `4f68112f3ba0d7268e0a051c97015053bb811af2`.
+- **11.5.3 Sampler / REC CHOPS performance hierarchy — DONE.** PR #108 merged as `9e30fb34877e482f2862131153f3af33a221fe09`.
+- **11.5.4 Automation editing hierarchy — DONE.** PR #109 passed the required core/legacy/Linux JUCE/Windows JUCE/macOS JUCE matrix and merged as `6e5fde92697c1ba0839913020d81c3478d00462e`.
+- **11.5.5 Musical-editor integration regression + closure audit — DONE when this closure PR is green and merged.** See `PHASE11_5_AUDIT.md`.
 
 ### 11.6 — Adaptive layout / panels / accessibility
 
@@ -76,9 +82,9 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 ## Current checkpoint
 
 - Phase 10 is closed and its final main-branch CI passed.
-- 11.1, 11.2 and 11.3 are DONE.
-- 11.4 is DONE; closure PR #103 passed FLOWDAW CI #319 and was squash-merged as `33922985`.
+- 11.1, 11.2, 11.3 and 11.4 are DONE.
+- 11.5 implementation checkpoints 11.5.1–11.5.4 are integrated; the closure audit is recorded in `PHASE11_5_AUDIT.md`.
 - `.flow` remains v11 and the realtime contract is unchanged.
-- 11.5 implementation has not started.
+- This closure branch contains no DSP/schema expansion; 11.5 becomes DONE only when its required CI matrix is green and the closure PR is merged.
 
-Next gate: design only Phase 11.5 — Piano Roll / Sequencer / Sampler / Automation — with explicit interaction/state ownership, acceptance criteria, tests, realtime boundaries and scope limits before implementation.
+Next gate after 11.5 closure: design only **11.6 — Adaptive layout / panels / accessibility** with bounded resizing, minimum sizes, keyboard focus, tooltips/accessibility and high-DPI acceptance criteria before implementation.

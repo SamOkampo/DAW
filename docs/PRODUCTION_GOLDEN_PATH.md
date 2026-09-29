@@ -147,6 +147,21 @@ Expected: realtime and offline/export paths agree closely enough for the same pr
 
 Expected: Phase 10 workflows are reachable from the production JUCE UI, remain Undo/Redo coherent, and do not require developer-only tooling.
 
+### 11. Phase 11.5 musical-editor closure
+
+1. Open Piano Roll on a MIDI Pattern. Confirm primary note selection, grouped selection and keyboard focus are visually distinct.
+2. Change MIDI grid 1/8 → 1/16 → 1/32, root/scale and instrument context; add, move, resize, nudge and delete notes, then exercise Undo/Redo.
+3. Open Step Sequencer. Confirm selected lane, focused step, enabled steps and beat/bar hierarchy are distinguishable across 16/32/64-step lengths/pages.
+4. Edit step Velocity, Probability and Microtiming; change lane Volume/Pan/Mute/Solo and pattern Swing/Humanize; exercise keyboard navigation/toggle/clear/duplicate and Undo/Redo.
+5. Open Sampler. Confirm selected pad/slice and transient audition feedback are visually different; navigate banks and trigger pads from mouse and mapped keyboard.
+6. Rename a pad, change Gain/Pan/Choke, exercise Equal/Auto/Beat/Bar chop and Match BPM, then record REC CHOPS and apply Quantize/Humanize/Reset Feel.
+7. Open Automation. Switch Track volume/pan, Bus volume/pan and Master volume targets; confirm target/route identity, parameter range, playhead/tick position and curve points remain readable.
+8. Write multiple automation points at different playhead positions, write twice at one tick to exercise deterministic normalization, clear the lane, then Undo/Redo.
+9. Save and reopen the .flow project. Confirm MIDI notes/instrument state, sequencer state, sample slices/chop events and AutomationLane state persist.
+10. Play through the edited musical regions and confirm no editor requires the legacy X11 shell or a developer-only workflow.
+
+Expected: Piano Roll, Sequencer, Sampler/REC CHOPS and Automation share one coherent FLOWDAW editing language while preserving their existing musical semantics, Undo/Redo boundaries and .flow v11 state.
+
 ## Failure conditions
 
 Mark the run **FAIL** if any required flow needs X11, developer scripts, project-file hand editing, plugin creation/destruction from the audio callback, or if a normal user action causes a crash/hang. Also fail on silent loss of plugin state, rack order, recording takes, routing, automation or imported sample references after save/reopen.
