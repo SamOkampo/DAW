@@ -109,7 +109,7 @@ Planned sequence:
 7. **11.7 Export/settings/diagnostics productization** — dialogs, export flow, recovery/error states and relocation of technical controls from the main creative surface.
 8. **11.8 Visual regression and closure** — cross-workflow polish, installed-app golden path, Linux/Windows/macOS layout validation and final architecture/realtime/project-compatibility audit.
 
-**Current Phase 11 checkpoint:** 11.1–11.5 are complete once the 11.5 closure PR passes the required CI matrix and is merged. The next permitted block is 11.6; 11.7 and 11.8 remain pending.
+**Current Phase 11 checkpoint:** 11.1–11.5 are complete. Phase 11.6 is designed in `PHASE11_6_DESIGN.md`; implementation must start with 11.6.1 only after the design PR is green and merged. 11.7 and 11.8 remain pending.
 
 See `PHASE11_STATUS.md` for the active checkpoint and acceptance criteria.
 
