@@ -265,9 +265,10 @@ public:
         }
     }
     void resized()override{
-        auto r=getLocalBounds().reduced(16);
+        const auto metrics=flowdaw::ui::ShellLayoutMetrics::calculate(getWidth(),getHeight());
+        auto r=getLocalBounds().reduced(flowdaw::ui::ShellLayoutMetrics::inset);
 
-        auto header=r.removeFromTop(46);
+        auto header=r.removeFromTop(metrics.header.height);
         title_.setBounds(header.removeFromLeft(215).reduced(4,2));
         projectLabel_.setBounds(header.removeFromLeft(330).reduced(6,3));
         header.removeFromLeft(12);
