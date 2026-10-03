@@ -61,4 +61,97 @@ struct ShellLayoutMetrics {
     }
 };
 
+struct PanelLayoutMetrics {
+    static constexpr int browserMinWidth=220;
+    static constexpr int browserMaxWidth=420;
+    static constexpr int editorMinWidth=620;
+    static constexpr int editorMinHeight=240;
+    static constexpr int mixerMinHeight=140;
+    static constexpr int mixerMaxHeight=260;
+    static constexpr int utilityMaxHeight=220;
+    static constexpr int gap=6;
+
+    ShellRect browser{},editor{},mixer{},utility{};
+    bool mixerVisible=false;
+    bool utilityVisible=false;
+
+    [[nodiscard]] static constexpr PanelLayoutMetrics calculate(
+        ShellRect area,
+        int preferredBrowserWidth=280,
+        int preferredMixerHeight=176,
+        int preferredUtilityHeight=180,
+        bool mixerRequested=true,
+        bool utilityRequested=true) noexcept {
+        PanelLayoutMetrics m{};
+        if(area.width<=0||area.height<=0)return m;
+
+        const int maxBrowser=std::max(0,area.width-editorMinWidth-gap);
+        const int browserWidth=std::clamp(preferredBrowserWidth,0,std::min(browserMaxWidth,maxBrowser));
+        const int preferredMixer=std::clamp(preferredMixerHeight,mixerMinHeight,mixerMaxHeight);
+
+        int mixerHeight=0;
+        if(mixerRequested&&area.height>=editorMinHeight+gap+mixerMinHeight)
+            mixerHeight=std::min(preferredMixer,area.height-editorMinHeight-gap);
+
+        int utilityHeight=0;
+        if(utilityRequested&&(!mixerRequested||mixerHeight>0)){
+            const int usedByMixer=mixerHeight>0?mixerHeight+gap:0;
+            const int maxUtility=std::max(0,area.height-editorMinHeight-usedByMixer-gap);
+            utilityHeight=std::min(std::clamp(preferredUtilityHeight,0,utilityMaxHeight),maxUtility);
+        }
+
+        const int mixerGap=mixerHeight>0?gap:0;
+        const int utilityGap=utilityHeight>0?gap:0;
+        const int editorHeight=std::max(0,area.height-mixerHeight-utilityHeight-mixerGap-utilityGap);
+
+        ShellRect editorBand{area.x,area.y,area.width,editorHeight};
+        m.browser={editorBand.x,editorBand.y,browserWidth,editorBand.height};
+        const int editorX=editorBand.x+browserWidth+(browserWidth>0?gap:0);
+        m.editor={editorX,editorBand.y,std::max(0,editorBand.right()-editorX),editorBand.height};
+
+        int y=editorBand.bottom();
+        if(mixerHeight>0){
+            y+=gap;
+            m.mixer={area.x,y,area.width,mixerHeight};
+            y+=mixerHeight;
+            m.mixerVisible=true;
+        }
+        if(utilityHeight>0){
+            y+=gap;
+            m.utility={area.x,y,area.width,utilityHeight};
+            m.utilityVisible=true;
+        }
+        return m;
+    }
+};
+
+struct AutomationAssistLayoutMetrics {
+    static constexpr int inset=6;
+    static constexpr int top=24;
+    static constexpr int gap=8;
+    static constexpr int wideBreakpoint=900;
+
+    ShellRect left{},middle{},right{},graph{};
+    ShellWidthMode mode=ShellWidthMode::wide;
+
+    [[nodiscard]] static constexpr AutomationAssistLayoutMetrics calculate(int width,int height) noexcept {
+        AutomationAssistLayoutMetrics m{};
+        const int usableWidth=std::max(0,width-2*inset);
+        const int usableHeight=std::max(0,height-top-inset);
+        m.mode=width<wideBreakpoint?ShellWidthMode::compact:ShellWidthMode::wide;
+        const int gaps=2*gap;
+        const int columns=std::max(0,usableWidth-gaps);
+        int leftWidth=m.mode==ShellWidthMode::wide?columns*34/100:columns/3;
+        int middleWidth=m.mode==ShellWidthMode::wide?columns*30/100:columns/3;
+        const int rightWidth=std::max(0,columns-leftWidth-middleWidth);
+        int x=inset;
+        m.left={x,top,leftWidth,usableHeight};x+=leftWidth+gap;
+        m.middle={x,top,middleWidth,usableHeight};x+=middleWidth+gap;
+        m.right={x,top,rightWidth,usableHeight};
+        const int graphHeight=std::min(88,std::max(0,usableHeight-154));
+        m.graph={m.left.x,m.left.bottom()-graphHeight,m.left.width,graphHeight};
+        return m;
+    }
+};
+
 } // namespace flowdaw::ui
