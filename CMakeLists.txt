@@ -177,6 +177,10 @@ endif()
 
 if(FLOWDAW_BUILD_TESTS)
     enable_testing()
+    add_executable(flowdaw_shell_layout_tests tests/test_shell_layout.cpp)
+    target_link_libraries(flowdaw_shell_layout_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_shell_layout_tests COMMAND flowdaw_shell_layout_tests)
+
     add_executable(flowdaw_tests tests/test_main.cpp)
     target_link_libraries(flowdaw_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_tests COMMAND flowdaw_tests)
