@@ -225,7 +225,7 @@ public:
         mixerPanelToggle_.setButtonText("Hide Mixer");mixerPanelToggle_.setTooltip("Show or hide the Mixer presentation panel");mixerPanelToggle_.onClick=[this]{mixerPanelRequested_=!mixerPanelRequested_;resized();repaint();};addAndMakeVisible(mixerPanelToggle_);
         utilityPanelToggle_.setButtonText("Hide Audio I/O");utilityPanelToggle_.setTooltip("Show or hide the Audio I/O utility panel without changing device state");utilityPanelToggle_.onClick=[this]{utilityPanelRequested_=!utilityPanelRequested_;resized();repaint();};addAndMakeVisible(utilityPanelToggle_);
         applyShellTheme();
-        setWantsKeyboardFocus(true);installShortcutListeners(*this);setSize(1440,1040);startTimer(100);if(firstRun){saveDeviceSettings();auto safe=juce::Component::SafePointer<MainComponent>(this);juce::MessageManager::callAsync([safe]()mutable{if(auto*self=safe.getComponent())self->showFirstRunOnboarding();});}
+        setWantsKeyboardFocus(true);configureFocusTraversal();installShortcutListeners(*this);setSize(1440,1040);startTimer(100);if(firstRun){saveDeviceSettings();auto safe=juce::Component::SafePointer<MainComponent>(this);juce::MessageManager::callAsync([safe]()mutable{if(auto*self=safe.getComponent())self->showFirstRunOnboarding();});}
     }
     ~MainComponent()override{clearShellTheme();if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();pluginWindow_.reset();deviceManager_.removeAudioCallback(this);engine_.stop();engine_.collectRetiredGraphs();saveDeviceSettings();saveSafety();if(recovery_&&!preserveRecoveryOnExit_)try{recovery_->markCleanExit();}catch(...){}}
     void paint(juce::Graphics&g)override{
@@ -332,11 +332,15 @@ public:
         const auto editorArea=toRect(panels.editor);if(arrangement_)arrangement_->setBounds(editorArea);if(piano_)piano_->setBounds(editorArea);if(sampler_)sampler_->setBounds(editorArea);if(sequencer_)sequencer_->setBounds(editorArea);if(automationAssist_)automationAssist_->setBounds(editorArea);
 
         const bool showMixer=panels.mixerVisible;
+        const bool mixerHadFocus=mixerTargetChoice_.hasKeyboardFocus(true)||mixerVolume_.hasKeyboardFocus(true)||mixerPan_.hasKeyboardFocus(true)||muteTrack_.hasKeyboardFocus(true)||soloTrack_.hasKeyboardFocus(true)||mixerOutputChoice_.hasKeyboardFocus(true)||mixerSendBusChoice_.hasKeyboardFocus(true)||mixerSendGain_.hasKeyboardFocus(true)||mixerSendPre_.hasKeyboardFocus(true)||mixerSetSend_.hasKeyboardFocus(true)||mixerRemoveSend_.hasKeyboardFocus(true);
+        if(!showMixer&&mixerHadFocus)mixerPanelToggle_.grabKeyboardFocus();
         mixerSectionLabel_.setVisible(showMixer);mixerTargetChoice_.setVisible(showMixer);mixerVolumeLabel_.setVisible(showMixer);mixerVolume_.setVisible(showMixer);mixerPanLabel_.setVisible(showMixer);mixerPan_.setVisible(showMixer);muteTrack_.setVisible(showMixer);soloTrack_.setVisible(showMixer);mixerRoutingLabel_.setVisible(showMixer);mixerOutputChoice_.setVisible(showMixer);mixerSendBusChoice_.setVisible(showMixer);mixerSendGain_.setVisible(showMixer);mixerSendPre_.setVisible(showMixer);mixerSetSend_.setVisible(showMixer);mixerRemoveSend_.setVisible(showMixer);trackMeterLabel_.setVisible(showMixer);trackMeter_.setVisible(showMixer);
         if(showMixer){auto mixer=toRect(panels.mixer);auto mixerHeader=mixer.removeFromTop(38);mixerHeader.removeFromLeft(8);mixerSectionLabel_.setBounds(mixerHeader.removeFromLeft(270).reduced(5,3));mixerTargetChoice_.setBounds(mixerHeader.removeFromLeft(300).reduced(5,3));auto mixerControls=mixer.removeFromTop(42);mixerControls.removeFromLeft(8);mixerVolumeLabel_.setBounds(mixerControls.removeFromLeft(72).reduced(4));mixerVolume_.setBounds(mixerControls.removeFromLeft(std::min(280,std::max(180,mixerControls.getWidth()/3))).reduced(4));mixerPanLabel_.setBounds(mixerControls.removeFromLeft(52).reduced(4));mixerPan_.setBounds(mixerControls.removeFromLeft(std::min(240,std::max(160,mixerControls.getWidth()/3))).reduced(4));mixerControls.removeFromLeft(10);muteTrack_.setBounds(mixerControls.removeFromLeft(78).reduced(4));soloTrack_.setBounds(mixerControls.removeFromLeft(78).reduced(4));auto mixerRouting=mixer.removeFromTop(40);juceui::MixerRoutingPresentation::layout(mixerRouting,mixerRoutingLabel_,mixerOutputChoice_,mixerSendBusChoice_,mixerSendGain_,mixerSendPre_,mixerSetSend_,mixerRemoveSend_);auto mixerMeter=mixer;trackMeterLabel_.setBounds(mixerMeter.removeFromLeft(120).reduced(3));trackMeter_.setBounds(mixerMeter.reduced(3));}
         else{mixerSectionLabel_.setBounds({});trackMeter_.setBounds({});}
 
         const bool showUtility=panels.utilityVisible;
+        const bool utilityHadFocus=selector_->hasKeyboardFocus(true);
+        if(!showUtility&&utilityHadFocus)utilityPanelToggle_.grabKeyboardFocus();
         selector_->setVisible(showUtility);if(showUtility)selector_->setBounds(toRect(panels.utility));else selector_->setBounds({});
         mixerPanelToggle_.setButtonText(showMixer?"Hide Mixer":(mixerPanelRequested_?"Mixer • more height":"Show Mixer"));
         utilityPanelToggle_.setButtonText(showUtility?"Hide Audio I/O":(utilityPanelRequested_?"Audio I/O • more height":"Show Audio I/O"));
@@ -455,15 +459,29 @@ private:
     }
     void showCommandPalette(){
         juce::PopupMenu menu;menu.addSectionHeader("FLOWDAW Commands");menu.addItem(1,"New / Template    Ctrl/Cmd+N");menu.addItem(2,"Open Project    Ctrl/Cmd+O");menu.addItem(3,"Save Project    Ctrl/Cmd+S");menu.addItem(4,"Import WAV    Ctrl/Cmd+I");menu.addSeparator();menu.addItem(5,"Play / Pause    Ctrl/Cmd+Space");menu.addItem(6,"Undo    Ctrl/Cmd+Z");menu.addItem(7,"Redo    Ctrl/Cmd+Shift+Z");menu.addSeparator();menu.addItem(11,"Arrangement    Ctrl/Cmd+1");menu.addItem(12,"Piano Roll    Ctrl/Cmd+2");menu.addItem(13,"Sequencer    Ctrl/Cmd+3");menu.addItem(14,"Automation    Ctrl/Cmd+4");menu.addItem(15,"Sampler    Ctrl/Cmd+5");
-        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&commandPalette_),[this](int result){runWorkflowCommand(result);});
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&commandPalette_),[this](int result){runWorkflowCommand(result);if(result<11||result>15)commandPalette_.grabKeyboardFocus();});
     }
-    bool keyPressed(const juce::KeyPress&key,juce::Component*)override{
+    bool keyPressed(const juce::KeyPress&key,juce::Component*origin)override{
+        for(auto*component=origin;component!=nullptr;component=component->getParentComponent())if(dynamic_cast<juce::TextEditor*>(component)!=nullptr)return false;
         const auto mods=key.getModifiers();if(!mods.isCommandDown())return false;const int code=key.getKeyCode();
         if(code=='K'){showCommandPalette();return true;}if(code=='N'){showNewProjectMenu();return true;}if(code=='O'){chooseProject();return true;}if(code=='S'){saveProject();return true;}if(code=='I'){chooseWav();return true;}
         if(code=='Z'){mods.isShiftDown()?redoEdit():undoEdit();return true;}if(code==juce::KeyPress::spaceKey){togglePlayback();return true;}
         if(code>='1'&&code<='5'){runWorkflowCommand(11+(code-'1'));return true;}return false;
     }
-    void installShortcutListeners(juce::Component&component){component.addKeyListener(this);for(auto*child:component.getChildren())if(child)installShortcutListeners(*child);}
+    void configureFocusTraversal(){
+        int order=1;
+        for(auto*component:{static_cast<juce::Component*>(&newProject_),static_cast<juce::Component*>(&loadProject_),static_cast<juce::Component*>(&importWav_),static_cast<juce::Component*>(&saveProject_),static_cast<juce::Component*>(&commandPalette_),static_cast<juce::Component*>(&play_),static_cast<juce::Component*>(&stop_),static_cast<juce::Component*>(&bpmMinus_),static_cast<juce::Component*>(&bpmPlus_),static_cast<juce::Component*>(&undoButton_),static_cast<juce::Component*>(&redoButton_),static_cast<juce::Component*>(&arrangementTab_),static_cast<juce::Component*>(&pianoTab_),static_cast<juce::Component*>(&sequencerTab_),static_cast<juce::Component*>(&automationTab_),static_cast<juce::Component*>(&samplerTab_),static_cast<juce::Component*>(&patternChoice_),static_cast<juce::Component*>(&sampleChoice_),static_cast<juce::Component*>(&mixerPanelToggle_),static_cast<juce::Component*>(&utilityPanelToggle_),static_cast<juce::Component*>(&scan_),static_cast<juce::Component*>(&pluginSearch_),static_cast<juce::Component*>(&pluginKindChoice_),static_cast<juce::Component*>(&pluginChoice_),static_cast<juce::Component*>(&openEditor_),static_cast<juce::Component*>(&rackTargetChoice_),static_cast<juce::Component*>(&rackPluginChoice_),static_cast<juce::Component*>(&rackWet_),static_cast<juce::Component*>(&rackParam_),static_cast<juce::Component*>(&openRackEditor_),static_cast<juce::Component*>(&mixerTargetChoice_),static_cast<juce::Component*>(&mixerVolume_),static_cast<juce::Component*>(&mixerPan_)})component->setExplicitFocusOrder(order++);
+        if(arrangement_)arrangement_->setExplicitFocusOrder(order++);
+        if(piano_)piano_->setExplicitFocusOrder(order++);
+        if(sequencer_)sequencer_->setExplicitFocusOrder(order++);
+        if(automationAssist_)automationAssist_->setExplicitFocusOrder(order++);
+        if(sampler_)sampler_->setExplicitFocusOrder(order++);
+    }
+    void installShortcutListeners(juce::Component&component){
+        if(dynamic_cast<juce::TextEditor*>(&component)!=nullptr)return;
+        component.addKeyListener(this);
+        for(auto*child:component.getChildren())if(child)installShortcutListeners(*child);
+    }
 
     void refreshRackTargets(){
         const int previous=rackTargetChoice_.getSelectedId();rackTargetChoice_.clear(juce::dontSendNotification);rackTargetChoice_.addItem("MASTER • Rack",1);
@@ -511,7 +529,8 @@ private:
         for(auto&p:project_.master.plugins)if(p.id==id)return&p;for(auto&t:project_.tracks){for(auto&p:t.mixer.plugins)if(p.id==id)return&p;if(t.externalInstrumentEnabled&&t.externalInstrument.id==id)return&t.externalInstrument;}for(auto&b:project_.buses)for(auto&p:b.mixer.plugins)if(p.id==id)return&p;return nullptr;
     }
     void finishRackEditorSession(){
-        if(rackEditorPluginId_==0)return;const bool dirty=rackEditorDirty_;rackEditorPluginId_=0;rackEditorDirty_=false;if(dirty){undo_.commit(std::move(rackEditorBefore_),project_,"Edit external plugin state");publishEdit("External plugin state committed");}
+        if(rackEditorPluginId_!=0){const bool dirty=rackEditorDirty_;rackEditorPluginId_=0;rackEditorDirty_=false;if(dirty){undo_.commit(std::move(rackEditorBefore_),project_,"Edit external plugin state");publishEdit("External plugin state committed");}}
+        if(isShowing())openRackEditor_.grabKeyboardFocus();
     }
     void openRackEditor(){
         auto*p=selectedRackPlugin();if(!p){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}if(p->format=="builtin"){status_.setText("FLOW native parameters are edited directly in the rack",juce::dontSendNotification);return;}if(pluginWindow_&&pluginWindow_->isVisible()){status_.setText("Close the current plugin editor first",juce::dontSendNotification);return;}if(safety_.isQuarantined(p->identifier)){status_.setText("Plugin is quarantined; clear it with FLOWDAW Doctor before retrying",juce::dontSendNotification);return;}
@@ -644,6 +663,8 @@ private:
         arrangementTab_.setToggleState(arrangement,juce::dontSendNotification);pianoTab_.setToggleState(piano,juce::dontSendNotification);sequencerTab_.setToggleState(step,juce::dontSendNotification);automationTab_.setToggleState(automation,juce::dontSendNotification);samplerTab_.setToggleState(sampler,juce::dontSendNotification);
         note_.setText(arrangement?"ARRANGE • Timeline + Browser":(piano?"EDIT • Piano Roll":(step?"EDIT • Step Sequencer":(automation?"AUTOMATE • Lanes + Assist":"SAMPLE • Slice → Perform → Shape Feel"))),juce::dontSendNotification);
         if(piano||step)syncPatternEditors();if(automation&&automationAssist_)automationAssist_->refresh();if(sampler)syncSamplerSample();
+        juce::Component*active=arrangement?static_cast<juce::Component*>(arrangement_.get()):(piano?static_cast<juce::Component*>(piano_.get()):(step?static_cast<juce::Component*>(sequencer_.get()):(automation?static_cast<juce::Component*>(automationAssist_.get()):static_cast<juce::Component*>(sampler_.get()))));
+        if(active&&active->isShowing())active->grabKeyboardFocus();
     }
     void refreshPatternChoice(){
         const int previous=patternChoice_.getSelectedId();patternChoice_.clear(juce::dontSendNotification);int id=1;
@@ -769,7 +790,7 @@ private:
         chooser_->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::warnAboutOverwriting,[this](const juce::FileChooser&fc){auto file=fc.getResult();if(file!=juce::File{})writeProject(std::filesystem::path(file.getFullPathName().toStdString()));chooser_.reset();});
     }
     juce::AudioPluginFormat* formatFor(const PluginDescriptor&p){for(auto*f:formatManager_.getFormats()){auto n=f->getName().toLowerCase();if((p.format=="vst3"&&n.contains("vst3"))||(p.format=="au"&&n.contains("audio")))return f;}return nullptr;}
-    void openSelectedEditor(){const int idx=selectedPluginIndex();if(idx<0||idx>=static_cast<int>(plugins_.size())){status_.setText("Scan and select a plugin first",juce::dontSendNotification);return;}auto p=plugins_[static_cast<std::size_t>(idx)];if(safety_.isQuarantined(p.identifier)){status_.setText("Plugin is quarantined; clear it with FLOWDAW Doctor before retrying",juce::dontSendNotification);return;}auto*fmt=formatFor(p);if(!fmt){status_.setText("No JUCE format backend for selection",juce::dontSendNotification);return;}juce::OwnedArray<juce::PluginDescription> desc;fmt->findAllTypesForFile(desc,juce::String(p.identifier));if(desc.isEmpty()){safety_.noteFailure(p.identifier,"Plugin description could not be recreated");saveSafety();status_.setText("Plugin description could not be recreated",juce::dontSendNotification);return;}auto d=*desc[0];auto setup=deviceManager_.getAudioDeviceSetup();formatManager_.createPluginInstanceAsync(d,setup.sampleRate>0?setup.sampleRate:48000.0,setup.bufferSize>0?setup.bufferSize:256,[this,id=p.identifier](std::unique_ptr<juce::AudioPluginInstance>instance,const juce::String&error){if(!instance){safety_.noteFailure(id,error.toStdString());saveSafety();status_.setText("Plugin load failed: "+error,juce::dontSendNotification);return;}safety_.noteSuccess(id);saveSafety();pluginWindow_=std::make_unique<PluginEditorWindow>(std::move(instance));status_.setText("Plugin editor hosted in JUCE window",juce::dontSendNotification);});}
+    void openSelectedEditor(){const int idx=selectedPluginIndex();if(idx<0||idx>=static_cast<int>(plugins_.size())){status_.setText("Scan and select a plugin first",juce::dontSendNotification);return;}auto p=plugins_[static_cast<std::size_t>(idx)];if(safety_.isQuarantined(p.identifier)){status_.setText("Plugin is quarantined; clear it with FLOWDAW Doctor before retrying",juce::dontSendNotification);return;}auto*fmt=formatFor(p);if(!fmt){status_.setText("No JUCE format backend for selection",juce::dontSendNotification);return;}juce::OwnedArray<juce::PluginDescription> desc;fmt->findAllTypesForFile(desc,juce::String(p.identifier));if(desc.isEmpty()){safety_.noteFailure(p.identifier,"Plugin description could not be recreated");saveSafety();status_.setText("Plugin description could not be recreated",juce::dontSendNotification);return;}auto d=*desc[0];auto setup=deviceManager_.getAudioDeviceSetup();formatManager_.createPluginInstanceAsync(d,setup.sampleRate>0?setup.sampleRate:48000.0,setup.bufferSize>0?setup.bufferSize:256,[this,id=p.identifier](std::unique_ptr<juce::AudioPluginInstance>instance,const juce::String&error){if(!instance){safety_.noteFailure(id,error.toStdString());saveSafety();status_.setText("Plugin load failed: "+error,juce::dontSendNotification);return;}safety_.noteSuccess(id);saveSafety();pluginWindow_=std::make_unique<PluginEditorWindow>(std::move(instance),PluginEditorWindow::StateFn{},[this]{if(isShowing())openEditor_.grabKeyboardFocus();});status_.setText("Plugin editor hosted in JUCE window",juce::dontSendNotification);});}
     void timerCallback()override{
         engine_.collectRetiredGraphs();
         syncTransportVisualState();
