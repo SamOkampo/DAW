@@ -162,6 +162,25 @@ Expected: Phase 10 workflows are reachable from the production JUCE UI, remain U
 
 Expected: Piano Roll, Sequencer, Sampler/REC CHOPS and Automation share one coherent FLOWDAW editing language while preserving their existing musical semantics, Undo/Redo boundaries and .flow v11 state.
 
+
+### 12. Phase 11.6 adaptive-layout and accessibility closure
+
+1. Launch at the default 1440×1040 logical size, then resize to 1280×800 and the supported 1180×720 minimum.
+2. Confirm shell/project/transport/workspace controls remain inside the window and no primary control is clipped outside its parent.
+3. Confirm the Sample Browser remains bounded while the active creative editor retains priority and stays usable.
+4. At constrained height, confirm Mixer and Audio I/O collapse rather than forcing invalid editor geometry; use their visible restore controls after increasing available height.
+5. At a larger window, show Mixer and Audio I/O and confirm Mixer height and utility height stay bounded instead of consuming unbounded creative space.
+6. Open Automation and confirm Automation, Bus Mixer and Assist regions reflow from the current logical width rather than using fixed columns.
+7. Tab and Shift+Tab through each workspace. Confirm visible/enabled controls receive focus in workflow order and hidden/collapsed controls are skipped.
+8. In Piano Roll, Sequencer, Sampler and Automation, confirm keyboard focus is visible with an outline/shape cue and not conveyed by colour alone.
+9. Type in plugin search and pad-name text fields. Confirm project/workspace shortcuts do not fire while the text field owns focus.
+10. Open/close a plugin editor and switch workspaces; confirm useful FLOWDAW focus is restored where practical.
+11. Inspect concise tooltips/help and accessible titles for ambiguous plugin, rack, Mixer, automation and panel controls.
+12. Repeat the resize/focus/readability smoke at representative 100%, 125%, 150% and 200% native OS display scaling where the platform supports it. Record any platform-specific issue separately; automated CI does not substitute for physical display or assistive-technology inspection.
+13. Save/reopen the project and confirm resizing/panel visibility/focus work did not change persisted musical state or the .flow v11 project contract.
+
+Expected: resizing and keyboard/accessibility behavior improve the desktop workflow without changing musical semantics, realtime ownership or project persistence.
+
 ## Failure conditions
 
 Mark the run **FAIL** if any required flow needs X11, developer scripts, project-file hand editing, plugin creation/destruction from the audio callback, or if a normal user action causes a crash/hang. Also fail on silent loss of plugin state, rack order, recording takes, routing, automation or imported sample references after save/reopen.
