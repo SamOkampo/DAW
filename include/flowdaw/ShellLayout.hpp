@@ -86,7 +86,7 @@ struct PanelLayoutMetrics {
         if(area.width<=0||area.height<=0)return m;
 
         const int maxBrowser=std::max(0,area.width-editorMinWidth-gap);
-        const int browserWidth=std::clamp(preferredBrowserWidth,0,std::min(browserMaxWidth,maxBrowser));
+        const int browserWidth=maxBrowser>=browserMinWidth?std::clamp(preferredBrowserWidth,browserMinWidth,std::min(browserMaxWidth,maxBrowser)):maxBrowser;
         const int preferredMixer=std::clamp(preferredMixerHeight,mixerMinHeight,mixerMaxHeight);
 
         int mixerHeight=0;
