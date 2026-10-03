@@ -21,6 +21,7 @@ public:
 
     AutomationAssistComponent(Project&project,PlayheadFn playhead,CommitFn commit)
         :project_(project),playhead_(std::move(playhead)),commit_(std::move(commit)){
+        setWantsKeyboardFocus(true);
         targetChoice_.addItem("Master Volume",1);targetChoice_.addItem("Track Volume",2);targetChoice_.addItem("Track Pan",3);targetChoice_.addItem("Bus Volume",4);targetChoice_.addItem("Bus Pan",5);
         targetChoice_.setSelectedId(1,juce::dontSendNotification);targetChoice_.onChange=[this]{refreshRouteChoice();syncAutomationValue();repaint();};addAndMakeVisible(targetChoice_);
         routeChoice_.onChange=[this]{syncAutomationValue();repaint();};addAndMakeVisible(routeChoice_);
@@ -49,6 +50,7 @@ public:
         addAndMakeVisible(commandChoice_);executeCommand_.setButtonText("Run Command");executeCommand_.onClick=[this]{runSelectedCommand();};addAndMakeVisible(executeCommand_);
 
         report_.setMultiLine(true);report_.setReadOnly(true);report_.setScrollbarsShown(true);report_.setColour(juce::TextEditor::backgroundColourId,juce::Colour(0xff15181d));report_.setColour(juce::TextEditor::textColourId,juce::Colour(0xffdfe2e8));addAndMakeVisible(report_);
+        int focusOrder=1;for(auto*component:{static_cast<juce::Component*>(&targetChoice_),static_cast<juce::Component*>(&routeChoice_),static_cast<juce::Component*>(&value_),static_cast<juce::Component*>(&writePoint_),static_cast<juce::Component*>(&clearLane_),static_cast<juce::Component*>(&busChoice_),static_cast<juce::Component*>(&busVolume_),static_cast<juce::Component*>(&busPan_),static_cast<juce::Component*>(&busMute_),static_cast<juce::Component*>(&busSolo_),static_cast<juce::Component*>(&createBus_),static_cast<juce::Component*>(&sendTrackChoice_),static_cast<juce::Component*>(&sendBusChoice_),static_cast<juce::Component*>(&sendGain_),static_cast<juce::Component*>(&preFader_),static_cast<juce::Component*>(&setSend_),static_cast<juce::Component*>(&removeSend_),static_cast<juce::Component*>(&suggestionChoice_),static_cast<juce::Component*>(&refreshAssist_),static_cast<juce::Component*>(&applySuggestion_),static_cast<juce::Component*>(&commandChoice_),static_cast<juce::Component*>(&executeCommand_)})component->setExplicitFocusOrder(focusOrder++);
         refresh();
     }
 
@@ -82,7 +84,16 @@ public:
         }else{g.setColour(FlowTheme::textMuted());g.setFont(10.5f);g.drawText("No automation points — set a value and Write Point at the playhead",graph.reduced(10),juce::Justification::centred,false);}
         const float playheadX=graph.getX()+static_cast<float>(playhead)/std::max<Tick>(1,maxTick)*graph.getWidth();g.setColour(FlowTheme::aqua().withAlpha(0.92f));g.drawVerticalLine(static_cast<int>(playheadX),static_cast<float>(graph.getY()),static_cast<float>(graph.getBottom()));
         g.setFont(9.5f);g.setColour(FlowTheme::textMuted());g.drawText("PLAYHEAD  "+juce::String(playhead)+" ticks  •  linear read  •  "+juce::String(targetIsPan()?"-1 ↔ +1":"0 ↔ 2"),graph.getX()+7,graph.getY()+5,graph.getWidth()-14,14,juce::Justification::centredRight,false);
+        if(hasKeyboardFocus(true)){
+            g.setColour(FlowTheme::focus().withAlpha(0.92f));
+            g.drawRoundedRectangle(getLocalBounds().reduced(2).toFloat(),8.0f,1.5f);
+            g.fillRect(juce::Rectangle<int>(2,2,14,3));
+        }
     }
+
+    void mouseDown(const juce::MouseEvent&)override{grabKeyboardFocus();repaint();}
+    void focusGained(FocusChangeType)override{repaint();}
+    void focusLost(FocusChangeType)override{repaint();}
 
     void resized()override{
         const auto adaptive=flowdaw::ui::AutomationAssistLayoutMetrics::calculate(getWidth(),getHeight());
