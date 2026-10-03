@@ -55,18 +55,15 @@ The bounded design is recorded in `PHASE11_5_DESIGN.md`. The four musical editin
 - **11.5.4 Automation editing hierarchy — DONE.** PR #109 passed the required core/legacy/Linux JUCE/Windows JUCE/macOS JUCE matrix and merged as `6e5fde92697c1ba0839913020d81c3478d00462e`.
 - **11.5.5 Musical-editor integration regression + closure audit — DONE.** Closure PR #110 passed the required core/legacy/Linux JUCE/Windows JUCE/macOS JUCE matrix and was squash-merged as `a2ee3bc8`. See `PHASE11_5_AUDIT.md`.
 
-### 11.6 — Adaptive layout / panels / accessibility [DESIGNED]
+### 11.6 — Adaptive layout / panels / accessibility [DONE]
 
-The bounded design is recorded in `PHASE11_6_DESIGN.md`. It defines a resizable production shell, deterministic compact/wide layout metrics, bounded Browser/editor/Mixer/utility panels, focus-visible keyboard traversal, tooltip/accessibility semantics and high-DPI validation while preserving DSP, project ownership and `.flow` v11.
+The bounded design is recorded in `PHASE11_6_DESIGN.md`; final architecture/realtime/project-compatibility closure is recorded in `PHASE11_6_AUDIT.md`. Phase 11.6 adds adaptive desktop geometry, bounded secondary panels, coherent keyboard focus/accessibility semantics and high-DPI validation without changing DSP, project ownership or `.flow` v11.
 
-Implementation sequence:
-1. **11.6.1 Resizable shell + deterministic layout metrics.**
-2. **11.6.2 Bounded Browser / editor / Mixer / utility panels.**
-3. **11.6.3 Focus-visible + keyboard traversal.**
-4. **11.6.4 Tooltips / accessibility metadata / high-DPI validation.**
-5. **11.6.5 Adaptive/accessibility integration regression + closure audit.**
-
-Implementation must not begin until the 11.6 design PR is green and merged.
+- **11.6.1 Resizable shell + deterministic layout metrics — DONE.** PR #112 passed FLOWDAW CI run 36811298807 and merged as `68c862c7`.
+- **11.6.2 Bounded Browser/editor/Mixer/utility panels — DONE.** PR #113 passed FLOWDAW CI run 37084848470 and merged as `40a7d2dd`.
+- **11.6.3 Focus-visible + keyboard traversal — DONE.** Main-based PR #116 passed FLOWDAW CI run 37086718639 and merged as `9ab9323d`.
+- **11.6.4 Tooltips/accessibility metadata/high-DPI validation — DONE.** PR #117 passed FLOWDAW CI run 37088405987 across core, legacy, Linux, Windows and macOS and merged as `a8d345d2`.
+- **11.6.5 Adaptive/accessibility integration regression + closure audit — DONE on merge of this closure checkpoint.** See `PHASE11_6_AUDIT.md` and the Phase 11.6 section in `docs/PRODUCTION_GOLDEN_PATH.md`.
 
 ### 11.7 — Export / dialogs / settings / diagnostics productization
 
@@ -91,8 +88,8 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 ## Current checkpoint
 
 - Phase 10 is closed and its final main-branch CI passed.
-- 11.1, 11.2, 11.3, 11.4 and 11.5 are DONE; 11.5 closure PR #110 merged as `a2ee3bc8`.
+- **11.1 through 11.6 are DONE.** Phase 11.6 closure is recorded in `PHASE11_6_AUDIT.md`.
 - `.flow` remains v11 and the realtime contract is unchanged.
-- 11.6 is now fully designed in `PHASE11_6_DESIGN.md`; no 11.6 implementation is included in this design checkpoint.
+- 11.7 and 11.8 remain pending; no Post-MVP work is authorized by this checkpoint.
 
-Next gate after this design PR is green and merged: **11.6.1 — Resizable shell + deterministic layout metrics** only.
+Next permitted work: **11.7 — Export / dialogs / settings / diagnostics productization**. If its implementation boundary is not yet sufficiently designed, document its acceptance criteria, dependencies, tests and exclusions before implementation.
