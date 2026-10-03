@@ -225,6 +225,7 @@ public:
         mixerPanelToggle_.setButtonText("Hide Mixer");mixerPanelToggle_.setTooltip("Show or hide the Mixer presentation panel");mixerPanelToggle_.onClick=[this]{mixerPanelRequested_=!mixerPanelRequested_;resized();repaint();};addAndMakeVisible(mixerPanelToggle_);
         utilityPanelToggle_.setButtonText("Hide Audio I/O");utilityPanelToggle_.setTooltip("Show or hide the Audio I/O utility panel without changing device state");utilityPanelToggle_.onClick=[this]{utilityPanelRequested_=!utilityPanelRequested_;resized();repaint();};addAndMakeVisible(utilityPanelToggle_);
         applyShellTheme();
+        configureAccessibilityMetadata();
         setWantsKeyboardFocus(true);configureFocusTraversal();installShortcutListeners(*this);setSize(1440,1040);startTimer(100);if(firstRun){saveDeviceSettings();auto safe=juce::Component::SafePointer<MainComponent>(this);juce::MessageManager::callAsync([safe]()mutable{if(auto*self=safe.getComponent())self->showFirstRunOnboarding();});}
     }
     ~MainComponent()override{clearShellTheme();if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();pluginWindow_.reset();deviceManager_.removeAudioCallback(this);engine_.stop();engine_.collectRetiredGraphs();saveDeviceSettings();saveSafety();if(recovery_&&!preserveRecoveryOnExit_)try{recovery_->markCleanExit();}catch(...){}}
@@ -468,6 +469,44 @@ private:
         if(code=='Z'){mods.isShiftDown()?redoEdit():undoEdit();return true;}if(code==juce::KeyPress::spaceKey){togglePlayback();return true;}
         if(code>='1'&&code<='5'){runWorkflowCommand(11+(code-'1'));return true;}return false;
     }
+    void configureAccessibilityMetadata(){
+        setTitle("FLOWDAW Studio");setDescription("Music production workspace");setHelpText("Resize the window, switch workspaces, edit music, mix, and manage production controls.");
+        projectLabel_.setTitle("Current project");projectLabel_.setDescription("Name and recovery state of the open FLOWDAW project.");
+        play_.setTitle("Play or pause");play_.setHelpText("Start or pause transport playback.");
+        stop_.setTitle("Stop transport");stop_.setHelpText("Stop playback and return transport to the stopped state.");
+        bpmMinus_.setTitle("Decrease tempo");bpmPlus_.setTitle("Increase tempo");bpmLabel_.setTitle("Project tempo");
+        commandPalette_.setTitle("Command palette");commandPalette_.setHelpText("Open FLOWDAW commands. Shortcut: Ctrl or Command plus K.");
+        scan_.setTitle("Scan plugins");scan_.setDescription("Discover configured VST3 or Audio Unit plugins.");scan_.setTooltip("Scan configured VST3/AU plugin locations");
+        pluginSearch_.setTitle("Plugin search");pluginSearch_.setDescription("Filter scanned plugins by name.");
+        pluginKindChoice_.setTitle("Plugin type filter");pluginKindChoice_.setDescription("Show all plugins, instruments, or effects.");pluginKindChoice_.setTooltip("Filter scanned plugins by type");
+        pluginChoice_.setTitle("Scanned plugin");pluginChoice_.setDescription("Choose a discovered plugin.");
+        openEditor_.setTitle("Preview plugin editor");openEditor_.setHelpText("Open the selected scanned plugin in a separate editor window.");
+        rackTargetChoice_.setTitle("Insert rack target");rackPluginChoice_.setTitle("Selected insert");
+        rackWet_.setTitle("Insert wet mix");rackWet_.setDescription("Wet and dry mix for the selected insert.");rackWet_.setTooltip("Selected insert wet/dry mix");
+        rackParam_.setTitle("Insert parameter");rackParam_.setDescription("Primary editable parameter for the selected native insert.");rackParam_.setTooltip("Selected native insert parameter");
+        openRackEditor_.setTitle("Open insert editor");openRackEditor_.setHelpText("Open the selected external insert editor.");
+        mixerTargetChoice_.setTitle("Mixer target");mixerTargetChoice_.setDescription("Choose the active track, bus, or master channel.");
+        mixerVolume_.setTitle("Mixer volume");mixerVolume_.setDescription("Volume for the active mixer target.");mixerVolume_.setTooltip("Active mixer target volume");
+        mixerPan_.setTitle("Mixer pan");mixerPan_.setDescription("Pan for the active track or bus.");mixerPan_.setTooltip("Active track or bus pan");
+        mixerSendGain_.setTitle("Send gain");mixerSendGain_.setDescription("Level sent from the active track to the selected bus.");mixerSendGain_.setTooltip("Track-to-bus send level");
+        mixerSendPre_.setTitle("Pre-fader send");mixerSendPre_.setHelpText("Toggle whether the selected send is taken before the channel fader.");
+        trackMeter_.setTitle("Active channel meter");trackMeter_.setDescription("Read-only level meter for the selected track, bus, or master target.");
+        meterLabel_.setTitle("Master level summary");meterLabel_.setDescription("Read-only master true-peak, sample-peak, and RMS summary.");
+        mixerPanelToggle_.setTitle("Mixer panel visibility");mixerPanelToggle_.setDescription("Show or hide the Mixer presentation panel.");
+        utilityPanelToggle_.setTitle("Audio I/O panel visibility");utilityPanelToggle_.setDescription("Show or hide Audio I/O controls without changing the current device state.");
+        patternChoice_.setTitle("Pattern selector");sampleChoice_.setTitle("Sample selector");
+        chopGridChoice_.setTitle("Chop quantize grid");
+        chopQuantizeStrength_.setTitle("Chop quantize strength");chopQuantizeStrength_.setTooltip("Timing correction applied to recorded chops");
+        chopHumanizeStrength_.setTitle("Chop humanize strength");chopHumanizeStrength_.setTooltip("Timing variation applied to recorded chops");
+        arrangementTab_.setTitle("Arrangement workspace");pianoTab_.setTitle("Piano Roll workspace");sequencerTab_.setTitle("Step Sequencer workspace");automationTab_.setTitle("Automation workspace");samplerTab_.setTitle("Sampler workspace");
+        if(arrangement_){arrangement_->setTitle("Arrangement editor");arrangement_->setDescription("Primary timeline and clip editing surface.");}
+        if(piano_){piano_->setTitle("Piano Roll editor");piano_->setDescription("MIDI note editing surface with keyboard shortcuts.");}
+        if(sequencer_){sequencer_->setTitle("Step Sequencer editor");sequencer_->setDescription("Rhythmic step editing surface with keyboard shortcuts.");}
+        if(automationAssist_){automationAssist_->setTitle("Automation and Assist workspace");automationAssist_->setDescription("Automation, bus, send, and project-assist controls.");}
+        if(sampler_){sampler_->setTitle("Sampler editor");sampler_->setDescription("Slice and pad performance editing surface with keyboard shortcuts.");}
+        if(sampleBrowser_){sampleBrowser_->setTitle("Sample Browser");sampleBrowser_->setDescription("Browse and import local audio samples.");}
+    }
+
     void configureFocusTraversal(){
         int order=1;
         for(auto*component:{static_cast<juce::Component*>(&newProject_),static_cast<juce::Component*>(&loadProject_),static_cast<juce::Component*>(&importWav_),static_cast<juce::Component*>(&saveProject_),static_cast<juce::Component*>(&commandPalette_),static_cast<juce::Component*>(&play_),static_cast<juce::Component*>(&stop_),static_cast<juce::Component*>(&bpmMinus_),static_cast<juce::Component*>(&bpmPlus_),static_cast<juce::Component*>(&undoButton_),static_cast<juce::Component*>(&redoButton_),static_cast<juce::Component*>(&arrangementTab_),static_cast<juce::Component*>(&pianoTab_),static_cast<juce::Component*>(&sequencerTab_),static_cast<juce::Component*>(&automationTab_),static_cast<juce::Component*>(&samplerTab_),static_cast<juce::Component*>(&patternChoice_),static_cast<juce::Component*>(&sampleChoice_),static_cast<juce::Component*>(&mixerPanelToggle_),static_cast<juce::Component*>(&utilityPanelToggle_),static_cast<juce::Component*>(&scan_),static_cast<juce::Component*>(&pluginSearch_),static_cast<juce::Component*>(&pluginKindChoice_),static_cast<juce::Component*>(&pluginChoice_),static_cast<juce::Component*>(&openEditor_),static_cast<juce::Component*>(&rackTargetChoice_),static_cast<juce::Component*>(&rackPluginChoice_),static_cast<juce::Component*>(&rackWet_),static_cast<juce::Component*>(&rackParam_),static_cast<juce::Component*>(&openRackEditor_),static_cast<juce::Component*>(&mixerTargetChoice_),static_cast<juce::Component*>(&mixerVolume_),static_cast<juce::Component*>(&mixerPan_)})component->setExplicitFocusOrder(order++);
@@ -530,7 +569,7 @@ private:
     }
     void finishRackEditorSession(){
         if(rackEditorPluginId_!=0){const bool dirty=rackEditorDirty_;rackEditorPluginId_=0;rackEditorDirty_=false;if(dirty){undo_.commit(std::move(rackEditorBefore_),project_,"Edit external plugin state");publishEdit("External plugin state committed");}}
-        if(isShowing())openRackEditor_.grabKeyboardFocus();
+        openRackEditor_.grabKeyboardFocus();
     }
     void openRackEditor(){
         auto*p=selectedRackPlugin();if(!p){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}if(p->format=="builtin"){status_.setText("FLOW native parameters are edited directly in the rack",juce::dontSendNotification);return;}if(pluginWindow_&&pluginWindow_->isVisible()){status_.setText("Close the current plugin editor first",juce::dontSendNotification);return;}if(safety_.isQuarantined(p->identifier)){status_.setText("Plugin is quarantined; clear it with FLOWDAW Doctor before retrying",juce::dontSendNotification);return;}
@@ -790,7 +829,7 @@ private:
         chooser_->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::warnAboutOverwriting,[this](const juce::FileChooser&fc){auto file=fc.getResult();if(file!=juce::File{})writeProject(std::filesystem::path(file.getFullPathName().toStdString()));chooser_.reset();});
     }
     juce::AudioPluginFormat* formatFor(const PluginDescriptor&p){for(auto*f:formatManager_.getFormats()){auto n=f->getName().toLowerCase();if((p.format=="vst3"&&n.contains("vst3"))||(p.format=="au"&&n.contains("audio")))return f;}return nullptr;}
-    void openSelectedEditor(){const int idx=selectedPluginIndex();if(idx<0||idx>=static_cast<int>(plugins_.size())){status_.setText("Scan and select a plugin first",juce::dontSendNotification);return;}auto p=plugins_[static_cast<std::size_t>(idx)];if(safety_.isQuarantined(p.identifier)){status_.setText("Plugin is quarantined; clear it with FLOWDAW Doctor before retrying",juce::dontSendNotification);return;}auto*fmt=formatFor(p);if(!fmt){status_.setText("No JUCE format backend for selection",juce::dontSendNotification);return;}juce::OwnedArray<juce::PluginDescription> desc;fmt->findAllTypesForFile(desc,juce::String(p.identifier));if(desc.isEmpty()){safety_.noteFailure(p.identifier,"Plugin description could not be recreated");saveSafety();status_.setText("Plugin description could not be recreated",juce::dontSendNotification);return;}auto d=*desc[0];auto setup=deviceManager_.getAudioDeviceSetup();formatManager_.createPluginInstanceAsync(d,setup.sampleRate>0?setup.sampleRate:48000.0,setup.bufferSize>0?setup.bufferSize:256,[this,id=p.identifier](std::unique_ptr<juce::AudioPluginInstance>instance,const juce::String&error){if(!instance){safety_.noteFailure(id,error.toStdString());saveSafety();status_.setText("Plugin load failed: "+error,juce::dontSendNotification);return;}safety_.noteSuccess(id);saveSafety();pluginWindow_=std::make_unique<PluginEditorWindow>(std::move(instance),PluginEditorWindow::StateFn{},[this]{if(isShowing())openEditor_.grabKeyboardFocus();});status_.setText("Plugin editor hosted in JUCE window",juce::dontSendNotification);});}
+    void openSelectedEditor(){const int idx=selectedPluginIndex();if(idx<0||idx>=static_cast<int>(plugins_.size())){status_.setText("Scan and select a plugin first",juce::dontSendNotification);return;}auto p=plugins_[static_cast<std::size_t>(idx)];if(safety_.isQuarantined(p.identifier)){status_.setText("Plugin is quarantined; clear it with FLOWDAW Doctor before retrying",juce::dontSendNotification);return;}auto*fmt=formatFor(p);if(!fmt){status_.setText("No JUCE format backend for selection",juce::dontSendNotification);return;}juce::OwnedArray<juce::PluginDescription> desc;fmt->findAllTypesForFile(desc,juce::String(p.identifier));if(desc.isEmpty()){safety_.noteFailure(p.identifier,"Plugin description could not be recreated");saveSafety();status_.setText("Plugin description could not be recreated",juce::dontSendNotification);return;}auto d=*desc[0];auto setup=deviceManager_.getAudioDeviceSetup();formatManager_.createPluginInstanceAsync(d,setup.sampleRate>0?setup.sampleRate:48000.0,setup.bufferSize>0?setup.bufferSize:256,[this,id=p.identifier](std::unique_ptr<juce::AudioPluginInstance>instance,const juce::String&error){if(!instance){safety_.noteFailure(id,error.toStdString());saveSafety();status_.setText("Plugin load failed: "+error,juce::dontSendNotification);return;}safety_.noteSuccess(id);saveSafety();pluginWindow_=std::make_unique<PluginEditorWindow>(std::move(instance),PluginEditorWindow::StateFn{},[this]{openEditor_.grabKeyboardFocus();});status_.setText("Plugin editor hosted in JUCE window",juce::dontSendNotification);});}
     void timerCallback()override{
         engine_.collectRetiredGraphs();
         syncTransportVisualState();
