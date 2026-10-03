@@ -1,5 +1,6 @@
 #pragma once
 #include "flowdaw/Automation.hpp"
+#include "flowdaw/ShellLayout.hpp"
 #include "flowdaw/ProductionAssistant.hpp"
 #include "flowdaw/Project.hpp"
 #include "flowdaw/Workflow.hpp"
@@ -61,10 +62,11 @@ public:
 
     void paint(juce::Graphics&g)override{
         g.fillAll(FlowTheme::canvasBottom());
+        const auto adaptive=flowdaw::ui::AutomationAssistLayoutMetrics::calculate(getWidth(),getHeight());
         g.setColour(FlowTheme::textPrimary());g.setFont(juce::Font(11.5f,juce::Font::bold));
-        g.drawText("AUTOMATION  •  "+juce::String(targetLabel()),6,2,360,18,juce::Justification::centredLeft,false);
-        g.setColour(FlowTheme::textSecondary());g.drawText("Bus Mixer",382,2,320,18,juce::Justification::centredLeft,false);
-        g.drawText("Assist / Project Health",716,2,std::max(1,getWidth()-722),18,juce::Justification::centredLeft,false);
+        g.drawText("AUTOMATION  •  "+juce::String(targetLabel()),adaptive.left.x,2,adaptive.left.width,18,juce::Justification::centredLeft,false);
+        g.setColour(FlowTheme::textSecondary());g.drawText("Bus Mixer",adaptive.middle.x,2,adaptive.middle.width,18,juce::Justification::centredLeft,false);
+        g.drawText("Assist / Project Health",adaptive.right.x,2,adaptive.right.width,18,juce::Justification::centredLeft,false);
 
         auto graph=automationGraph();
         juce::ColourGradient graphFill(FlowTheme::surfaceRaised(),static_cast<float>(graph.getX()),static_cast<float>(graph.getY()),FlowTheme::surface(),static_cast<float>(graph.getRight()),static_cast<float>(graph.getBottom()),false);
@@ -83,17 +85,20 @@ public:
     }
 
     void resized()override{
-        const int top=24;auto left=juce::Rectangle<int>(6,top,360,std::max(1,getHeight()-top-6));auto mid=juce::Rectangle<int>(382,top,320,std::max(1,getHeight()-top-6));auto right=juce::Rectangle<int>(716,top,std::max(1,getWidth()-722),std::max(1,getHeight()-top-6));
-        targetChoice_.setBounds(left.removeFromTop(28));routeChoice_.setBounds(left.removeFromTop(28));value_.setBounds(left.removeFromTop(32));auto buttons=left.removeFromTop(32);writePoint_.setBounds(buttons.removeFromLeft(120).reduced(2));clearLane_.setBounds(buttons.removeFromLeft(110).reduced(2));
+        const auto adaptive=flowdaw::ui::AutomationAssistLayoutMetrics::calculate(getWidth(),getHeight());
+        auto toRect=[](const flowdaw::ui::ShellRect&r){return juce::Rectangle<int>(r.x,r.y,r.width,r.height);};
+        auto left=toRect(adaptive.left),mid=toRect(adaptive.middle),right=toRect(adaptive.right);
 
-        busChoice_.setBounds(mid.removeFromTop(28));busVolume_.setBounds(mid.removeFromTop(32));busPan_.setBounds(mid.removeFromTop(32));auto busButtons=mid.removeFromTop(32);busMute_.setBounds(busButtons.removeFromLeft(70).reduced(2));busSolo_.setBounds(busButtons.removeFromLeft(70).reduced(2));createBus_.setBounds(busButtons.removeFromLeft(105).reduced(2));
-        mid.removeFromTop(4);sendTrackChoice_.setBounds(mid.removeFromTop(26));sendBusChoice_.setBounds(mid.removeFromTop(26));sendGain_.setBounds(mid.removeFromTop(30));auto sendButtons=mid.removeFromTop(30);preFader_.setBounds(sendButtons.removeFromLeft(55).reduced(2));setSend_.setBounds(sendButtons.removeFromLeft(90).reduced(2));removeSend_.setBounds(sendButtons.removeFromLeft(80).reduced(2));
+        targetChoice_.setBounds(left.removeFromTop(28));routeChoice_.setBounds(left.removeFromTop(28));value_.setBounds(left.removeFromTop(32));auto buttons=left.removeFromTop(32);const int leftHalf=buttons.getWidth()/2;writePoint_.setBounds(buttons.removeFromLeft(leftHalf).reduced(2));clearLane_.setBounds(buttons.reduced(2));
 
-        suggestionChoice_.setBounds(right.removeFromTop(28));auto assistButtons=right.removeFromTop(32);refreshAssist_.setBounds(assistButtons.removeFromLeft(90).reduced(2));applySuggestion_.setBounds(assistButtons.removeFromLeft(90).reduced(2));commandChoice_.setBounds(right.removeFromTop(28));executeCommand_.setBounds(right.removeFromTop(30).removeFromLeft(130).reduced(2));right.removeFromTop(4);report_.setBounds(right);
+        busChoice_.setBounds(mid.removeFromTop(28));busVolume_.setBounds(mid.removeFromTop(32));busPan_.setBounds(mid.removeFromTop(32));auto busButtons=mid.removeFromTop(32);const int busThird=busButtons.getWidth()/3;busMute_.setBounds(busButtons.removeFromLeft(busThird).reduced(2));busSolo_.setBounds(busButtons.removeFromLeft(busThird).reduced(2));createBus_.setBounds(busButtons.reduced(2));
+        mid.removeFromTop(4);sendTrackChoice_.setBounds(mid.removeFromTop(26));sendBusChoice_.setBounds(mid.removeFromTop(26));sendGain_.setBounds(mid.removeFromTop(30));auto sendButtons=mid.removeFromTop(30);const int sendThird=sendButtons.getWidth()/3;preFader_.setBounds(sendButtons.removeFromLeft(sendThird).reduced(2));setSend_.setBounds(sendButtons.removeFromLeft(sendThird).reduced(2));removeSend_.setBounds(sendButtons.reduced(2));
+
+        suggestionChoice_.setBounds(right.removeFromTop(28));auto assistButtons=right.removeFromTop(32);const int assistHalf=assistButtons.getWidth()/2;refreshAssist_.setBounds(assistButtons.removeFromLeft(assistHalf).reduced(2));applySuggestion_.setBounds(assistButtons.reduced(2));commandChoice_.setBounds(right.removeFromTop(28));executeCommand_.setBounds(right.removeFromTop(30).reduced(2));right.removeFromTop(4);report_.setBounds(right);
     }
 
 private:
-    juce::Rectangle<int>automationGraph()const{return{6,std::max(154,getHeight()-94),360,88};}
+    juce::Rectangle<int>automationGraph()const{const auto r=flowdaw::ui::AutomationAssistLayoutMetrics::calculate(getWidth(),getHeight()).graph;return{r.x,r.y,r.width,r.height};}
     int targetKind()const{return targetChoice_.getSelectedId();}
     bool targetNeedsRoute()const{return targetKind()!=1;}
     bool targetIsBus()const{return targetKind()==4||targetKind()==5;}
