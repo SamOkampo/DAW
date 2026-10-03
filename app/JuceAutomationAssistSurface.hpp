@@ -50,6 +50,19 @@ public:
         addAndMakeVisible(commandChoice_);executeCommand_.setButtonText("Run Command");executeCommand_.onClick=[this]{runSelectedCommand();};addAndMakeVisible(executeCommand_);
 
         report_.setMultiLine(true);report_.setReadOnly(true);report_.setScrollbarsShown(true);report_.setColour(juce::TextEditor::backgroundColourId,juce::Colour(0xff15181d));report_.setColour(juce::TextEditor::textColourId,juce::Colour(0xffdfe2e8));addAndMakeVisible(report_);
+        targetChoice_.setTitle("Automation target");targetChoice_.setDescription("Choose the master, track, or bus parameter to automate.");
+        routeChoice_.setTitle("Automation route");routeChoice_.setDescription("Choose the track or bus for the current automation target.");
+        value_.setTitle("Automation value");value_.setDescription("Value written at the current playhead position.");value_.setTooltip("Automation value at the playhead");
+        writePoint_.setTitle("Write automation point");writePoint_.setHelpText("Write the current automation value at the playhead.");
+        clearLane_.setTitle("Clear automation lane");clearLane_.setHelpText("Remove all points from the selected automation lane.");
+        busChoice_.setTitle("Bus Mixer target");busVolume_.setTitle("Bus volume");busPan_.setTitle("Bus pan");
+        busMute_.setTitle("Bus mute");busSolo_.setTitle("Bus solo");createBus_.setTitle("Create mix bus");
+        sendTrackChoice_.setTitle("Send source track");sendBusChoice_.setTitle("Send destination bus");
+        sendGain_.setTitle("Send gain");sendGain_.setDescription("Level sent from the selected track to the selected bus.");sendGain_.setTooltip("Track-to-bus send level");
+        preFader_.setTitle("Pre-fader send");setSend_.setTitle("Set send");removeSend_.setTitle("Remove send");
+        suggestionChoice_.setTitle("Production suggestion");refreshAssist_.setTitle("Analyze project");applySuggestion_.setTitle("Apply suggestion");
+        commandChoice_.setTitle("Workflow command");executeCommand_.setTitle("Run workflow command");
+        report_.setTitle("Project health report");report_.setDescription("Read-only project health and production-assist summary.");
         int focusOrder=1;for(auto*component:{static_cast<juce::Component*>(&targetChoice_),static_cast<juce::Component*>(&routeChoice_),static_cast<juce::Component*>(&value_),static_cast<juce::Component*>(&writePoint_),static_cast<juce::Component*>(&clearLane_),static_cast<juce::Component*>(&busChoice_),static_cast<juce::Component*>(&busVolume_),static_cast<juce::Component*>(&busPan_),static_cast<juce::Component*>(&busMute_),static_cast<juce::Component*>(&busSolo_),static_cast<juce::Component*>(&createBus_),static_cast<juce::Component*>(&sendTrackChoice_),static_cast<juce::Component*>(&sendBusChoice_),static_cast<juce::Component*>(&sendGain_),static_cast<juce::Component*>(&preFader_),static_cast<juce::Component*>(&setSend_),static_cast<juce::Component*>(&removeSend_),static_cast<juce::Component*>(&suggestionChoice_),static_cast<juce::Component*>(&refreshAssist_),static_cast<juce::Component*>(&applySuggestion_),static_cast<juce::Component*>(&commandChoice_),static_cast<juce::Component*>(&executeCommand_)})component->setExplicitFocusOrder(focusOrder++);
         refresh();
     }
