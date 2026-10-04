@@ -185,6 +185,10 @@ if(FLOWDAW_BUILD_TESTS)
     target_link_libraries(flowdaw_export_workflow_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_export_workflow_tests COMMAND flowdaw_export_workflow_tests)
 
+    add_executable(flowdaw_recovery_presentation_tests tests/test_recovery_presentation.cpp)
+    target_link_libraries(flowdaw_recovery_presentation_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_recovery_presentation_tests COMMAND flowdaw_recovery_presentation_tests)
+
     add_executable(flowdaw_tests tests/test_main.cpp)
     target_link_libraries(flowdaw_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_tests COMMAND flowdaw_tests)
