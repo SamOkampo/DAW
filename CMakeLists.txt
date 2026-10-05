@@ -45,6 +45,7 @@ add_library(flowdaw_core
     src/Workflow.cpp
     src/AppSettings.cpp
     src/ContentLibrary.cpp
+    src/ContentAudit.cpp
     src/ContentDiscovery.cpp
     src/CoreLibrary.cpp
     src/FirstPartyContent.cpp
@@ -66,13 +67,15 @@ set(FLOWDAW_CORE_LIBRARY_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/flow-core")
 add_custom_command(
     OUTPUT "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/flow-core.manifest"
            "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/PROVENANCE.txt"
+           "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/CONTENT_RIGHTS.txt"
     COMMAND $<TARGET_FILE:flowdaw-content-generator> "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}"
     DEPENDS flowdaw-content-generator
     COMMENT "Generating FLOW Core native sample library"
     VERBATIM)
 add_custom_target(flowdaw_core_library ALL
     DEPENDS "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/flow-core.manifest"
-            "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/PROVENANCE.txt")
+            "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/PROVENANCE.txt"
+            "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/CONTENT_RIGHTS.txt")
 set(FLOWDAW_CORE_LIBRARY_INSTALL_DIR "share/FLOWDAW/content/flow-core")
 if(APPLE AND FLOWDAW_ENABLE_JUCE_RUNTIME AND FLOWDAW_BUILD_JUCE_APP)
     set(FLOWDAW_CORE_LIBRARY_INSTALL_DIR "FLOWDAW.app/Contents/Resources/FLOWDAW/content/flow-core")
@@ -83,7 +86,8 @@ install(DIRECTORY "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/"
     PATTERN "*.wav"
     PATTERN "*.flowpreset"
     PATTERN "*.manifest"
-    PATTERN "PROVENANCE.txt")
+    PATTERN "PROVENANCE.txt"
+    PATTERN "CONTENT_RIGHTS.txt")
 
 find_library(PORTAUDIO_RUNTIME NAMES portaudio libportaudio.so.2)
 if(PORTAUDIO_RUNTIME)
@@ -297,6 +301,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase12_discovery_tests tests/test_phase12_discovery.cpp)
     target_link_libraries(flowdaw_phase12_discovery_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase12_discovery_tests COMMAND flowdaw_phase12_discovery_tests)
+
+    add_executable(flowdaw_phase12_integrity_tests tests/test_phase12_integrity.cpp)
+    target_link_libraries(flowdaw_phase12_integrity_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase12_integrity_tests COMMAND flowdaw_phase12_integrity_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
