@@ -26,11 +26,11 @@ Phase 13 is authorized after the completed/audited Phase 12 closure.
 - **13.9 FLOW Utility — IMPLEMENTED / STACKED CANDIDATE.** Gain, polarity, mono, swap, balance and width in one callback-safe insert.
 - **13.10 Native plugin presets — IMPLEMENTED / STACKED CANDIDATE.** Versioned native effect preset format plus first-party preset coverage for EQ, Compressor, Limiter, Saturator, Reverb, Delay, Chorus, Gate and Utility with save/load and `.flow` v11 roundtrip tests.
 - **13.11 Native plugin editing/productization — IMPLEMENTED / STACKED CANDIDATE.** Generic native insert selector, generic parameter selector and compatible preset selector/application workflow live in the production JUCE rack with undo/re-publish behavior and accessibility metadata.
-- **13.12 DSP/realtime regression audit — PENDING.**
-- **13.13 Final integration/closure audit — PENDING.**
+- **13.12 DSP/realtime regression audit — IMPLEMENTED / PRE-CLOSURE.** Automated multi-sample-rate/block-size finite-output, reset, bypass, wet/dry, latency and parameter-bound coverage plus structural realtime audit in `PHASE13_12_AUDIT.md`.
+- **13.13 Final integration/closure audit — IMPLEMENTED / PRE-CLOSURE.** Native-only production golden path covers preset-backed Track/Master racks, `.flow` v11 save/reopen, production offline render and master WAV export/readback. Closure still requires ordered green merges and final `main` verification.
 
 See `PHASE13_DESIGN.md`.
 
 ## Current checkpoint
 
-13.1 is the active clean CI gate (#146), 13.2 is under stacked CI validation (#147), and 13.3 through 13.11 are implemented on ordered stacked branches without extra concurrent CI. Remaining implementation work is 13.12 DSP/realtime audit and 13.13 final integration/closure.
+Implementation for 13.1–13.13 is complete on an ordered branch lineage. Phase 13 remains IN PROGRESS until the lineage is validated and merged in order with the required multiplatform CI, then final main verification updates this file to DONE.
