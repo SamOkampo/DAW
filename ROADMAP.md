@@ -130,6 +130,6 @@ Planned sequence:
 7. **12.7 Licensing/content-integrity audit** — provenance, manifest integrity, missing/duplicate asset and decode validation.
 8. **12.8 Final integration/closure audit** — fresh-install native-content golden path plus architecture, realtime, .flow and multiplatform packaging audit.
 
-**Current checkpoint:** 12.1 implementation is active. See `PHASE12_DESIGN.md` and `PHASE12_STATUS.md`.
+**Current checkpoint:** 12.1 is complete. 12.2 FLOW Core drum/sample library is implemented and awaiting its full multiplatform CI/merge gate. See `PHASE12_DESIGN.md` and `PHASE12_STATUS.md`.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11.**
