@@ -41,6 +41,7 @@ jobs:
           "$RUNNER_TEMP/flowdaw-install/bin/flowdaw-doctor" status
           test -f "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core/flow-core.manifest"
           test -f "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core/PROVENANCE.txt"
+          test -f "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core/CONTENT_RIGHTS.txt"
           test "$(find "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core" -name '*.wav' | wc -l)" -eq 12
           test "$(find "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core" -name '*.flowpreset' | wc -l)" -eq 10
       - name: Package smoke test
@@ -66,6 +67,7 @@ jobs:
           "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-doctor" status
           test -f "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core/flow-core.manifest"
           test -f "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core/PROVENANCE.txt"
+          test -f "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core/CONTENT_RIGHTS.txt"
           test "$(find "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core" -name '*.wav' | wc -l)" -eq 12
           test "$(find "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core" -name '*.flowpreset' | wc -l)" -eq 10
       - name: Package Linux production build
@@ -75,6 +77,7 @@ jobs:
           pkg="$(find . -maxdepth 1 -name 'FLOWDAW-*.tar.gz' -print -quit)"
           test -n "$pkg"
           tar -tzf "$pkg" | grep -q 'share/FLOWDAW/content/flow-core/flow-core.manifest'
+          tar -tzf "$pkg" | grep -q 'share/FLOWDAW/content/flow-core/CONTENT_RIGHTS.txt'
           test "$(tar -tzf "$pkg" | grep -E '\.wav$' | wc -l)" -eq 12
           test "$(tar -tzf "$pkg" | grep -E '\.flowpreset$' | wc -l)" -eq 10
 
@@ -99,6 +102,7 @@ jobs:
           $contentRoot = "$env:RUNNER_TEMP/flowdaw-windows-install/share/FLOWDAW/content/flow-core"
           if (-not (Test-Path "$contentRoot/flow-core.manifest")) { throw "FLOW Core manifest missing after install" }
           if (-not (Test-Path "$contentRoot/PROVENANCE.txt")) { throw "FLOW Core provenance missing after install" }
+          if (-not (Test-Path "$contentRoot/CONTENT_RIGHTS.txt")) { throw "FLOW Core rights notice missing after install" }
           if ((Get-ChildItem -Path $contentRoot -Recurse -Filter "*.wav").Count -ne 12) { throw "FLOW Core WAV count mismatch after install" }
           if ((Get-ChildItem -Path $contentRoot -Recurse -Filter "*.flowpreset").Count -ne 10) { throw "FLOW Core preset count mismatch after install" }
       - name: Package Windows portable build
@@ -113,6 +117,7 @@ jobs:
           Expand-Archive -Path $pkg.FullName -DestinationPath $unpack
           $manifest = Get-ChildItem -Path $unpack -Recurse -Filter "flow-core.manifest" | Select-Object -First 1
           if (-not $manifest) { throw "FLOW Core manifest missing from Windows ZIP" }
+          if (-not (Get-ChildItem -Path $unpack -Recurse -Filter "CONTENT_RIGHTS.txt" | Select-Object -First 1)) { throw "FLOW Core rights notice missing from Windows ZIP" }
           if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.wav").Count -ne 12) { throw "FLOW Core WAV count mismatch in Windows ZIP" }
           if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.flowpreset").Count -ne 10) { throw "FLOW Core preset count mismatch in Windows ZIP" }
           Pop-Location
@@ -145,6 +150,7 @@ jobs:
           contentRoot="$RUNNER_TEMP/flowdaw-macos-install/FLOWDAW.app/Contents/Resources/FLOWDAW/content/flow-core"
           test -f "$contentRoot/flow-core.manifest"
           test -f "$contentRoot/PROVENANCE.txt"
+          test -f "$contentRoot/CONTENT_RIGHTS.txt"
           test "$(find "$contentRoot" -name '*.wav' | wc -l)" -eq 12
           test "$(find "$contentRoot" -name '*.flowpreset' | wc -l)" -eq 10
       - name: Package macOS DMG
@@ -159,6 +165,7 @@ jobs:
           trap 'hdiutil detach "$mount" >/dev/null 2>&1 || true' EXIT
           contentRoot="$mount/FLOWDAW.app/Contents/Resources/FLOWDAW/content/flow-core"
           test -f "$contentRoot/flow-core.manifest"
+          test -f "$contentRoot/CONTENT_RIGHTS.txt"
           test "$(find "$contentRoot" -name '*.wav' | wc -l)" -eq 12
           test "$(find "$contentRoot" -name '*.flowpreset' | wc -l)" -eq 10
           hdiutil detach "$mount"
