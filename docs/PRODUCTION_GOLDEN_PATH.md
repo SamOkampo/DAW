@@ -181,6 +181,23 @@ Expected: Piano Roll, Sequencer, Sampler/REC CHOPS and Automation share one cohe
 
 Expected: resizing and keyboard/accessibility behavior improve the desktop workflow without changing musical semantics, realtime ownership or project persistence.
 
+### 13. Phase 11.7 export / settings / diagnostics / recovery closure
+
+1. Open **Export…** and confirm Master Mix and Track Stems are presented as the two delivery modes from one FLOWDAW export entry point.
+2. Cancel destination selection for both modes and confirm no file/project mutation is reported; then complete a Master Mix export and a Track Stems export and verify explicit render/completion feedback.
+3. Attempt an invalid/unwritable export destination where reproducible and confirm an actionable failure is shown without crashing or changing the project.
+4. Open **Settings / Audio**, change a supported device/sample-rate/buffer setting, close the surface and confirm the creative workspace remains usable.
+5. Exercise an unavailable/invalid audio-device case where reproducible and confirm FLOWDAW directs the user back to Settings / Audio and remains recoverable.
+6. Open **Plugin Maintenance**. Run a plugin scan and confirm scan/validation/quarantine diagnostics are presented there while creative search/filter/selection/rack workflows remain in the main production workspace.
+7. Exercise at least one failed/unavailable plugin case where reproducible and confirm repeated failure/quarantine behavior remains explicit rather than silently retrying in realtime.
+8. Relaunch from each available startup state: fresh project, normal last-session restore and dirty autosave recovery. Confirm the startup identity/message distinguishes them.
+9. Dismiss/cancel Open, Import WAV and Save dialogs and confirm the current project stays usable; exercise a failing Open/Import/Save path where reproducible and confirm contextual recovery guidance.
+10. With no scanned plugin match and with no selected/imported sample, confirm the empty state points to a valid next action instead of blocking unrelated work.
+11. Tab through visible Settings / Plugin Maintenance controls and resize to constrained supported geometry; confirm hidden utility controls do not compete with the creative surface.
+12. Save/reopen the project and confirm Phase 11.7 settings/diagnostic/recovery presentation did not add device/UI/quarantine state to the portable `.flow` v11 project.
+
+Expected: delivery, configuration, plugin maintenance and recovery/error workflows are understandable and recoverable from the production JUCE app while DSP, realtime ownership, PluginSafety, SessionRecovery and portable project semantics remain unchanged.
+
 ## Failure conditions
 
 Mark the run **FAIL** if any required flow needs X11, developer scripts, project-file hand editing, plugin creation/destruction from the audio callback, or if a normal user action causes a crash/hang. Also fail on silent loss of plugin state, rack order, recording takes, routing, automation or imported sample references after save/reopen.
