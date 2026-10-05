@@ -1,6 +1,6 @@
 # Phase 11 Status — UI/UX & Productization
 
-**Status: IN PROGRESS**
+**Status: DONE**
 
 Phase 11 starts only after the completed Phase 10 architecture/realtime/project-compatibility audit. Its job is to make the production JUCE application feel like a coherent desktop DAW without rewriting the audio engine or weakening project compatibility.
 
@@ -65,19 +65,23 @@ The bounded design is recorded in `PHASE11_6_DESIGN.md`; final architecture/real
 - **11.6.4 Tooltips/accessibility metadata/high-DPI validation — DONE.** PR #117 passed FLOWDAW CI run 37088405987 across core, legacy, Linux, Windows and macOS and merged as `a8d345d2`.
 - **11.6.5 Adaptive/accessibility integration regression + closure audit — DONE on merge of this closure checkpoint.** See `PHASE11_6_AUDIT.md` and the Phase 11.6 section in `docs/PRODUCTION_GOLDEN_PATH.md`.
 
-### 11.7 — Export / dialogs / settings / diagnostics productization [DONE ON CLOSURE MERGE]
+### 11.7 — Export / dialogs / settings / diagnostics productization [DONE]
 
 The bounded design is recorded in `PHASE11_7_DESIGN.md`; final closure evidence is recorded in `PHASE11_7_AUDIT.md`. Phase 11.7 productizes delivery, machine-local settings, plugin maintenance/diagnostics and recovery/error presentation without changing DSP, realtime ownership or `.flow` v11.
 
 - **11.7.1 Export flow and delivery feedback — DONE.** PR #120 passed FLOWDAW CI and merged as `cb44b027`.
 - **11.7.2 Settings and Audio I/O information architecture — DONE.** PR #121 passed FLOWDAW CI and merged as `434c0f96`.
 - **11.7.3 Plugin maintenance and diagnostics relocation — DONE.** PR #122 passed FLOWDAW CI and merged as `e4af16fd`.
-- **11.7.4 Recovery, empty and error states — DONE once PR #123 passes the required matrix and merges.**
-- **11.7.5 Productization integration regression + closure audit — DONE on merge of this closure checkpoint.** See `PHASE11_7_AUDIT.md` and the Phase 11.7 section in `docs/PRODUCTION_GOLDEN_PATH.md`.
+- **11.7.4 Recovery, empty and error states — DONE.** PR #123 passed the required matrix and merged before the 11.7 closure audit.
+- **11.7.5 Productization integration regression + closure audit — DONE.** See `PHASE11_7_AUDIT.md` and the Phase 11.7 section in `docs/PRODUCTION_GOLDEN_PATH.md`.
 
-### 11.8 — Visual regression and closure
+### 11.8 — Visual regression and closure [DONE]
 
-Cross-workflow polish, installed-app golden path, layout smoke/visual regression coverage where practical, Linux/Windows/macOS validation and final architecture/realtime/project-compatibility audit.
+Cross-workflow polish, installed-app golden path, deterministic layout/visual-regression coverage, Linux/Windows/macOS validation and final architecture/realtime/project-compatibility audit are integrated.
+
+- **11.8.1 Deterministic visual/layout regression — DONE.** PR #127 passed the full FLOWDAW CI matrix and merged; coverage includes minimum/compact/default/wide layouts, non-overlap, creative-editor priority and deterministic secondary-panel collapse.
+- **11.8.2 Cross-workflow polish + installed-app closure path — DONE.** PR #128 passed the full FLOWDAW CI matrix and merged; the production golden path now validates the installed/package artifact across creative workspaces, routing/racks, maintenance/settings, export, save/relaunch and recovery.
+- **11.8.3 Final architecture/realtime/compatibility audit — DONE.** `PHASE11_8_AUDIT.md` passed core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG CI in PR #129 and merged to main as `511c4297`.
 
 ## Visual language baseline
 
@@ -91,12 +95,11 @@ Secondary/contextual surfaces: Sample Browser, plugin rack / plugin selector, in
 
 Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantine maintenance and advanced runtime/health information.
 
-## Current checkpoint
+## Final checkpoint
 
-- Phase 10 is closed and its final main-branch CI passed.
-- **11.1 through 11.6 are DONE.**
-- **11.7 is DONE on merge of the green closure checkpoint recorded in `PHASE11_7_AUDIT.md`.**
-- `.flow` remains v11 and the realtime contract is unchanged.
-- 11.8 remains pending; no Post-MVP work is authorized by this checkpoint.
-
-Next permitted work after the 11.7 closure PR is green and merged: **11.8 — Visual regression and closure**.
+- **Phase 11.1 through 11.8 are DONE.**
+- Final closure evidence is recorded in `PHASE11_8_AUDIT.md` and the Phase 11.8 installed-app section of `docs/PRODUCTION_GOLDEN_PATH.md`.
+- Production desktop remains JUCE 9.0.2; `.flow` remains v11; the realtime contract is unchanged.
+- Routing/PDC, plugin state, recovery, metering and export regression coverage remain green under the required multiplatform matrix.
+- This closure does **not** claim professional mastering readiness or mastering-grade loudness/compliance metering.
+- No Post-MVP phase is authorized by this status; subsequent work is maintenance/audit unless ROADMAP is explicitly extended.

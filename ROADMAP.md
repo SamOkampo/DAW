@@ -95,7 +95,7 @@ Completed:
 
 Completed: production Arrangement, Mixer, Browser, Piano Roll/Sequencer and plugin-workflow polish; focused performance/robustness regression coverage; production golden-path expansion; and a final architecture/realtime/project-compatibility audit. The closure matrix passed core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE production validation. Project format remains v11 and the realtime-safety contract is preserved.
 
-## Phase 11 — UI/UX & Productization [IN PROGRESS]
+## Phase 11 — UI/UX & Productization [DONE]
 
 Phase 11 has started after the completed Phase 10 closure audit. It is an interface/productization phase and must preserve the existing audio architecture, realtime contract and project compatibility.
 
@@ -109,8 +109,8 @@ Planned sequence:
 7. **11.7 Export/settings/diagnostics productization** — dialogs, export flow, recovery/error states and relocation of technical controls from the main creative surface.
 8. **11.8 Visual regression and closure** — cross-workflow polish, installed-app golden path, Linux/Windows/macOS layout validation and final architecture/realtime/project-compatibility audit.
 
-**Current Phase 11 checkpoint:** 11.1–11.6 are complete. Phase 11.7 export/settings/diagnostics/recovery productization is complete on merge of its green closure checkpoint recorded in `PHASE11_7_AUDIT.md`; project format remains v11 and the realtime contract is unchanged. The next permitted work after that closure merge is 11.8 visual regression and final Phase 11 closure.
+**Phase 11 closure:** 11.1–11.8 are complete. Phase 11.8 added deterministic layout regression coverage, an installed/package cross-workflow golden path and the final architecture/realtime/project-compatibility audit recorded in `PHASE11_8_AUDIT.md`. The audit PR passed the required core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG matrix before merge. Project format remains v11 and the realtime contract is unchanged.
 
-See `PHASE11_STATUS.md` for the active checkpoint and acceptance criteria.
+No Post-MVP phase is authorized by this roadmap closure. See `PHASE11_STATUS.md` and `PHASE11_8_AUDIT.md` for the final acceptance evidence.
 
 **Production desktop path remains JUCE 9.0.2. Project format remains v11.**
