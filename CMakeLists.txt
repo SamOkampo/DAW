@@ -314,6 +314,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase13_eq_tests tests/test_phase13_eq.cpp)
     target_link_libraries(flowdaw_phase13_eq_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase13_eq_tests COMMAND flowdaw_phase13_eq_tests)
+
+    add_executable(flowdaw_phase13_compressor_tests tests/test_phase13_compressor.cpp)
+    target_link_libraries(flowdaw_phase13_compressor_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase13_compressor_tests COMMAND flowdaw_phase13_compressor_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
