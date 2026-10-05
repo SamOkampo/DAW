@@ -1,6 +1,6 @@
 # Phase 12.8 — Final Native Sound Library integration / closure audit
 
-**State: PRE-CLOSURE — PASS ONLY AFTER SEQUENTIAL GREEN MERGES**
+**State: CLOSED / PASS**
 
 This audit is intentionally stricter than implementation completion. Phase 12 must remain **IN PROGRESS** until the implementation chain is merged into `main` in order, the final main-based closure PR is green, and installed/package evidence is verified.
 
@@ -90,4 +90,15 @@ Phase 12 may be marked DONE only after all of the following are true:
 
 ## Current decision
 
-**NOT YET CLOSED.** The implementation/audit candidate exists, but sequential green merges and final main verification are still required.
+**CLOSED / PASS.** The required sequential clean merges completed:
+
+- 12.3 → PR #135 → `82e04034`
+- 12.4 → PR #140 → `9edfeee0`
+- 12.5 → PR #142 → `3b547aa5`
+- 12.6 → PR #143 → `50620e7c`
+- 12.7 → PR #144 → `18a4b3ff`
+- 12.8 → PR #145 → `81d37499`
+
+The final 12.8 head passed core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE/AU/install/package validation before merge. `main` was verified after the final merge. Project format remains `.flow` v11 and the realtime-safety contract is unchanged.
+
+Phase 12 does not claim professional mastering readiness and does not start Phase 13.
