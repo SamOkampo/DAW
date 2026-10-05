@@ -3,7 +3,9 @@
 #include "flowdaw/MusicalTime.hpp"
 #include "flowdaw/Wav.hpp"
 #include <array>
+#include <initializer_list>
 #include <stdexcept>
+#include <utility>
 #include <string>
 
 namespace flowdaw {
