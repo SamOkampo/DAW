@@ -176,6 +176,76 @@ private:
     float outputGainDb_=0.0f,outputGain_=1.0f;
 };
 
+
+class CompressorProcessor final:public IPluginProcessor{
+public:
+    explicit CompressorProcessor(const PluginInstance& plugin){
+        thresholdDb_=std::clamp(pluginParameterValue(plugin,"threshold_db",-18.0f),-60.0f,0.0f);
+        ratio_=std::clamp(pluginParameterValue(plugin,"ratio",4.0f),1.0f,20.0f);
+        attackMs_=std::clamp(pluginParameterValue(plugin,"attack_ms",10.0f),0.1f,200.0f);
+        releaseMs_=std::clamp(pluginParameterValue(plugin,"release_ms",120.0f),5.0f,2000.0f);
+        kneeDb_=std::clamp(pluginParameterValue(plugin,"knee_db",6.0f),0.0f,24.0f);
+        makeupDb_=std::clamp(pluginParameterValue(plugin,"makeup_db",0.0f),-12.0f,24.0f);
+    }
+
+    bool prepare(int sampleRate,int channels,std::string&error)override{
+        if(sampleRate<8000||sampleRate>384000){error="FLOW Compressor sample rate is out of range";return false;}
+        if(channels<1||channels>32){error="FLOW Compressor channel count is out of range";return false;}
+        sampleRate_=sampleRate;channels_=channels;
+        const float attackSeconds=std::max(0.0001f,attackMs_*0.001f);
+        const float releaseSeconds=std::max(0.001f,releaseMs_*0.001f);
+        attackCoeff_=std::exp(-1.0f/(attackSeconds*sampleRate_));
+        releaseCoeff_=std::exp(-1.0f/(releaseSeconds*sampleRate_));
+        makeupGain_=std::pow(10.0f,makeupDb_/20.0f);
+        envelope_=0.0f;
+        return true;
+    }
+
+    void setState(const std::string&)override{}
+    std::string state()const override{return{};}
+    void process(AudioBuffer&b)override{(void)processRealtime(b.interleaved.data(),b.frames(),b.channels);}
+    bool supportsRealtimeProcessing()const noexcept override{return true;}
+
+    bool processRealtime(float*data,SampleIndex frames,int channels)noexcept override{
+        if(!data||frames<=0||channels!=channels_)return false;
+        const float slope=1.0f-(1.0f/ratio_);
+        const float halfKnee=kneeDb_*0.5f;
+        for(SampleIndex frame=0;frame<frames;++frame){
+            const auto base=static_cast<std::size_t>(frame)*static_cast<std::size_t>(channels_);
+            float detector=0.0f;
+            for(int channel=0;channel<channels_;++channel)
+                detector=std::max(detector,std::abs(data[base+static_cast<std::size_t>(channel)]));
+            const float coefficient=detector>envelope_?attackCoeff_:releaseCoeff_;
+            envelope_=coefficient*envelope_+(1.0f-coefficient)*detector;
+            const float levelDb=20.0f*std::log10(std::max(envelope_,1.0e-9f));
+            const float over=levelDb-thresholdDb_;
+            float gainReductionDb=0.0f;
+            if(kneeDb_<=0.0001f){
+                if(over>0.0f)gainReductionDb=-slope*over;
+            }else if(over<=-halfKnee){
+                gainReductionDb=0.0f;
+            }else if(over>=halfKnee){
+                gainReductionDb=-slope*over;
+            }else{
+                const float x=over+halfKnee;
+                gainReductionDb=-slope*x*x/(2.0f*kneeDb_);
+            }
+            const float gain=std::pow(10.0f,gainReductionDb/20.0f)*makeupGain_;
+            for(int channel=0;channel<channels_;++channel)
+                data[base+static_cast<std::size_t>(channel)]*=gain;
+        }
+        if(envelope_<1.0e-20f)envelope_=0.0f;
+        return true;
+    }
+
+    void resetRealtime()noexcept override{envelope_=0.0f;}
+
+private:
+    int sampleRate_=48000,channels_=2;
+    float thresholdDb_=-18.0f,ratio_=4.0f,attackMs_=10.0f,releaseMs_=120.0f,kneeDb_=6.0f,makeupDb_=0.0f;
+    float attackCoeff_=0.0f,releaseCoeff_=0.0f,makeupGain_=1.0f,envelope_=0.0f;
+};
+
 } // namespace
 
 std::unique_ptr<IPluginProcessor> createBuiltinPluginProcessor(const PluginInstance&plugin,std::string&error){
@@ -185,6 +255,7 @@ std::unique_ptr<IPluginProcessor> createBuiltinPluginProcessor(const PluginInsta
     if(plugin.identifier=="flow.softclip")return std::make_unique<SoftClipProcessor>(pluginParameterValue(plugin,"drive",0.25f));
     if(plugin.identifier=="flow.width")return std::make_unique<WidthProcessor>(pluginParameterValue(plugin,"width",1.0f));
     if(plugin.identifier=="flow.eq")return std::make_unique<EqProcessor>(plugin);
+    if(plugin.identifier=="flow.compressor")return std::make_unique<CompressorProcessor>(plugin);
     error="Unknown FLOWDAW builtin plugin: "+plugin.identifier;
     return{};
 }
