@@ -15,7 +15,7 @@ Phase 13 is authorized after the completed/audited Phase 12 closure.
 
 ## Phase structure
 
-- **13.1 Native DSP foundation + FLOW EQ — IMPLEMENTED / PRE-CI.** Stateful prepared native processors replace the old realtime per-sample shortcut; FLOW EQ provides six parametric bands + output gain, generic native parameter metadata, scalable rack native-insert/parameter selectors and offline/realtime/persistence tests.
+- **13.1 Native DSP foundation + FLOW EQ — IMPLEMENTED / CI GATE.** Stateful prepared native processors replace the old realtime per-sample shortcut; FLOW EQ provides six parametric bands + output gain, generic native parameter metadata, scalable rack native-insert/parameter selectors and offline/realtime/persistence tests.
 - **13.2 FLOW Compressor — PENDING.**
 - **13.3 FLOW Limiter — PENDING.**
 - **13.4 FLOW Saturator — PENDING.**
