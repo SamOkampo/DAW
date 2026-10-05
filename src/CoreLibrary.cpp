@@ -1,5 +1,6 @@
 #include "flowdaw/CoreLibrary.hpp"
 #include "flowdaw/ContentLibrary.hpp"
+#include "flowdaw/NativePresets.hpp"
 #include "flowdaw/Wav.hpp"
 #include <algorithm>
 #include <cmath>
@@ -37,6 +38,58 @@ const std::vector<Spec>& specs(){
         {"flow.fx.impact","FX/flow_fx_impact.wav","FX","impact,transition,low"}
     };
     return value;
+}
+
+
+struct PresetSpec {
+    const char* id;
+    const char* name;
+    const char* relativePath;
+    const char* category;
+    const char* tags;
+    const char* type;
+    float gain;
+    float pan;
+    float attackMs;
+    float releaseMs;
+    float tone;
+    float drive;
+    float delayMix;
+    Tick delayTicks;
+};
+
+const std::vector<PresetSpec>& presetSpecs(){
+    static const std::vector<PresetSpec> value{
+        {"flow.preset.keys.dark","Dark Keys","Presets/Keys/dark-keys.flowpreset","Instruments/Keys","dark,warm,keys","flow_keys",0.78f,0.0f,8.0f,420.0f,0.22f,0.10f,0.13f,kPPQ/4},
+        {"flow.preset.keys.glass","Glass Keys","Presets/Keys/glass-keys.flowpreset","Instruments/Keys","glass,bright,keys","flow_keys",0.72f,0.0f,4.0f,600.0f,0.82f,0.0f,0.24f,kPPQ/2},
+        {"flow.preset.bass.warm","Warm Bass","Presets/Bass/warm-bass.flowpreset","Instruments/Bass","warm,sub,bass","flow_bass",0.88f,0.0f,6.0f,300.0f,0.28f,0.08f,0.0f,kPPQ/2},
+        {"flow.preset.bass.grit","Grit Bass","Presets/Bass/grit-bass.flowpreset","Instruments/Bass","grit,bass,drive","flow_bass",0.80f,0.0f,3.0f,220.0f,0.72f,0.32f,0.06f,kPPQ/4},
+        {"flow.preset.808.clean","Clean 808","Presets/808/clean-808.flowpreset","Instruments/808","808,sub,clean","flow_808",0.90f,0.0f,1.0f,900.0f,0.22f,0.02f,0.0f,kPPQ/2},
+        {"flow.preset.808.dirty","Dirty 808","Presets/808/dirty-808.flowpreset","Instruments/808","808,dirty,drive","flow_808",0.82f,0.0f,1.0f,1100.0f,0.58f,0.38f,0.0f,kPPQ/2},
+        {"flow.preset.lead.neon","Neon Lead","Presets/Lead/neon-lead.flowpreset","Instruments/Lead","lead,bright,delay","flow_lead",0.68f,0.0f,2.0f,260.0f,0.82f,0.14f,0.22f,kPPQ/4},
+        {"flow.preset.lead.soft","Soft Lead","Presets/Lead/soft-lead.flowpreset","Instruments/Lead","lead,soft,melodic","flow_lead",0.64f,0.0f,18.0f,500.0f,0.42f,0.04f,0.18f,kPPQ/2},
+        {"flow.preset.pad.dream","Dream Pad","Presets/Pad/dream-pad.flowpreset","Instruments/Pad","pad,dream,ambient","flow_keys",0.62f,0.0f,520.0f,2200.0f,0.64f,0.02f,0.28f,kPPQ/2},
+        {"flow.preset.pad.dust","Dust Pad","Presets/Pad/dust-pad.flowpreset","Instruments/Pad","pad,dust,lo-fi","flow_keys",0.58f,0.0f,340.0f,1800.0f,0.24f,0.18f,0.20f,kPPQ/2}
+    };
+    return value;
+}
+
+NativeInstrumentPreset makePreset(const PresetSpec& spec){
+    NativeInstrumentPreset preset;
+    preset.id=spec.id;
+    preset.name=spec.name;
+    preset.category=spec.category;
+    preset.instrument.enabled=true;
+    preset.instrument.type=spec.type;
+    preset.instrument.gain=spec.gain;
+    preset.instrument.pan=spec.pan;
+    preset.instrument.attackMs=spec.attackMs;
+    preset.instrument.releaseMs=spec.releaseMs;
+    preset.instrument.tone=spec.tone;
+    preset.instrument.drive=spec.drive;
+    preset.instrument.delayMix=spec.delayMix;
+    preset.instrument.delayTicks=spec.delayTicks;
+    return preset;
 }
 
 AudioBuffer mono(int sampleRate,double seconds){
@@ -217,14 +270,15 @@ CoreLibraryBuildSummary writeFlowCoreLibrary(const std::filesystem::path& root,i
     manifest<<"FLOWDAW_CONTENT 1\n";
     manifest<<"LIBRARY_ID "<<std::quoted("flow.core")<<"\n";
     manifest<<"DISPLAY_NAME "<<std::quoted("FLOW Core Library")<<"\n";
-    manifest<<"LIBRARY_VERSION 1\n";
+    manifest<<"LIBRARY_VERSION 2\n";
 
     std::ofstream provenance(root/"PROVENANCE.txt",std::ios::trunc);
     if(!provenance)throw std::runtime_error("Could not write FLOW Core provenance");
     provenance<<"FLOWDAW Core Library — provenance\n";
     provenance<<"All audio in this library is deterministically synthesized by FLOWDAW source code.\n";
     provenance<<"No third-party recordings, commercial sample packs or externally copyrighted audio are used.\n";
-    provenance<<"Generator: flowdaw::writeFlowCoreLibrary, library version 1.\n\n";
+    provenance<<"Generator: flowdaw::writeFlowCoreLibrary, library version 2.\n";
+    provenance<<"Native preset files contain first-party parameter metadata only.\n\n";
 
     for(const auto& spec:specs()){
         const std::filesystem::path relative(spec.relativePath);
@@ -237,14 +291,24 @@ CoreLibraryBuildSummary writeFlowCoreLibrary(const std::filesystem::path& root,i
                 <<" "<<std::quoted(spec.category)<<" "<<std::quoted(spec.tags)<<"\n";
         provenance<<spec.id<<"\tGENERATED\t"<<relative.generic_string()<<"\n";
     }
+
+    for(const auto& spec:presetSpecs()){
+        const std::filesystem::path relative(spec.relativePath);
+        if(!isSafeContentRelativePath(relative))throw std::runtime_error("Unsafe built-in FLOW preset path");
+        const auto path=root/relative;
+        saveNativeInstrumentPreset(makePreset(spec),path);
+        manifest<<"ENTRY "<<std::quoted(spec.id)<<" INSTRUMENT_PRESET "<<std::quoted(relative.generic_string())
+                <<" "<<std::quoted(spec.category)<<" "<<std::quoted(spec.tags)<<"\n";
+        provenance<<spec.id<<"\tGENERATED_PRESET\t"<<relative.generic_string()<<"\n";
+    }
     manifest<<"END\n";
     manifest.close();
     provenance.close();
 
     const auto parsed=loadContentManifest(root/"flow-core.manifest");
-    if(parsed.entries.size()!=specs().size())throw std::runtime_error("FLOW Core manifest self-check failed");
+    if(parsed.entries.size()!=specs().size()+presetSpecs().size())throw std::runtime_error("FLOW Core manifest self-check failed");
 
-    return {specs().size(),sampleRate};
+    return {specs().size(),presetSpecs().size(),sampleRate};
 }
 
 }
