@@ -45,6 +45,7 @@ add_library(flowdaw_core
     src/Workflow.cpp
     src/AppSettings.cpp
     src/ContentLibrary.cpp
+    src/ContentDiscovery.cpp
     src/CoreLibrary.cpp
     src/FirstPartyContent.cpp
     src/ProjectTemplates.cpp
@@ -72,8 +73,12 @@ add_custom_command(
 add_custom_target(flowdaw_core_library ALL
     DEPENDS "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/flow-core.manifest"
             "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/PROVENANCE.txt")
+set(FLOWDAW_CORE_LIBRARY_INSTALL_DIR "share/FLOWDAW/content/flow-core")
+if(APPLE AND FLOWDAW_ENABLE_JUCE_RUNTIME AND FLOWDAW_BUILD_JUCE_APP)
+    set(FLOWDAW_CORE_LIBRARY_INSTALL_DIR "FLOWDAW.app/Contents/Resources/FLOWDAW/content/flow-core")
+endif()
 install(DIRECTORY "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/"
-    DESTINATION share/FLOWDAW/content/flow-core
+    DESTINATION "${FLOWDAW_CORE_LIBRARY_INSTALL_DIR}"
     FILES_MATCHING
     PATTERN "*.wav"
     PATTERN "*.flowpreset"
@@ -116,7 +121,7 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
         target_sources(flowdaw-juce PRIVATE app/juce_main.cpp)
         add_dependencies(flowdaw-juce flowdaw_core_library)
         target_link_libraries(flowdaw-juce PRIVATE flowdaw_juce_runtime juce::juce_gui_extra juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
-        target_compile_definitions(flowdaw-juce PRIVATE JUCE_APPLICATION_NAME_STRING="FLOWDAW" JUCE_APPLICATION_VERSION_STRING="0.8.0" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1 FLOWDAW_CORE_LIBRARY_ROOT="${FLOWDAW_CORE_LIBRARY_BUILD_DIR}")
+        target_compile_definitions(flowdaw-juce PRIVATE JUCE_APPLICATION_NAME_STRING="FLOWDAW" JUCE_APPLICATION_VERSION_STRING="0.8.0" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1 FLOWDAW_CORE_LIBRARY_BUILD_ROOT="${FLOWDAW_CORE_LIBRARY_BUILD_DIR}")
         if(APPLE)
             target_compile_definitions(flowdaw-juce PRIVATE JUCE_PLUGINHOST_AU=1)
         else()
@@ -288,6 +293,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase12_template_tests tests/test_phase12_templates.cpp)
     target_link_libraries(flowdaw_phase12_template_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase12_template_tests COMMAND flowdaw_phase12_template_tests)
+
+    add_executable(flowdaw_phase12_discovery_tests tests/test_phase12_discovery.cpp)
+    target_link_libraries(flowdaw_phase12_discovery_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase12_discovery_tests COMMAND flowdaw_phase12_discovery_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
