@@ -72,7 +72,11 @@ jobs:
         run: |
           cd build-juce
           cpack -G TGZ
-          test -n "$(find . -maxdepth 1 -name 'FLOWDAW-*.tar.gz' -print -quit)"
+          pkg="$(find . -maxdepth 1 -name 'FLOWDAW-*.tar.gz' -print -quit)"
+          test -n "$pkg"
+          tar -tzf "$pkg" | grep -q 'share/FLOWDAW/content/flow-core/flow-core.manifest'
+          test "$(tar -tzf "$pkg" | grep -E '\.wav$' | wc -l)" -eq 12
+          test "$(tar -tzf "$pkg" | grep -E '\.flowpreset$' | wc -l)" -eq 10
 
 
   windows-juce:
@@ -102,7 +106,15 @@ jobs:
         run: |
           Push-Location build-win
           cpack -C Release -G ZIP
-          if (-not (Get-ChildItem -Filter "FLOWDAW-*.zip")) { throw "FLOWDAW Windows ZIP package missing" }
+          $pkg = Get-ChildItem -Filter "FLOWDAW-*.zip" | Select-Object -First 1
+          if (-not $pkg) { throw "FLOWDAW Windows ZIP package missing" }
+          $unpack = "$env:RUNNER_TEMP/flowdaw-windows-package"
+          if (Test-Path $unpack) { Remove-Item -Recurse -Force $unpack }
+          Expand-Archive -Path $pkg.FullName -DestinationPath $unpack
+          $manifest = Get-ChildItem -Path $unpack -Recurse -Filter "flow-core.manifest" | Select-Object -First 1
+          if (-not $manifest) { throw "FLOW Core manifest missing from Windows ZIP" }
+          if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.wav").Count -ne 12) { throw "FLOW Core WAV count mismatch in Windows ZIP" }
+          if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.flowpreset").Count -ne 10) { throw "FLOW Core preset count mismatch in Windows ZIP" }
           Pop-Location
 
   macos-juce:
@@ -130,12 +142,24 @@ jobs:
           test -x "$RUNNER_TEMP/flowdaw-macos-install/FLOWDAW.app/Contents/MacOS/FLOWDAW"
           test -x "$RUNNER_TEMP/flowdaw-macos-install/bin/flowdaw-doctor"
           "$RUNNER_TEMP/flowdaw-macos-install/bin/flowdaw-doctor" status
-          test -f "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core/flow-core.manifest"
-          test -f "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core/PROVENANCE.txt"
-          test "$(find "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core" -name '*.wav' | wc -l)" -eq 12
-          test "$(find "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core" -name '*.flowpreset' | wc -l)" -eq 10
+          contentRoot="$RUNNER_TEMP/flowdaw-macos-install/FLOWDAW.app/Contents/Resources/FLOWDAW/content/flow-core"
+          test -f "$contentRoot/flow-core.manifest"
+          test -f "$contentRoot/PROVENANCE.txt"
+          test "$(find "$contentRoot" -name '*.wav' | wc -l)" -eq 12
+          test "$(find "$contentRoot" -name '*.flowpreset' | wc -l)" -eq 10
       - name: Package macOS DMG
         run: |
           cd build-mac
           cpack -G DragNDrop
-          test -n "$(find . -maxdepth 1 -name 'FLOWDAW-*.dmg' -print -quit)"
+          dmg="$(find . -maxdepth 1 -name 'FLOWDAW-*.dmg' -print -quit)"
+          test -n "$dmg"
+          mount="$RUNNER_TEMP/flowdaw-dmg"
+          mkdir -p "$mount"
+          hdiutil attach "$dmg" -nobrowse -mountpoint "$mount"
+          trap 'hdiutil detach "$mount" >/dev/null 2>&1 || true' EXIT
+          contentRoot="$mount/FLOWDAW.app/Contents/Resources/FLOWDAW/content/flow-core"
+          test -f "$contentRoot/flow-core.manifest"
+          test "$(find "$contentRoot" -name '*.wav' | wc -l)" -eq 12
+          test "$(find "$contentRoot" -name '*.flowpreset' | wc -l)" -eq 10
+          hdiutil detach "$mount"
+          trap - EXIT
