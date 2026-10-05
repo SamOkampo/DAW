@@ -18,8 +18,8 @@ Phase 12 is explicitly authorized after the completed Phase 11 closure. Its goal
 - **12.1 Core Library architecture — DONE.** PR #131 passed the full FLOWDAW CI matrix and merged as `adf62aeb`; versioned manifest, stable IDs, safe relative-path resolution and deterministic core tests are integrated.
 - **12.2 FLOW Core drum/sample library — DONE.** PR #132 passed the full FLOWDAW CI matrix and merged as `71e55bb8`; twelve deterministic first-party 48 kHz WAVs, provenance, decode/signal/determinism tests and multiplatform install-tree checks are integrated.
 - **12.3 Native instrument preset catalog — DONE.** PR #135 passed the full FLOWDAW CI matrix and merged as `82e04034`; ten versioned `.flowpreset` files for Keys, Bass, 808, Lead and Pad roles are integrated.
-- **12.4 Browser integration — IMPLEMENTED / CI GATE.** FLOW Core is a distinct first-party Sample Browser source; queries match stable ID/path/category/tags and existing preview/import/drag/favorites/recent behavior is reused without audio-thread filesystem work.
-- **12.5 Starter kits/templates — PENDING.**
+- **12.4 Browser integration — IMPLEMENTED / CI GATE.** Clean PR #140 contains FLOW Core Browser integration and awaits its full matrix/merge.
+- **12.5 Starter kits/templates — IMPLEMENTED / STACKED CI CANDIDATE.** Blank, Boom Bap, Trap and Lo-Fi use portable `content:<id>` references plus FLOW Core presets, preserve `.flow` v11, rehydrate on startup/recovery/open, retain legacy native drums and include save→reopen tests.
 - **12.6 Packaging/install/discovery — PENDING.**
 - **12.7 Licensing/content-integrity audit — PENDING.**
 - **12.8 Final integration/closure audit — PENDING.**
@@ -28,4 +28,4 @@ See `PHASE12_DESIGN.md` for acceptance criteria.
 
 ## Current checkpoint
 
-12.1–12.3 are integrated. 12.4 is the active clean main-based CI gate. 12.5–12.8 remain prepared as later deltas and must not merge before 12.4.
+12.1–12.3 are integrated. 12.4 is the active clean CI gate (#140). 12.5 is prepared on the clean 12.4 lineage and must merge only after 12.4.
