@@ -198,6 +198,27 @@ Expected: resizing and keyboard/accessibility behavior improve the desktop workf
 
 Expected: delivery, configuration, plugin maintenance and recovery/error workflows are understandable and recoverable from the production JUCE app while DSP, realtime ownership, PluginSafety, SessionRecovery and portable project semantics remain unchanged.
 
+
+### 14. Phase 11.8 installed-app cross-workflow closure
+
+Run this pass from the **installed/package artifact**, not a build-tree executable. Use the same artifact for the complete pass and record platform, package type and commit.
+
+1. Launch FLOWDAW from the installed application and confirm the opening shell presents project identity, transport and workspace navigation as the dominant hierarchy; Settings / Audio and Plugin Maintenance must remain secondary surfaces rather than persistent dashboard panels.
+2. At 1440×1040, move through Arrangement → Piano Roll → Sequencer → Sampler → Automation → Arrangement. Confirm each creative surface keeps the shared FLOWDAW dark music-production language, visible active-workspace state and readable focus without generic card/dashboard treatment.
+3. Resize to 1280×800 and 1180×720. Keep the Sample Browser visible and request Mixer plus Settings / Audio. Confirm the creative editor retains usable geometry and secondary panels collapse/bound themselves rather than overlapping the editor.
+4. In Arrangement, import a WAV from the Sample Browser, select/move an Arrangement block and Undo/Redo. Confirm Browser context, Arrangement selection and transient status remain visually distinguishable.
+5. Switch to Mixer. Select Track → Bus → Master and confirm target identity, meter and rack target stay synchronized. Exercise a Track output route and send, then Undo/Redo where applicable.
+6. In the plugin workflow, search/filter plugins and select a creative rack target. Then open Plugin Maintenance, confirm scan/quarantine diagnostics replace the utility surface rather than the creative editor, close it and verify keyboard focus/workspace interaction remains usable.
+7. Visit Piano Roll, Sequencer, Sampler and Automation with an editable target. Make one reversible edit in each surface and confirm selection/focus/active state is visually distinct before Undo/Redo.
+8. Open Settings / Audio, inspect the current device/sample-rate/buffer controls, close it and confirm no musical/project state changed. Reopen Plugin Maintenance and confirm the two maintenance surfaces are mutually exclusive.
+9. Exercise Master Mix and Track Stems export from the production export controls. Cancel one chooser and complete the other; confirm cancellation preserves the project and completion/failure feedback is explicit.
+10. Save the project, close FLOWDAW normally, relaunch the same installed application and reopen/restore the project. Confirm musical edits, routing, automation, samples and plugin rack state persist while panel visibility/device/diagnostic presentation remains machine-local.
+11. Confirm a clean relaunch does not present stale crash recovery. Where a dirty autosave fixture is intentionally available, confirm recovered-autosave identity is explicit and Save/New/Open remain valid recovery actions.
+12. Repeat the layout/workspace smoke on the platform's packaged artifact: Linux package, Windows package and macOS DMG/app as available in the required CI/release matrix. Platform rendering differences are acceptable only when hierarchy, bounds, focus visibility and workflow reachability remain equivalent.
+
+Expected: the installed FLOWDAW application behaves as one coherent DAW across create/import → arrange → edit → mix → export/recover. Phase 11 presentation must preserve FLOWDAW's distinctive dense music-software identity, keep maintenance/configuration secondary to creative work, and leave DSP, realtime ownership and portable .flow v11 semantics unchanged.
+
+
 ## Failure conditions
 
 Mark the run **FAIL** if any required flow needs X11, developer scripts, project-file hand editing, plugin creation/destruction from the audio callback, or if a normal user action causes a crash/hang. Also fail on silent loss of plugin state, rack order, recording takes, routing, automation or imported sample references after save/reopen.
