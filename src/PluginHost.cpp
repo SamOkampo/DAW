@@ -17,6 +17,14 @@ std::vector<BuiltinPluginParameterDescriptor> builtinPluginParameterDescriptors(
     if(id=="flow.gain")return{{"gain","Gain",0.0f,4.0f,0.01f,1.0f," gain"}};
     if(id=="flow.softclip")return{{"drive","Drive",0.0f,1.0f,0.01f,0.25f," drive"}};
     if(id=="flow.width")return{{"width","Width",0.0f,2.0f,0.01f,1.0f," width"}};
+    if(id=="flow.compressor")return{
+        {"threshold_db","Threshold",-60.0f,0.0f,0.1f,-18.0f," dB"},
+        {"ratio","Ratio",1.0f,20.0f,0.1f,4.0f,":1"},
+        {"attack_ms","Attack",0.1f,200.0f,0.1f,10.0f," ms"},
+        {"release_ms","Release",5.0f,2000.0f,1.0f,120.0f," ms"},
+        {"knee_db","Knee",0.0f,24.0f,0.1f,6.0f," dB"},
+        {"makeup_db","Makeup",-12.0f,24.0f,0.1f,0.0f," dB"}
+    };
     if(id=="flow.eq")return{
         {"band1_freq","Band 1 Frequency",20.0f,20000.0f,1.0f,80.0f," Hz"},
         {"band1_gain_db","Band 1 Gain",-18.0f,18.0f,0.1f,0.0f," dB"},
@@ -48,6 +56,7 @@ PluginInstance makeBuiltinPlugin(const std::string&requestedId){
     else if(id=="flow.softclip")name="FLOW Soft Clip";
     else if(id=="flow.width")name="FLOW Width";
     else if(id=="flow.eq")name="FLOW EQ";
+    else if(id=="flow.compressor")name="FLOW Compressor";
     else{id="flow.gain";name="FLOW Gain";}
     PluginInstance p;p.format="builtin";p.identifier=id;p.name=name;
     for(const auto&parameter:builtinPluginParameterDescriptors(id))setPluginParameter(p,parameter.id,parameter.defaultValue);
@@ -59,7 +68,8 @@ std::vector<PluginDescriptor> builtinPluginDescriptors(){
         {"builtin","flow.gain","FLOW Gain","FLOWDAW","effect",{},true},
         {"builtin","flow.softclip","FLOW Soft Clip","FLOWDAW","effect",{},true},
         {"builtin","flow.width","FLOW Width","FLOWDAW","effect",{},true},
-        {"builtin","flow.eq","FLOW EQ","FLOWDAW","effect",{},true}
+        {"builtin","flow.eq","FLOW EQ","FLOWDAW","effect",{},true},
+        {"builtin","flow.compressor","FLOW Compressor","FLOWDAW","effect",{},true}
     };
 }
 
