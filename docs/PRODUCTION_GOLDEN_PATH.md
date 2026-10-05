@@ -242,3 +242,23 @@ The manual run does not replace CI. Keep the existing automated coverage green f
 - bounded preview-command saturation/recovery coverage.
 
 The manual path verifies that those capabilities are actually reachable as one coherent product workflow.
+
+
+### 15. Phase 12.8 installed native-content closure
+
+Run this pass from the **installed/package artifact**, not from a developer build tree. Record platform, package type and commit.
+
+1. Launch FLOWDAW from the installed application with no user sample root configured. Confirm **FLOW Core** appears as a first-party Browser source without adding a folder manually.
+2. Search FLOW Core for representative metadata such as `boom-bap`, `808`, `dark` and a category fragment. Confirm the expected bundled samples appear and no undeclared filesystem files are exposed.
+3. Preview a FLOW Core WAV, stop preview, enable Auto Preview, navigate with keyboard and favorite one item. Confirm preview remains responsive and Favorites/Recent remain machine-local UI state.
+4. Import or drag a FLOW Core sample into the creative workflow and confirm the same normal import/edit path is used; no special realtime filesystem behavior should be visible.
+5. Create **Boom Bap • FLOW Core**, **Trap • FLOW Core** and **Lo-Fi • FLOW Core** from New / Template. Confirm each template opens with its expected BPM, native drums and native instrument preset and produces audible playback without third-party plugins.
+6. Save one native-content template to `.flow`, close FLOWDAW, relaunch the same installed application and reopen the file. Confirm all first-party samples resolve from stable `content:<id>` references and no missing-content error appears.
+7. Move/extract the portable Linux/Windows package to a different absolute directory and reopen the saved project. Confirm content still resolves relative to the installed executable rather than the original package path.
+8. On macOS, run the packaged `FLOWDAW.app` from the mounted/copied DMG and confirm FLOW Core resolves from `Contents/Resources/FLOWDAW/content/flow-core`.
+9. Complete a Master Mix export from the reopened native-content project and verify the WAV is non-empty and audibly contains the template content.
+10. Inspect the installed/package FLOW Core directory and confirm `flow-core.manifest`, `PROVENANCE.txt`, `CONTENT_RIGHTS.txt`, 12 WAV files and 10 `.flowpreset` files are present.
+11. Confirm a normal legacy project using existing synthetic native drum keys still opens and plays; Phase 12 must not regress legacy `.flow` v11 behavior.
+12. Exercise Save/New/Open/recovery once with the native-content project and confirm project state remains portable while Browser favorites/recent and install paths stay machine-local.
+
+Expected: a fresh installed FLOWDAW can discover, browse, preview and use FLOW Core; create an immediately audible starter; save/reopen it from stable IDs; and export it without embedding the machine's install path in the portable project.

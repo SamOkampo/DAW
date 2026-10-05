@@ -21,11 +21,11 @@ Phase 12 is explicitly authorized after the completed Phase 11 closure. Its goal
 - **12.4 Browser integration — IMPLEMENTED / CI GATE.** Clean PR #140 contains FLOW Core Browser integration and awaits its full matrix/merge.
 - **12.5 Starter kits/templates — IMPLEMENTED / CI GATE.** Clean PR #142 contains portable starter templates and awaits ordered merge after 12.4.
 - **12.6 Packaging/install/discovery — IMPLEMENTED / CI GATE.** Clean PR #143 contains installed/package discovery and package validation and awaits ordered merge after 12.5.
-- **12.7 Licensing/content-integrity audit — IMPLEMENTED / STACKED CI CANDIDATE.** Automated audit validates manifest/assets/provenance/rights notice/WAV decode/preset identity/undeclared assets and package inclusion; no public licence is invented.
-- **12.8 Final integration/closure audit — PENDING.**
+- **12.7 Licensing/content-integrity audit — IMPLEMENTED / CI GATE.** Clean PR #144 contains the content integrity/rights audit and awaits ordered merge after 12.6.
+- **12.8 Final integration/closure audit — IMPLEMENTED / PRE-CLOSURE CANDIDATE.** Automated install→discovery→audit→template→save/reopen→hydrate→render/export golden path plus installed-app checklist are defined. Phase 12 remains IN PROGRESS until the clean chain is merged green and final main verification passes.
 
 See `PHASE12_DESIGN.md` for acceptance criteria.
 
 ## Current checkpoint
 
-12.1–12.3 are integrated. 12.4 (#140), 12.5 (#142), 12.6 (#143) and 12.7 are now on one clean lineage and must merge in order.
+12.1–12.3 are integrated. Clean PRs #140 → #142 → #143 → #144 plus this 12.8 candidate form the replacement clean chain. Phase 12 is not DONE until they merge green in order and main is verified.
