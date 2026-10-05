@@ -83,13 +83,6 @@ void saveNativeInstrumentPreset(const NativeInstrumentPreset& preset,const std::
 
 
 namespace {
-const BuiltinPluginParameterDescriptor* parameterDescriptor(const std::string& plugin,const std::string& id){
-    static thread_local std::vector<BuiltinPluginParameterDescriptor> cache;
-    cache=builtinPluginParameterDescriptors(plugin);
-    for(const auto&d:cache)if(d.id==id)return &d;
-    return nullptr;
-}
-
 void validateEffectPreset(const NativeEffectPreset& preset){
     if(preset.schemaVersion!=1)throw std::runtime_error("Unsupported FLOWDAW native effect preset schema");
     if(preset.id.empty())throw std::runtime_error("Native effect preset id is empty");
