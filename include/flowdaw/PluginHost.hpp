@@ -26,10 +26,21 @@ struct PluginMidiEvent {
     std::uint8_t data2=0;
 };
 
+struct BuiltinPluginParameterDescriptor {
+    std::string id;
+    std::string name;
+    float minValue=0.0f;
+    float maxValue=1.0f;
+    float step=0.01f;
+    float defaultValue=0.0f;
+    std::string suffix;
+};
+
 float pluginParameterValue(const PluginInstance& plugin,const std::string& id,float fallback);
 void setPluginParameter(PluginInstance& plugin,const std::string& id,float value);
 PluginInstance makeBuiltinPlugin(const std::string& identifier);
 std::vector<PluginDescriptor> builtinPluginDescriptors();
+std::vector<BuiltinPluginParameterDescriptor> builtinPluginParameterDescriptors(const std::string& identifier);
 std::vector<PluginDescriptor> scanPluginPaths(const std::vector<std::filesystem::path>& roots);
 
 class IPluginProcessor {
