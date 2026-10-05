@@ -42,6 +42,7 @@ jobs:
           test -f "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core/flow-core.manifest"
           test -f "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core/PROVENANCE.txt"
           test "$(find "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core" -name '*.wav' | wc -l)" -eq 12
+          test "$(find "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core" -name '*.flowpreset' | wc -l)" -eq 10
       - name: Package smoke test
         run: cd build-studio && cpack -G TGZ && test -n "$(find . -maxdepth 1 -name 'FLOWDAW-*.tar.gz' -print -quit)"
 
@@ -66,6 +67,7 @@ jobs:
           test -f "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core/flow-core.manifest"
           test -f "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core/PROVENANCE.txt"
           test "$(find "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core" -name '*.wav' | wc -l)" -eq 12
+          test "$(find "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core" -name '*.flowpreset' | wc -l)" -eq 10
       - name: Package Linux production build
         run: |
           cd build-juce
@@ -94,6 +96,7 @@ jobs:
           if (-not (Test-Path "$contentRoot/flow-core.manifest")) { throw "FLOW Core manifest missing after install" }
           if (-not (Test-Path "$contentRoot/PROVENANCE.txt")) { throw "FLOW Core provenance missing after install" }
           if ((Get-ChildItem -Path $contentRoot -Recurse -Filter "*.wav").Count -ne 12) { throw "FLOW Core WAV count mismatch after install" }
+          if ((Get-ChildItem -Path $contentRoot -Recurse -Filter "*.flowpreset").Count -ne 10) { throw "FLOW Core preset count mismatch after install" }
       - name: Package Windows portable build
         shell: pwsh
         run: |
@@ -130,6 +133,7 @@ jobs:
           test -f "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core/flow-core.manifest"
           test -f "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core/PROVENANCE.txt"
           test "$(find "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core" -name '*.wav' | wc -l)" -eq 12
+          test "$(find "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core" -name '*.flowpreset' | wc -l)" -eq 10
       - name: Package macOS DMG
         run: |
           cd build-mac
