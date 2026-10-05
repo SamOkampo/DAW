@@ -114,3 +114,22 @@ Planned sequence:
 No Post-MVP phase is authorized by this roadmap closure. See `PHASE11_STATUS.md` and `PHASE11_8_AUDIT.md` for the final acceptance evidence.
 
 **Production desktop path remains JUCE 9.0.2. Project format remains v11.**
+
+
+## Phase 12 — Native Sound Library & Preset System [IN PROGRESS]
+
+Phase 12 is explicitly authorized after the completed Phase 11 closure. It makes a fresh FLOWDAW installation musically useful with legally redistributable first-party sounds and presets while preserving JUCE 9.0.2, realtime safety and .flow v11 compatibility.
+
+Planned sequence:
+1. **12.1 Core Library architecture** — versioned content manifest, stable content IDs, safe relative-path resolution and deterministic core tests.
+2. **12.2 FLOW Core drum/sample library** — curated Kicks, Snares/Claps, Hats, Percussion, 808s and FX with verified redistribution provenance.
+3. **12.3 Native instrument preset catalog** — first-party presets for supported FLOW native instruments.
+4. **12.4 Browser integration** — first-party source, search/categories/tags, preview and favorites without replacing user sample roots.
+5. **12.5 Starter kits/templates** — native-content-backed Boom Bap, Trap, Lo-Fi and other approved starter sessions.
+6. **12.6 Packaging/install/discovery** — reliable native-content discovery in Linux, Windows and macOS installed/package artifacts.
+7. **12.7 Licensing/content-integrity audit** — provenance, manifest integrity, missing/duplicate asset and decode validation.
+8. **12.8 Final integration/closure audit** — fresh-install native-content golden path plus architecture, realtime, .flow and multiplatform packaging audit.
+
+**Current checkpoint:** 12.1 implementation is active. See `PHASE12_DESIGN.md` and `PHASE12_STATUS.md`.
+
+**Production desktop remains JUCE 9.0.2. Project format remains v11.**

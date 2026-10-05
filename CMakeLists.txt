@@ -43,6 +43,7 @@ add_library(flowdaw_core
     src/ProductionAssistant.cpp
     src/Workflow.cpp
     src/AppSettings.cpp
+    src/ContentLibrary.cpp
     src/SessionRecovery.cpp
     src/PluginSafety.cpp
     src/RuntimeCapabilities.cpp
@@ -240,6 +241,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase10_stress_tests tests/test_phase10_stress.cpp)
     target_link_libraries(flowdaw_phase10_stress_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase10_stress_tests COMMAND flowdaw_phase10_stress_tests)
+
+    add_executable(flowdaw_phase12_content_tests tests/test_phase12_content.cpp)
+    target_link_libraries(flowdaw_phase12_content_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase12_content_tests COMMAND flowdaw_phase12_content_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
