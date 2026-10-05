@@ -188,6 +188,7 @@ target_link_libraries(flowdaw_stretch_benchmark PRIVATE flowdaw_core)
 flowdaw_enable_warnings(flowdaw_stretch_benchmark)
 
 add_executable(flowdaw-doctor tools/flowdaw_doctor.cpp)
+add_dependencies(flowdaw-doctor flowdaw_core_library)
 target_link_libraries(flowdaw-doctor PRIVATE flowdaw_core)
 flowdaw_enable_warnings(flowdaw-doctor)
 install(TARGETS flowdaw-doctor RUNTIME DESTINATION bin)
