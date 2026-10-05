@@ -4,6 +4,7 @@
 #include "flowdaw/Serialization.hpp"
 #include "flowdaw/NativeDrums.hpp"
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
