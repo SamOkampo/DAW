@@ -45,14 +45,19 @@ bool RealtimePluginChain::prepare(const std::vector<PluginInstance>&plugins,
     bool allPrepared=true;
     auto issue=[&](const PluginInstance&p,std::string message){allPrepared=false;if(issues)issues->push_back({p.id,std::move(message)});};
 
+    PluginHost builtinHost;
     for(auto const&p:plugins){
         if(!p.enabled||p.bypass)continue;
         Slot slot;slot.config=p;slot.builtin=p.format=="builtin";
-        if(slot.builtin){slots_.push_back(std::move(slot));continue;}
-        if(!host){issue(p,"No external plugin host is attached to the realtime engine");continue;}
 
-        std::string error;auto processor=host->createProcessor(p,error);
-        if(!processor){issue(p,error.empty()?"External processor could not be created":error);continue;}
+        const PluginHost* processorHost=slot.builtin?&builtinHost:host;
+        if(!processorHost){
+            issue(p,"No external plugin host is attached to the realtime engine");
+            continue;
+        }
+
+        std::string error;auto processor=processorHost->createProcessor(p,error);
+        if(!processor){issue(p,error.empty()?"Processor could not be created":error);continue;}
         if(!processor->supportsRealtimeProcessing()){issue(p,"Processor backend does not expose callback-safe block processing");continue;}
         try{
             if(!processor->prepare(sampleRate,channels_,error)){issue(p,error.empty()?"Processor prepare failed":error);continue;}
@@ -76,14 +81,6 @@ bool RealtimePluginChain::prepare(const std::vector<PluginInstance>&plugins,
 void RealtimePluginChain::process(float*interleaved,SampleIndex frames) noexcept{
     if(!interleaved||frames<=0)return;
     for(auto&slot:slots_){
-        if(slot.builtin){
-            for(SampleIndex frame=0;frame<frames;++frame){
-                auto*sample=interleaved+static_cast<std::size_t>(frame)*static_cast<std::size_t>(channels_);
-                if(channels_==1){float right=sample[0];processRealtimeBuiltinSample(slot.config,sample[0],right);}
-                else processRealtimeBuiltinSample(slot.config,sample[0],sample[1]);
-            }
-            continue;
-        }
         if(!slot.processor)continue;
         const float wet=std::clamp(slot.config.wet,0.0f,1.0f);
         SampleIndex offset=0;
