@@ -24,8 +24,8 @@ Phase 13 is authorized after the completed/audited Phase 12 closure.
 - **13.7 FLOW Chorus — IMPLEMENTED / STACKED CANDIDATE.** Modulated fractional delay with rate/depth/base delay/feedback/width and preallocated storage.
 - **13.8 FLOW Gate / Expander — IMPLEMENTED / STACKED CANDIDATE.** Stereo-linked threshold/range/attack/hold/release gate with deterministic envelope state.
 - **13.9 FLOW Utility — IMPLEMENTED / STACKED CANDIDATE.** Gain, polarity, mono, swap, balance and width in one callback-safe insert.
-- **13.10 Native plugin presets — PENDING.**
-- **13.11 Native plugin editing/productization — PENDING.**
+- **13.10 Native plugin presets — IMPLEMENTED / STACKED CANDIDATE.** Versioned native effect preset format plus first-party preset coverage for EQ, Compressor, Limiter, Saturator, Reverb, Delay, Chorus, Gate and Utility with save/load and `.flow` v11 roundtrip tests.
+- **13.11 Native plugin editing/productization — IMPLEMENTED / STACKED CANDIDATE.** Generic native insert selector, generic parameter selector and compatible preset selector/application workflow live in the production JUCE rack with undo/re-publish behavior and accessibility metadata.
 - **13.12 DSP/realtime regression audit — PENDING.**
 - **13.13 Final integration/closure audit — PENDING.**
 
@@ -33,4 +33,4 @@ See `PHASE13_DESIGN.md`.
 
 ## Current checkpoint
 
-13.1 is the active clean CI gate (#146). 13.2 is under stacked CI validation (#147). 13.3 and the 13.4–13.9 native suite are implemented on ordered stacked branches but intentionally have no additional concurrent PR/CI yet. Merge order remains 13.1 → 13.2 → 13.3 → 13.4–13.9.
+13.1 is the active clean CI gate (#146), 13.2 is under stacked CI validation (#147), and 13.3 through 13.11 are implemented on ordered stacked branches without extra concurrent CI. Remaining implementation work is 13.12 DSP/realtime audit and 13.13 final integration/closure.
