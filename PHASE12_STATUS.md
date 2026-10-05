@@ -22,10 +22,10 @@ Phase 12 is explicitly authorized after the completed Phase 11 closure. Its goal
 - **12.5 Starter kits/templates — IMPLEMENTED / STACKED CI CANDIDATE.** Blank, Boom Bap, Trap and Lo-Fi builders now use portable `content:<id>` references plus FLOW Core presets, preserve `.flow` v11, rehydrate first-party audio on startup/recovery/open, retain legacy native-drum loading, and include save→reopen tests proving package/build roots are not serialized.
 - **12.6 Packaging/install/discovery — IMPLEMENTED / STACKED CI CANDIDATE.** Runtime discovery resolves Linux/Windows `share/FLOWDAW/...`, macOS app-bundle Resources and a development fallback; TGZ/ZIP/DMG CI inspects packaged content directly. Project format and realtime boundaries are unchanged.
 - **12.7 Licensing/content-integrity audit — IMPLEMENTED / STACKED CI CANDIDATE.** Automated audit validates manifest/assets/provenance/rights notice/WAV decode/preset identity/undeclared assets and package inclusion. No top-level public repo licence currently exists; the audit records that fact without inventing a licence grant.
-- **12.8 Final integration/closure audit — PENDING.**
+- **12.8 Final integration/closure audit — IMPLEMENTED / PRE-CLOSURE CANDIDATE.** Automated install→discovery→audit→template→save/reopen→hydrate→render/export golden path and installed-app checklist are defined. Phase 12 remains IN PROGRESS until 12.3–12.8 are merged sequentially with green gates and final main verification.
 
 See `PHASE12_DESIGN.md` for acceptance criteria.
 
 ## Current checkpoint
 
-12.1 and 12.2 are integrated. Clean PR #135 remains the active 12.3 gate. 12.4 through 12.7 are prepared as sequential stacked validation PRs; mandatory merge order remains 12.3 → 12.4 → 12.5 → 12.6 → 12.7.
+12.1 and 12.2 are integrated. Clean PR #135 remains the active 12.3 gate. 12.4 through 12.8 are implemented as sequential validation candidates. Phase 12 is not closed; mandatory merge order remains 12.3 → 12.4 → 12.5 → 12.6 → 12.7 → 12.8.
