@@ -26,8 +26,18 @@ struct ContentManifest {
     std::vector<ContentEntry> entries;
 };
 
+struct ResolvedContentEntry {
+    ContentEntry entry;
+    std::filesystem::path path;
+};
+
 ContentManifest loadContentManifest(const std::filesystem::path& path);
 bool isSafeContentRelativePath(const std::filesystem::path& path);
 std::filesystem::path resolveContentPath(const std::filesystem::path& root,const ContentEntry& entry);
+std::vector<ResolvedContentEntry> queryContentEntries(
+    const std::filesystem::path& root,
+    const ContentManifest& manifest,
+    ContentKind kind,
+    const std::string& query);
 
 }
