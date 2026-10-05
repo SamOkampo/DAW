@@ -133,3 +133,27 @@ Planned sequence:
 **Phase 12 closure:** 12.1–12.8 are complete. The clean merge chain #140 → #142 → #143 → #144 → #145 passed the required core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG gates before merge. The final golden path validates installed-content discovery, integrity, starter templates, `.flow` save/reopen with stable `content:<id>` references, hydration, audible render and master WAV export. `main` was verified after final merge `81d37499`. See `PHASE12_STATUS.md` and `PHASE12_8_AUDIT.md`.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11.**
+
+
+## Phase 13 — Native Plugins Suite [IN PROGRESS]
+
+Phase 13 is explicitly authorized after the completed Phase 12 closure. It expands FLOWDAW's first-party effect rack while preserving JUCE 9.0.2, the immutable realtime graph and portable `.flow` v11 projects.
+
+Planned sequence:
+1. **13.1 Native DSP foundation + FLOW EQ** — prepared callback-safe native processors, six-band parametric EQ, generic native insert/parameter rack workflow and offline/realtime/persistence regression coverage.
+2. **13.2 FLOW Compressor** — threshold, ratio, attack, release, knee and makeup/output gain.
+3. **13.3 FLOW Limiter** — ceiling/input gain/lookahead/release foundation; mastering-grade true-peak compliance remains Phase 14.
+4. **13.4 FLOW Saturator** — drive, tone, saturation modes and mix with callback-safe preparation.
+5. **13.5 FLOW Reverb** — stereo algorithmic ambience with bounded preallocated state.
+6. **13.6 FLOW Delay** — tempo-capable delay, feedback/filtering and ping-pong behavior.
+7. **13.7 FLOW Chorus** — rate/depth/feedback/width/mix modulation.
+8. **13.8 FLOW Gate / Expander** — deterministic dynamics envelope and range control.
+9. **13.9 FLOW Utility** — gain/polarity/mono/channel/balance/width utilities.
+10. **13.10 Native plugin presets** — versioned first-party presets for the Phase 13 suite.
+11. **13.11 Native plugin editing/productization** — parameter presentation, accessibility and justified plugin-specific editor surfaces.
+12. **13.12 DSP/realtime regression audit** — denormal/NaN safety, sample-rate/block-size independence, bypass/wet/latency and offline/realtime parity.
+13. **13.13 Final integration/closure audit** — installed-app native-only mix/export golden path plus architecture, realtime, compatibility and multiplatform CI closure.
+
+**Current checkpoint:** 13.1 is implemented on branch `phase13-1-native-eq` and is awaiting its clean CI/merge gate. See `PHASE13_DESIGN.md` and `PHASE13_STATUS.md`.
+
+**Production desktop remains JUCE 9.0.2. Project format remains v11. Phase 14 is not started.**
