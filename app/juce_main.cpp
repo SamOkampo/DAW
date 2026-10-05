@@ -196,7 +196,8 @@ public:
             [this](const std::filesystem::path& path){importWavFile(path);},
             [this](std::shared_ptr<AudioBuffer> audio){if(!audio||audio->frames()<=0)return;engine_.stopPreviews();engine_.triggerPreview(audio,0,audio->frames(),0.85f,0.0f,0);},
             [this]{engine_.stopPreviews();},
-            [this]{try{saveAppSettings(settings_,settingsPath_);}catch(const std::exception&e){status_.setText("Sample library settings failed: "+juce::String(e.what()),juce::dontSendNotification);}}
+            [this]{try{saveAppSettings(settings_,settingsPath_);}catch(const std::exception&e){status_.setText("Sample library settings failed: "+juce::String(e.what()),juce::dontSendNotification);}},
+            std::filesystem::path(FLOWDAW_CORE_LIBRARY_ROOT)
         );addAndMakeVisible(*sampleBrowser_);
         arrangementTab_.setButtonText("Arrangement");arrangementTab_.onClick=[this]{setEditorMode(EditorMode::Arrangement);};addAndMakeVisible(arrangementTab_);
         pianoTab_.setButtonText("Piano Roll");pianoTab_.onClick=[this]{setEditorMode(EditorMode::Piano);};addAndMakeVisible(pianoTab_);
