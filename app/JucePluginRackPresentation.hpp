@@ -13,6 +13,7 @@ public:
     static void style(juce::ComboBox& target,
                       juce::ComboBox& insert,
                       juce::Slider& wet,
+                      juce::ComboBox& parameterChoice,
                       juce::Slider& parameter,
                       juce::Label& parameterLabel,
                       juce::TextButton& moveUp,
@@ -37,7 +38,7 @@ public:
         remove.setButtonText("REMOVE");
         editor.setButtonText("OPEN INSERT");
 
-        for (auto* choice : { &target, &insert }) choice->setLookAndFeel(&lookAndFeel);
+        for (auto* choice : { &target, &insert, &parameterChoice }) choice->setLookAndFeel(&lookAndFeel);
         for (auto* slider : { &wet, &parameter }) slider->setLookAndFeel(&lookAndFeel);
         for (auto* button : { &moveUp, &moveDown, &enabled, &bypass, &remove, &editor })
             button->setLookAndFeel(&lookAndFeel);
@@ -51,6 +52,7 @@ public:
                        juce::ComboBox& target,
                        juce::ComboBox& insert,
                        juce::Slider& wet,
+                       juce::ComboBox& parameterChoice,
                        juce::Slider& parameter,
                        juce::Label& parameterLabel,
                        juce::TextButton& moveUp,
@@ -71,14 +73,16 @@ public:
         editor.setBounds(row.removeFromLeft(112).reduced(4));
 
         auto parameterArea = row.reduced(4);
-        parameterLabel.setBounds(parameterArea.removeFromTop(16));
-        wet.setBounds(parameterArea.removeFromTop(24));
+        parameterLabel.setBounds(parameterArea.removeFromTop(14));
+        parameterChoice.setBounds(parameterArea.removeFromTop(22));
+        wet.setBounds(parameterArea.removeFromTop(22));
         parameter.setBounds(parameterArea);
     }
 
     static void clear(juce::ComboBox& target,
                       juce::ComboBox& insert,
                       juce::Slider& wet,
+                      juce::ComboBox& parameterChoice,
                       juce::Slider& parameter,
                       juce::TextButton& moveUp,
                       juce::TextButton& moveDown,
@@ -90,6 +94,7 @@ public:
         target.setLookAndFeel(nullptr);
         insert.setLookAndFeel(nullptr);
         wet.setLookAndFeel(nullptr);
+        parameterChoice.setLookAndFeel(nullptr);
         parameter.setLookAndFeel(nullptr);
         for (auto* button : { &moveUp, &moveDown, &enabled, &bypass, &remove, &editor })
             button->setLookAndFeel(nullptr);

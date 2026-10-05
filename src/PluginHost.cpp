@@ -1,4 +1,5 @@
 #include "flowdaw/PluginHost.hpp"
+#include "flowdaw/BuiltinPluginDSP.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -6,37 +7,61 @@
 
 namespace flowdaw {
 namespace {
-class GainProcessor final:public IPluginProcessor{
-public: explicit GainProcessor(float gain):gain_(gain){}
- bool prepare(int,int,std::string&)override{return true;} void setState(const std::string&)override{} std::string state()const override{return{};}
- void process(AudioBuffer&b)override{for(auto&x:b.interleaved)x*=gain_;}
-private:float gain_=1.0f;
-};
-class SoftClipProcessor final:public IPluginProcessor{
-public: explicit SoftClipProcessor(float drive):drive_(std::clamp(drive,0.0f,1.0f)){}
- bool prepare(int,int,std::string&)override{return true;} void setState(const std::string&)override{} std::string state()const override{return{};}
- void process(AudioBuffer&b)override{const float d=1.0f+drive_*9.0f;const float norm=std::max(0.0001f,std::tanh(d));for(auto&x:b.interleaved)x=std::tanh(x*d)/norm;}
-private:float drive_=0.25f;
-};
-class WidthProcessor final:public IPluginProcessor{
-public: explicit WidthProcessor(float width):width_(std::clamp(width,0.0f,2.0f)){}
- bool prepare(int,int channels,std::string&error)override{if(channels<2){error="FLOW Width requires stereo audio";return false;}return true;} void setState(const std::string&)override{} std::string state()const override{return{};}
- void process(AudioBuffer&b)override{if(b.channels<2)return;for(SampleIndex f=0;f<b.frames();++f){auto i=static_cast<std::size_t>(f*b.channels);float l=b.interleaved[i],r=b.interleaved[i+1],m=(l+r)*0.5f,s=(l-r)*0.5f*width_;b.interleaved[i]=m+s;b.interleaved[i+1]=m-s;}}
-private:float width_=1.0f;
-};
-std::unique_ptr<IPluginProcessor> builtinProcessor(const PluginInstance&p){
- if(p.identifier=="flow.gain")return std::make_unique<GainProcessor>(std::clamp(pluginParameterValue(p,"gain",1.0f),0.0f,4.0f));
- if(p.identifier=="flow.softclip")return std::make_unique<SoftClipProcessor>(pluginParameterValue(p,"drive",0.25f));
- if(p.identifier=="flow.width")return std::make_unique<WidthProcessor>(pluginParameterValue(p,"width",1.0f));
- return{};
-}
 std::string lower(std::string s){std::transform(s.begin(),s.end(),s.begin(),[](unsigned char c){return static_cast<char>(std::tolower(c));});return s;}
 }
 
 float pluginParameterValue(const PluginInstance&p,const std::string&id,float fallback){for(auto const&x:p.parameters)if(x.id==id)return x.value;return fallback;}
 void setPluginParameter(PluginInstance&p,const std::string&id,float value){for(auto&x:p.parameters)if(x.id==id){x.value=value;return;}p.parameters.push_back({id,value});}
-PluginInstance makeBuiltinPlugin(const std::string&id){PluginInstance p;p.format="builtin";p.identifier=id;if(id=="flow.softclip"){p.name="FLOW Soft Clip";setPluginParameter(p,"drive",0.25f);}else if(id=="flow.width"){p.name="FLOW Width";setPluginParameter(p,"width",1.0f);}else{p.identifier="flow.gain";p.name="FLOW Gain";setPluginParameter(p,"gain",1.0f);}return p;}
-std::vector<PluginDescriptor> builtinPluginDescriptors(){return{{"builtin","flow.gain","FLOW Gain","FLOWDAW","effect",{},true},{"builtin","flow.softclip","FLOW Soft Clip","FLOWDAW","effect",{},true},{"builtin","flow.width","FLOW Width","FLOWDAW","effect",{},true}};}
+
+std::vector<BuiltinPluginParameterDescriptor> builtinPluginParameterDescriptors(const std::string&id){
+    if(id=="flow.gain")return{{"gain","Gain",0.0f,4.0f,0.01f,1.0f," gain"}};
+    if(id=="flow.softclip")return{{"drive","Drive",0.0f,1.0f,0.01f,0.25f," drive"}};
+    if(id=="flow.width")return{{"width","Width",0.0f,2.0f,0.01f,1.0f," width"}};
+    if(id=="flow.eq")return{
+        {"band1_freq","Band 1 Frequency",20.0f,20000.0f,1.0f,80.0f," Hz"},
+        {"band1_gain_db","Band 1 Gain",-18.0f,18.0f,0.1f,0.0f," dB"},
+        {"band1_q","Band 1 Q",0.10f,12.0f,0.01f,0.707f," Q"},
+        {"band2_freq","Band 2 Frequency",20.0f,20000.0f,1.0f,200.0f," Hz"},
+        {"band2_gain_db","Band 2 Gain",-18.0f,18.0f,0.1f,0.0f," dB"},
+        {"band2_q","Band 2 Q",0.10f,12.0f,0.01f,0.707f," Q"},
+        {"band3_freq","Band 3 Frequency",20.0f,20000.0f,1.0f,500.0f," Hz"},
+        {"band3_gain_db","Band 3 Gain",-18.0f,18.0f,0.1f,0.0f," dB"},
+        {"band3_q","Band 3 Q",0.10f,12.0f,0.01f,0.707f," Q"},
+        {"band4_freq","Band 4 Frequency",20.0f,20000.0f,1.0f,1500.0f," Hz"},
+        {"band4_gain_db","Band 4 Gain",-18.0f,18.0f,0.1f,0.0f," dB"},
+        {"band4_q","Band 4 Q",0.10f,12.0f,0.01f,0.707f," Q"},
+        {"band5_freq","Band 5 Frequency",20.0f,20000.0f,1.0f,5000.0f," Hz"},
+        {"band5_gain_db","Band 5 Gain",-18.0f,18.0f,0.1f,0.0f," dB"},
+        {"band5_q","Band 5 Q",0.10f,12.0f,0.01f,0.707f," Q"},
+        {"band6_freq","Band 6 Frequency",20.0f,20000.0f,1.0f,12000.0f," Hz"},
+        {"band6_gain_db","Band 6 Gain",-18.0f,18.0f,0.1f,0.0f," dB"},
+        {"band6_q","Band 6 Q",0.10f,12.0f,0.01f,0.707f," Q"},
+        {"output_gain_db","Output Gain",-18.0f,18.0f,0.1f,0.0f," dB"}
+    };
+    return{};
+}
+
+PluginInstance makeBuiltinPlugin(const std::string&requestedId){
+    std::string id=requestedId;
+    std::string name;
+    if(id=="flow.gain")name="FLOW Gain";
+    else if(id=="flow.softclip")name="FLOW Soft Clip";
+    else if(id=="flow.width")name="FLOW Width";
+    else if(id=="flow.eq")name="FLOW EQ";
+    else{id="flow.gain";name="FLOW Gain";}
+    PluginInstance p;p.format="builtin";p.identifier=id;p.name=name;
+    for(const auto&parameter:builtinPluginParameterDescriptors(id))setPluginParameter(p,parameter.id,parameter.defaultValue);
+    return p;
+}
+
+std::vector<PluginDescriptor> builtinPluginDescriptors(){
+    return{
+        {"builtin","flow.gain","FLOW Gain","FLOWDAW","effect",{},true},
+        {"builtin","flow.softclip","FLOW Soft Clip","FLOWDAW","effect",{},true},
+        {"builtin","flow.width","FLOW Width","FLOWDAW","effect",{},true},
+        {"builtin","flow.eq","FLOW EQ","FLOWDAW","effect",{},true}
+    };
+}
 
 std::vector<PluginDescriptor> scanPluginPaths(const std::vector<std::filesystem::path>&roots){
  std::vector<PluginDescriptor> out;std::set<std::string> seen;
@@ -47,7 +72,7 @@ std::vector<PluginDescriptor> scanPluginPaths(const std::vector<std::filesystem:
 
 void PluginHost::registerBackend(std::shared_ptr<IExternalPluginBackend>b){if(b)backends_.push_back(std::move(b));}
 std::unique_ptr<IPluginProcessor> PluginHost::createProcessor(const PluginInstance&p,std::string&error)const{
- error.clear();if(!p.enabled||p.bypass)return{};if(p.format=="builtin"){auto proc=builtinProcessor(p);if(!proc)error="Unknown FLOWDAW builtin plugin: "+p.identifier;return proc;}
+ error.clear();if(!p.enabled||p.bypass)return{};if(p.format=="builtin")return createBuiltinPluginProcessor(p,error);
  if(p.format!="vst3"&&p.format!="au"){error="Unsupported plugin format: "+p.format;return{};}
  bool supportedBackend=false;std::string backendError;
  for(auto const&b:backends_)if(b&&b->supports(p.format)){supportedBackend=true;std::string attemptError;auto proc=b->create(p,attemptError);if(proc){error.clear();return proc;}if(!attemptError.empty())backendError=std::move(attemptError);}
