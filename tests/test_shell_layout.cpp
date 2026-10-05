@@ -12,6 +12,34 @@ static bool contains(const ShellRect&outer,const ShellRect&inner){
     return inner.valid()&&inner.x>=outer.x&&inner.y>=outer.y&&inner.right()<=outer.right()&&inner.bottom()<=outer.bottom();
 }
 
+static bool overlaps(const ShellRect&a,const ShellRect&b){
+    if(a.width<=0||a.height<=0||b.width<=0||b.height<=0)return false;
+    return a.x<b.right()&&a.right()>b.x&&a.y<b.bottom()&&a.bottom()>b.y;
+}
+
+static void assertPanelContract(const ShellRect&area,const PanelLayoutMetrics&m){
+    assert(contains(area,m.browser));
+    assert(contains(area,m.editor));
+    assert(!overlaps(m.browser,m.editor));
+    assert(m.editor.width>=PanelLayoutMetrics::editorMinWidth);
+    assert(m.editor.height>=PanelLayoutMetrics::editorMinHeight);
+    if(m.mixerVisible){
+        assert(contains(area,m.mixer));
+        assert(!overlaps(m.editor,m.mixer));
+        assert(!overlaps(m.browser,m.mixer));
+    }else{
+        assert(m.mixer.width==0&&m.mixer.height==0);
+    }
+    if(m.utilityVisible){
+        assert(contains(area,m.utility));
+        assert(!overlaps(m.editor,m.utility));
+        assert(!overlaps(m.browser,m.utility));
+        assert(!overlaps(m.mixer,m.utility));
+    }else{
+        assert(m.utility.width==0&&m.utility.height==0);
+    }
+}
+
 int main(){
     struct Case{int w,h;ShellWidthMode mode;};
     constexpr std::array<Case,4> cases{{{1180,720,ShellWidthMode::compact},{1280,800,ShellWidthMode::compact},{1440,1040,ShellWidthMode::wide},{1920,1080,ShellWidthMode::wide}}};
@@ -54,6 +82,40 @@ int main(){
     assert(contains(largePanelArea,largePanels.editor));
     assert(contains(largePanelArea,largePanels.mixer));
     assert(contains(largePanelArea,largePanels.utility));
+
+    assertPanelContract(minPanelArea,minPanels);
+    assertPanelContract(largePanelArea,largePanels);
+
+    // Phase 11.8.1 visual/layout regression matrix: secondary surfaces may
+    // consume spare space, but never at the expense of the minimum creative
+    // editor contract or by overlapping another visible region.
+    constexpr std::array<ShellRect,4> panelAreas{{
+        {0,0,1148,286},   // supported minimum shell content
+        {0,0,1248,366},   // compact desktop
+        {0,0,1408,606},   // default desktop
+        {0,0,1888,646}    // wide desktop
+    }};
+    for(const auto&area:panelAreas){
+        for(const bool mixerRequested:{false,true}){
+            for(const bool utilityRequested:{false,true}){
+                const auto panels=PanelLayoutMetrics::calculate(area,320,220,180,mixerRequested,utilityRequested);
+                assertPanelContract(area,panels);
+                assert(panels.browser.width>=PanelLayoutMetrics::browserMinWidth);
+                assert(panels.browser.width<=PanelLayoutMetrics::browserMaxWidth);
+                if(!mixerRequested)assert(!panels.mixerVisible);
+                if(!utilityRequested)assert(!panels.utilityVisible);
+            }
+        }
+    }
+
+    // At constrained height, creative editing wins deterministically: Mixer
+    // and utility collapse instead of shrinking the editor below its minimum.
+    const ShellRect constrained{0,0,1248,PanelLayoutMetrics::editorMinHeight+PanelLayoutMetrics::gap+PanelLayoutMetrics::mixerMinHeight-1};
+    const auto collapsed=PanelLayoutMetrics::calculate(constrained,320,220,180,true,true);
+    assert(!collapsed.mixerVisible);
+    assert(!collapsed.utilityVisible);
+    assert(collapsed.editor.height==constrained.height);
+    assertPanelContract(constrained,collapsed);
 
     const auto narrowBrowser=PanelLayoutMetrics::calculate(largePanelArea,100,176,0,true,false);
     assert(narrowBrowser.browser.width==PanelLayoutMetrics::browserMinWidth);
