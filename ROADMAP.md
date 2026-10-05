@@ -130,6 +130,6 @@ Planned sequence:
 7. **12.7 Licensing/content-integrity audit** — provenance, manifest integrity, missing/duplicate asset and decode validation.
 8. **12.8 Final integration/closure audit** — fresh-install native-content golden path plus architecture, realtime, .flow and multiplatform packaging audit.
 
-**Current checkpoint:** 12.1 through 12.3 are complete. 12.4 Browser integration is implemented on a clean main-based branch and awaiting its full multiplatform CI/merge gate. See `PHASE12_DESIGN.md` and `PHASE12_STATUS.md`.
+**Current checkpoint:** 12.1 through 12.3 are complete. 12.4 Browser integration is at clean PR #141 CI gate; 12.5 starter kits/templates is rebuilt on the clean 12.4 head and will follow only after the 12.4 green merge. See `PHASE12_DESIGN.md` and `PHASE12_STATUS.md`.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11.**
