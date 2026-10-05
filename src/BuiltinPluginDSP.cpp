@@ -246,6 +246,87 @@ private:
     float attackCoeff_=0.0f,releaseCoeff_=0.0f,makeupGain_=1.0f,envelope_=0.0f;
 };
 
+
+class LimiterProcessor final:public IPluginProcessor{
+public:
+    explicit LimiterProcessor(const PluginInstance& plugin){
+        ceilingDb_=std::clamp(pluginParameterValue(plugin,"ceiling_db",-1.0f),-12.0f,0.0f);
+        inputGainDb_=std::clamp(pluginParameterValue(plugin,"input_gain_db",0.0f),-12.0f,24.0f);
+        lookaheadMs_=std::clamp(pluginParameterValue(plugin,"lookahead_ms",3.0f),0.0f,10.0f);
+        releaseMs_=std::clamp(pluginParameterValue(plugin,"release_ms",80.0f),5.0f,500.0f);
+    }
+
+    bool prepare(int sampleRate,int channels,std::string&error)override{
+        if(sampleRate<8000||sampleRate>384000){error="FLOW Limiter sample rate is out of range";return false;}
+        if(channels<1||channels>32){error="FLOW Limiter channel count is out of range";return false;}
+        sampleRate_=sampleRate;channels_=channels;
+        lookaheadSamples_=std::max(0,static_cast<int>(std::lround(lookaheadMs_*0.001f*sampleRate_)));
+        const auto delaySamples=static_cast<std::size_t>(lookaheadSamples_)*static_cast<std::size_t>(channels_);
+        delay_.assign(delaySamples,0.0f);
+        writeFrame_=0;
+        gain_=1.0f;
+        ceilingLinear_=std::pow(10.0f,ceilingDb_/20.0f);
+        inputGainLinear_=std::pow(10.0f,inputGainDb_/20.0f);
+        const float releaseSeconds=std::max(0.001f,releaseMs_*0.001f);
+        releaseCoeff_=std::exp(-1.0f/(releaseSeconds*sampleRate_));
+        return true;
+    }
+
+    void setState(const std::string&)override{}
+    std::string state()const override{return{};}
+    void process(AudioBuffer&b)override{(void)processRealtime(b.interleaved.data(),b.frames(),b.channels);}
+    bool supportsRealtimeProcessing()const noexcept override{return true;}
+    int latencySamples()const noexcept override{return lookaheadSamples_;}
+
+    bool processRealtime(float*data,SampleIndex frames,int channels)noexcept override{
+        if(!data||frames<=0||channels!=channels_)return false;
+        for(SampleIndex frame=0;frame<frames;++frame){
+            const auto base=static_cast<std::size_t>(frame)*static_cast<std::size_t>(channels_);
+            float peak=0.0f;
+            for(int channel=0;channel<channels_;++channel){
+                float x=data[base+static_cast<std::size_t>(channel)]*inputGainLinear_;
+                if(!std::isfinite(x))x=0.0f;
+                peak=std::max(peak,std::abs(x));
+            }
+            const float target=peak>ceilingLinear_&&peak>1.0e-12f?ceilingLinear_/peak:1.0f;
+            if(target<gain_)gain_=target;
+            else gain_=releaseCoeff_*gain_+(1.0f-releaseCoeff_)*target;
+
+            if(lookaheadSamples_<=0){
+                for(int channel=0;channel<channels_;++channel){
+                    float x=data[base+static_cast<std::size_t>(channel)]*inputGainLinear_;
+                    if(!std::isfinite(x))x=0.0f;
+                    data[base+static_cast<std::size_t>(channel)]=std::clamp(x*gain_,-ceilingLinear_,ceilingLinear_);
+                }
+                continue;
+            }
+
+            const auto ringBase=static_cast<std::size_t>(writeFrame_)*static_cast<std::size_t>(channels_);
+            for(int channel=0;channel<channels_;++channel){
+                const auto c=static_cast<std::size_t>(channel);
+                const float delayed=delay_[ringBase+c];
+                float x=data[base+c]*inputGainLinear_;
+                if(!std::isfinite(x))x=0.0f;
+                delay_[ringBase+c]=x;
+                data[base+c]=std::clamp(delayed*gain_,-ceilingLinear_,ceilingLinear_);
+            }
+            if(++writeFrame_>=lookaheadSamples_)writeFrame_=0;
+        }
+        return true;
+    }
+
+    void resetRealtime()noexcept override{
+        std::fill(delay_.begin(),delay_.end(),0.0f);
+        writeFrame_=0;gain_=1.0f;
+    }
+
+private:
+    int sampleRate_=48000,channels_=2,lookaheadSamples_=0,writeFrame_=0;
+    float ceilingDb_=-1.0f,inputGainDb_=0.0f,lookaheadMs_=3.0f,releaseMs_=80.0f;
+    float ceilingLinear_=0.89125f,inputGainLinear_=1.0f,releaseCoeff_=0.0f,gain_=1.0f;
+    std::vector<float> delay_;
+};
+
 } // namespace
 
 std::unique_ptr<IPluginProcessor> createBuiltinPluginProcessor(const PluginInstance&plugin,std::string&error){
@@ -256,6 +337,7 @@ std::unique_ptr<IPluginProcessor> createBuiltinPluginProcessor(const PluginInsta
     if(plugin.identifier=="flow.width")return std::make_unique<WidthProcessor>(pluginParameterValue(plugin,"width",1.0f));
     if(plugin.identifier=="flow.eq")return std::make_unique<EqProcessor>(plugin);
     if(plugin.identifier=="flow.compressor")return std::make_unique<CompressorProcessor>(plugin);
+    if(plugin.identifier=="flow.limiter")return std::make_unique<LimiterProcessor>(plugin);
     error="Unknown FLOWDAW builtin plugin: "+plugin.identifier;
     return{};
 }
