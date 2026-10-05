@@ -38,3 +38,7 @@ The Phase 12.2/12.3 CI checks verify that Linux, Windows and macOS install trees
 ## Realtime boundary
 
 Library synthesis is a build-time/offline content operation. Manifest parsing, generation, filesystem creation and WAV writing are not part of the audio callback.
+
+## Rights / licensing notice
+
+Generated packages include `CONTENT_RIGHTS.txt`. It records that FLOW Core audio/preset content is first-party generated and contains no third-party sample-pack recordings. It is provenance evidence rather than a public licence grant; FLOWDAW distribution terms and JUCE/dependency licensing remain separate product-level obligations.
