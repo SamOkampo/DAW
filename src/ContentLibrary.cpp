@@ -56,6 +56,30 @@ std::filesystem::path resolveContentPath(const std::filesystem::path& root,const
     return (root/entry.relativePath).lexically_normal();
 }
 
+std::vector<ResolvedContentEntry> queryContentEntries(
+    const std::filesystem::path& root,
+    const ContentManifest& manifest,
+    ContentKind kind,
+    const std::string& query){
+    const auto needle=lower(query);
+    std::vector<ResolvedContentEntry> out;
+    for(const auto& entry:manifest.entries){
+        if(entry.kind!=kind)continue;
+        std::string haystack=entry.id+" "+entry.relativePath.generic_string()+" "+entry.category;
+        for(const auto& tag:entry.tags)haystack+=" "+tag;
+        if(!needle.empty()&&lower(haystack).find(needle)==std::string::npos)continue;
+        const auto path=resolveContentPath(root,entry);
+        std::error_code ec;
+        if(!std::filesystem::is_regular_file(path,ec))continue;
+        out.push_back({entry,path});
+    }
+    std::sort(out.begin(),out.end(),[](const auto& a,const auto& b){
+        if(a.entry.category!=b.entry.category)return a.entry.category<b.entry.category;
+        return a.entry.relativePath.generic_string()<b.entry.relativePath.generic_string();
+    });
+    return out;
+}
+
 ContentManifest loadContentManifest(const std::filesystem::path& path){
     std::ifstream input(path);
     if(!input)throw std::runtime_error("Could not open FLOWDAW content manifest");
