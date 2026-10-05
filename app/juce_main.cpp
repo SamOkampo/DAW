@@ -151,8 +151,8 @@ public:
         openEditor_.setButtonText("Preview Scanned Plugin");openEditor_.onClick=[this]{openSelectedEditor();};addAndMakeVisible(openEditor_);
         addAndMakeVisible(pluginChoice_);pluginChoice_.setTextWhenNothingSelected(juce::String(flowdaw::ui::pluginEmptyState(false,false)));
         refreshRackTargets();rackTargetChoice_.setSelectedId(1,juce::dontSendNotification);rackTargetChoice_.onChange=[this]{if(!suppressRackCallbacks_){syncMixerTargetFromRack();refreshRackControls();}};addAndMakeVisible(rackTargetChoice_);
-        rackPluginChoice_.setTextWhenNothingSelected("Rack empty");rackPluginChoice_.onChange=[this]{syncRackControls();};addAndMakeVisible(rackPluginChoice_);
-        rackParamChoice_.setTextWhenNothingSelected("No native parameter");rackParamChoice_.onChange=[this]{if(!suppressRackCallbacks_)syncRackControls();};addAndMakeVisible(rackParamChoice_);
+        rackPluginChoice_.setTextWhenNothingSelected("Rack empty");rackPluginChoice_.onChange=[this]{rackNativeParameterIndex_=0;syncRackControls();};addAndMakeVisible(rackPluginChoice_);
+        rackParamChoice_.setTextWhenNothingSelected("No native parameter");rackParamChoice_.onChange=[this]{if(!suppressRackCallbacks_){rackNativeParameterIndex_=std::max(0,rackParamChoice_.getSelectedId()-1);syncRackControls();}};addAndMakeVisible(rackParamChoice_);
         addRackGain_.setButtonText("+ FLOW Gain");addRackGain_.onClick=[this]{addBuiltinToRack("flow.gain");};addAndMakeVisible(addRackGain_);
         addRackClip_.setButtonText("+ Soft Clip");addRackClip_.onClick=[this]{addBuiltinToRack("flow.softclip");};addAndMakeVisible(addRackClip_);
         addRackWidth_.setButtonText("+ Width");addRackWidth_.onClick=[this]{addBuiltinToRack("flow.width");};addAndMakeVisible(addRackWidth_);
