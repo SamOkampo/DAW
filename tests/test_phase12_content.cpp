@@ -32,6 +32,11 @@ int main(){
             "ENTRY \"flow.keys.dark\" INSTRUMENT_PRESET \"Presets/Keys/dark.flowpreset\" \"Keys\" \"dark,warm\"\n"
             "END\n","valid.manifest");
 
+        std::filesystem::create_directories(root/"Drums/Kicks");
+        std::filesystem::create_directories(root/"Presets/Keys");
+        {std::ofstream(root/"Drums/Kicks/flow_kick_01.wav",std::ios::binary).put('\0');}
+        {std::ofstream(root/"Presets/Keys/dark.flowpreset").put('\n');}
+
         const auto manifest=loadContentManifest(valid);
         require(manifest.schemaVersion==1,"content schema version");
         require(manifest.libraryId=="flow.core","library id");
@@ -41,6 +46,14 @@ int main(){
         require(manifest.entries[1].kind==ContentKind::InstrumentPreset,"preset kind parsed");
         require(manifest.entries[0].tags.size()==2,"tags parsed");
         require(resolveContentPath(root,manifest.entries[0])==root/"Drums/Kicks/flow_kick_01.wav","sample path resolves below root");
+
+        const auto tagSearch=queryContentEntries(root,manifest,ContentKind::Sample,"punchy");
+        require(tagSearch.size()==1&&tagSearch[0].entry.id=="flow.kick.01","bundled sample search matches tags");
+        const auto categorySearch=queryContentEntries(root,manifest,ContentKind::Sample,"kicks");
+        require(categorySearch.size()==1&&categorySearch[0].path==root/"Drums/Kicks/flow_kick_01.wav","bundled sample search matches category/path");
+        const auto presetSearch=queryContentEntries(root,manifest,ContentKind::InstrumentPreset,"warm");
+        require(presetSearch.size()==1&&presetSearch[0].entry.id=="flow.keys.dark","bundled preset search matches metadata");
+        require(queryContentEntries(root,manifest,ContentKind::Sample,"no-match").empty(),"bundled content search returns empty for unmatched query");
 
         require(isSafeContentRelativePath("Drums/Kicks/kick.wav"),"normal relative path accepted");
         require(!isSafeContentRelativePath("../escape.wav"),"parent traversal rejected");
