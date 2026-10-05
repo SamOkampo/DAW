@@ -116,7 +116,7 @@ No Post-MVP phase is authorized by this roadmap closure. See `PHASE11_STATUS.md`
 **Production desktop path remains JUCE 9.0.2. Project format remains v11.**
 
 
-## Phase 12 — Native Sound Library & Preset System [IN PROGRESS]
+## Phase 12 — Native Sound Library & Preset System [DONE]
 
 Phase 12 is explicitly authorized after the completed Phase 11 closure. It makes a fresh FLOWDAW installation musically useful with legally redistributable first-party sounds and presets while preserving JUCE 9.0.2, realtime safety and .flow v11 compatibility.
 
@@ -130,6 +130,6 @@ Planned sequence:
 7. **12.7 Licensing/content-integrity audit** — provenance, manifest integrity, missing/duplicate asset and decode validation.
 8. **12.8 Final integration/closure audit** — fresh-install native-content golden path plus architecture, realtime, .flow and multiplatform packaging audit.
 
-**Current checkpoint:** 12.1–12.3 are complete. Clean PRs #140 → #142 → #143 → #144 cover 12.4–12.7; 12.8 final closure is implemented on the same clean lineage. Phase 12 remains IN PROGRESS until all are green/merged in order and final main is verified. See `PHASE12_8_AUDIT.md`.
+**Phase 12 closure:** 12.1–12.8 are complete. The clean merge chain #140 → #142 → #143 → #144 → #145 passed the required core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG gates before merge. The final golden path validates installed-content discovery, integrity, starter templates, `.flow` save/reopen with stable `content:<id>` references, hydration, audible render and master WAV export. `main` was verified after final merge `81d37499`. See `PHASE12_STATUS.md` and `PHASE12_8_AUDIT.md`.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11.**
