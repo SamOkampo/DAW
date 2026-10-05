@@ -27,6 +27,7 @@ add_library(flowdaw_core
     src/Waveform.cpp
     src/NativeDrums.cpp
     src/NativeInstruments.cpp
+    src/NativePresets.cpp
     src/SampleAnalysis.cpp
     src/SampleEditing.cpp
     src/TimeStretch.cpp
@@ -73,6 +74,7 @@ install(DIRECTORY "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/"
     DESTINATION share/FLOWDAW/content/flow-core
     FILES_MATCHING
     PATTERN "*.wav"
+    PATTERN "*.flowpreset"
     PATTERN "*.manifest"
     PATTERN "PROVENANCE.txt")
 
@@ -276,6 +278,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase12_library_tests tests/test_phase12_library.cpp)
     target_link_libraries(flowdaw_phase12_library_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase12_library_tests COMMAND flowdaw_phase12_library_tests)
+
+    add_executable(flowdaw_phase12_preset_tests tests/test_phase12_presets.cpp)
+    target_link_libraries(flowdaw_phase12_preset_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase12_preset_tests COMMAND flowdaw_phase12_preset_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")

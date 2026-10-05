@@ -1,10 +1,10 @@
-# FLOW Core Library v1
+# FLOW Core Library v2
 
 FLOW Core Library v1 is the first bundled native sample set for FLOWDAW Phase 12.
 
 ## Content
 
-The initial library contains twelve deterministic first-party samples:
+FLOW Core v2 preserves the twelve deterministic first-party samples introduced in v1:
 
 - 2 kicks
 - 1 snare + 1 clap
@@ -13,11 +13,19 @@ The initial library contains twelve deterministic first-party samples:
 - 2 808s
 - 2 transition FX
 
-The purpose of v1 is to establish a legally clean, testable first-party content pipeline. Library size may grow later without changing stable IDs already shipped.
+FLOW Core v2 also adds ten native-instrument presets:
+
+- 2 Keys presets
+- 2 Bass presets
+- 2 808 presets
+- 2 Lead presets
+- 2 Pad-role presets using the existing FLOW Keys engine with long envelopes
+
+The preset catalog uses only native instrument engines already supported by FLOWDAW. It does not introduce new DSP engines or change the portable project schema. Stable IDs from v1 remain unchanged.
 
 ## Provenance and redistribution
 
-Every WAV is synthesized deterministically by FLOWDAW's own `CoreLibrary` generator. No third-party recordings or commercial sample packs are embedded. The generated install tree includes `PROVENANCE.txt`, which records every stable content ID and generated relative path.
+Every WAV is synthesized deterministically by FLOWDAW's own `CoreLibrary` generator. Native `.flowpreset` files contain first-party parameter metadata only. No third-party recordings or commercial sample packs are embedded. The generated install tree includes `PROVENANCE.txt`, which records every stable content ID and generated relative path.
 
 ## Build and package behavior
 
@@ -25,7 +33,7 @@ Every WAV is synthesized deterministically by FLOWDAW's own `CoreLibrary` genera
 
 `share/FLOWDAW/content/flow-core`
 
-The Phase 12.2 CI checks verify that Linux, Windows and macOS install trees contain the manifest, provenance record and WAV assets. Phase 12.6 will add production runtime discovery/resolution from those installed/package locations.
+The Phase 12.2/12.3 CI checks verify that Linux, Windows and macOS install trees contain the manifest, provenance record, twelve WAV assets and ten `.flowpreset` files. Phase 12.6 will add production runtime discovery/resolution from those installed/package locations.
 
 ## Realtime boundary
 

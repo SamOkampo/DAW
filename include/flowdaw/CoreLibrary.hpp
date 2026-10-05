@@ -6,6 +6,7 @@ namespace flowdaw {
 
 struct CoreLibraryBuildSummary {
     std::size_t sampleCount=0;
+    std::size_t presetCount=0;
     int sampleRate=0;
 };
 
