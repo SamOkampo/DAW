@@ -17,7 +17,7 @@ Phase 12 is explicitly authorized after the completed Phase 11 closure. Its goal
 
 - **12.1 Core Library architecture — DONE.** PR #131 passed the full FLOWDAW CI matrix and merged as `adf62aeb`; versioned manifest, stable IDs, safe relative-path resolution and deterministic core tests are integrated.
 - **12.2 FLOW Core drum/sample library — IMPLEMENTED / CI GATE.** Twelve deterministic first-party 48 kHz WAVs cover Kicks, Snares/Claps, Hats, Percussion, 808s and FX. Build-time generation, stable IDs/tags, provenance, decode/signal/determinism tests and Linux/Windows/macOS install-tree checks are included. Mark DONE only after this PR passes the full CI matrix and merges.
-- **12.3 Native instrument preset catalog — PENDING.**
+- **12.3 Native instrument preset catalog — IMPLEMENTED / STACKED CI CANDIDATE.** Ten versioned `.flowpreset` files cover Keys, Bass, 808, Lead and Pad roles using the existing `flow_keys`, `flow_bass`, `flow_808` and `flow_lead` engines. Strict parser/range validation, audible-render regression and install-tree checks are included. This work remains stacked on 12.2 and must not merge before the 12.2 green merge.
 - **12.4 Browser integration — PENDING.**
 - **12.5 Starter kits/templates — PENDING.**
 - **12.6 Packaging/install/discovery — PENDING.**
@@ -28,4 +28,4 @@ See `PHASE12_DESIGN.md` for acceptance criteria.
 
 ## Current checkpoint
 
-12.1 is integrated. 12.2 implementation is complete and awaiting its own full FLOWDAW CI gate; 12.3 must not start before the 12.2 green merge.
+12.1 is integrated. 12.2 remains at its full FLOWDAW CI gate. 12.3 has been prepared on a stacked branch at Samuel's explicit request so its implementation can be validated early; merge order remains 12.2 first, then 12.3.
