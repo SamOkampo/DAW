@@ -17,8 +17,8 @@ Phase 12 is explicitly authorized after the completed Phase 11 closure. Its goal
 
 - **12.1 Core Library architecture — DONE.** PR #131 passed the full FLOWDAW CI matrix and merged as `adf62aeb`; versioned manifest, stable IDs, safe relative-path resolution and deterministic core tests are integrated.
 - **12.2 FLOW Core drum/sample library — DONE.** PR #132 passed the full FLOWDAW CI matrix and merged as `71e55bb8`; twelve deterministic first-party 48 kHz WAVs, provenance, decode/signal/determinism tests and multiplatform install-tree checks are integrated.
-- **12.3 Native instrument preset catalog — IMPLEMENTED / CI GATE.** Ten versioned `.flowpreset` files cover Keys, Bass, 808, Lead and Pad roles using the existing `flow_keys`, `flow_bass`, `flow_808` and `flow_lead` engines. Strict parser/range validation, audible-render regression and install-tree checks are included. Mark DONE only after this clean main-based PR passes the full FLOWDAW CI matrix and merges.
-- **12.4 Browser integration — PENDING.**
+- **12.3 Native instrument preset catalog — DONE.** PR #135 passed core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE and merged as `82e04034`; ten versioned `.flowpreset` files for Keys, Bass, 808, Lead and Pad roles are integrated.
+- **12.4 Browser integration — IMPLEMENTED / CI GATE.** FLOW Core is a distinct first-party Sample Browser source; sample queries match stable ID/path/category/tags, rows expose FLOW categories, and existing preview/import/drag/favorites/recent behavior is reused without audio-thread filesystem work. Mark DONE only after this clean main-based PR passes the full FLOWDAW CI matrix and merges.
 - **12.5 Starter kits/templates — PENDING.**
 - **12.6 Packaging/install/discovery — PENDING.**
 - **12.7 Licensing/content-integrity audit — PENDING.**
@@ -28,4 +28,4 @@ See `PHASE12_DESIGN.md` for acceptance criteria.
 
 ## Current checkpoint
 
-12.1 and 12.2 are integrated. 12.3 is now the active clean main-based CI gate; 12.4 remains prepared separately and must not merge before the 12.3 green merge.
+12.1 through 12.3 are integrated. 12.4 is now the active clean main-based CI gate; 12.5 remains prepared separately and must not merge before the 12.4 green merge.
