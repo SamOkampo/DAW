@@ -16,8 +16,8 @@ Phase 13 is authorized after the completed/audited Phase 12 closure.
 ## Phase structure
 
 - **13.1 Native DSP foundation + FLOW EQ — DONE.** PR #146 passed the full FLOWDAW CI matrix and merged to `main` as `f336269c`. Stateful prepared native processors replace the old realtime per-sample shortcut; FLOW EQ provides six parametric bands + output gain, generic native parameter metadata, scalable rack native-insert/parameter selectors and offline/realtime/persistence tests.
-- **13.2 FLOW Compressor — IMPLEMENTED / CI GATE.** Clean main-based candidate with stereo-linked feed-forward compression, generic rack parameter exposure and offline/realtime/block-size/`.flow` v11 coverage.
-- **13.3 FLOW Limiter — PENDING.**
+- **13.2 FLOW Compressor — IMPLEMENTED / CI GATE.** Clean PR #148 is the parent gate for this branch.
+- **13.3 FLOW Limiter — IMPLEMENTED / STACKED CI CANDIDATE.** Sample-peak ceiling/input gain/lookahead/release limiter with preallocated delay, explicit latency for PDC and offline/realtime/block-size/`.flow` v11 regression coverage. True-peak/LUFS compliance remains Phase 14.
 - **13.4 FLOW Saturator — PENDING.**
 - **13.5 FLOW Reverb — PENDING.**
 - **13.6 FLOW Delay — PENDING.**
