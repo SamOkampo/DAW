@@ -3,6 +3,8 @@
 #include "flowdaw/ChopEditing.hpp"
 #include "flowdaw/Export.hpp"
 #include "flowdaw/ExportWorkflow.hpp"
+#include "flowdaw/FirstPartyContent.hpp"
+#include "flowdaw/ProjectTemplates.hpp"
 #include "flowdaw/SampleAnalysis.hpp"
 #include "flowdaw/TimeStretch.hpp"
 #include "flowdaw/Wav.hpp"
@@ -104,8 +106,8 @@ public:
         const auto config=defaultSettingsDirectory();settingsPath_=config/"settings.conf";safetyPath_=config/"plugin-safety.conf";recovery_=std::make_unique<SessionRecovery>(config/"recovery");const bool firstRun=!std::filesystem::exists(settingsPath_);settings_=firstRun?defaultAppSettings():loadAppSettings(settingsPath_);safety_.load(safetyPath_);
         const auto recoveryInfo=recovery_->inspect();bool loadedRecovery=false,loadedLast=false;
         if(settings_.restoreLastSession&&recoveryInfo.available)try{project_=recovery_->loadRecovered(true);projectPath_=recoveryInfo.originalProject;loadedRecovery=true;recoveredAtStartup_=true;preserveRecoveryOnExit_=true;}catch(...){}
-        if(!loadedRecovery&&!settings_.lastProjectPath.empty()&&std::filesystem::exists(settings_.lastProjectPath))try{project_=ProjectSerializer::load(settings_.lastProjectPath,true);projectPath_=settings_.lastProjectPath;loadedLast=true;}catch(...){}
-        if(!loadedRecovery&&!loadedLast)project_=makeStarterProject();
+        if(!loadedRecovery&&!settings_.lastProjectPath.empty()&&std::filesystem::exists(settings_.lastProjectPath))try{project_=ProjectSerializer::load(settings_.lastProjectPath,true);try{hydrateFirstPartyContent(project_,std::filesystem::path(FLOWDAW_CORE_LIBRARY_ROOT));}catch(...){}projectPath_=settings_.lastProjectPath;loadedLast=true;}catch(...){}
+        if(!loadedRecovery&&!loadedLast){try{project_=makeProjectTemplate(ProjectTemplateKind::BoomBap,std::filesystem::path(FLOWDAW_CORE_LIBRARY_ROOT));}catch(...){project_=makeStarterProject();}}
         const auto startupSource=loadedRecovery?flowdaw::ui::StartupProjectSource::recoveredAutosave:(loadedLast?flowdaw::ui::StartupProjectSource::lastSession:flowdaw::ui::StartupProjectSource::freshProject);
         const auto startupIdentity=projectPath_.empty()?project_.name:projectPath_.filename().string();
         const flowdaw::ui::StartupPresentation startupPresentation{startupSource,startupIdentity};
@@ -463,12 +465,22 @@ private:
         recoveredAtStartup_=false;preserveRecoveryOnExit_=false;resetRecoverySnapshot();projectLabel_.setText(label,juce::dontSendNotification);status_.setText(message,juce::dontSendNotification);saveDeviceSettings();
     }
     void showNewProjectMenu(){
-        juce::PopupMenu menu;menu.addItem(1,"Blank Project — 120 BPM");menu.addItem(2,"Boom Bap Starter — 90 BPM");menu.addItem(3,"Trap Starter — 140 BPM");menu.addItem(4,"Lo-Fi Starter — 82 BPM");
+        juce::PopupMenu menu;menu.addItem(1,"Blank Project — 120 BPM");menu.addItem(2,"Boom Bap • FLOW Core — 90 BPM");menu.addItem(3,"Trap • FLOW Core — 140 BPM");menu.addItem(4,"Lo-Fi • FLOW Core — 82 BPM");
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&newProject_),[this](int result){
-            if(result==1)applyNewProject(makeBlankProject(),"Blank Project • 120 BPM","New blank project");
-            else if(result==2)applyNewProject(makeBeatTemplate("Boom Bap Starter",90.0,0.12f),"Boom Bap Starter • 90 BPM","Boom Bap template ready");
-            else if(result==3)applyNewProject(makeBeatTemplate("Trap Starter",140.0,0.02f),"Trap Starter • 140 BPM","Trap template ready");
-            else if(result==4)applyNewProject(makeBeatTemplate("Lo-Fi Starter",82.0,0.18f),"Lo-Fi Starter • 82 BPM","Lo-Fi template ready");
+            if(result==0)return;
+            try{
+                const auto root=std::filesystem::path(FLOWDAW_CORE_LIBRARY_ROOT);
+                if(result==1)applyNewProject(makeProjectTemplate(ProjectTemplateKind::Blank,root),"Blank Project • 120 BPM","New blank project");
+                else if(result==2)applyNewProject(makeProjectTemplate(ProjectTemplateKind::BoomBap,root),"Boom Bap • FLOW Core • 90 BPM","Boom Bap FLOW Core template ready");
+                else if(result==3)applyNewProject(makeProjectTemplate(ProjectTemplateKind::Trap,root),"Trap • FLOW Core • 140 BPM","Trap FLOW Core template ready");
+                else if(result==4)applyNewProject(makeProjectTemplate(ProjectTemplateKind::LoFi,root),"Lo-Fi • FLOW Core • 82 BPM","Lo-Fi FLOW Core template ready");
+            }catch(const std::exception&e){
+                if(result==1)applyNewProject(makeBlankProject(),"Blank Project • 120 BPM","New blank project");
+                else if(result==2)applyNewProject(makeBeatTemplate("Boom Bap Starter",90.0,0.12f),"Boom Bap Starter • 90 BPM","FLOW Core unavailable • legacy Boom Bap starter loaded");
+                else if(result==3)applyNewProject(makeBeatTemplate("Trap Starter",140.0,0.02f),"Trap Starter • 140 BPM","FLOW Core unavailable • legacy Trap starter loaded");
+                else if(result==4)applyNewProject(makeBeatTemplate("Lo-Fi Starter",82.0,0.18f),"Lo-Fi Starter • 82 BPM","FLOW Core unavailable • legacy Lo-Fi starter loaded");
+                status_.setText(status_.getText()+" • "+juce::String(e.what()),juce::dontSendNotification);
+            }
         });
     }
     void showFirstRunOnboarding(){
