@@ -154,6 +154,6 @@ Planned sequence:
 12. **13.12 DSP/realtime regression audit** — denormal/NaN safety, sample-rate/block-size independence, bypass/wet/latency and offline/realtime parity.
 13. **13.13 Final integration/closure audit** — installed-app native-only mix/export golden path plus architecture, realtime, compatibility and multiplatform CI closure.
 
-**Current checkpoint:** 13.1 is the active clean CI gate; 13.2 FLOW Compressor is implemented on a stacked validation branch and must merge only after 13.1. See `PHASE13_DESIGN.md` and `PHASE13_STATUS.md`.
+**Current checkpoint:** 13.1 is the active clean CI gate (#146), 13.2 FLOW Compressor is under stacked validation (#147), and 13.3 FLOW Limiter is implemented but held without a third concurrent CI to avoid runner congestion. Merge order remains 13.1 → 13.2 → 13.3.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11. Phase 14 is not started.**
