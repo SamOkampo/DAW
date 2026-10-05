@@ -10,7 +10,7 @@ int main(int argc,char** argv){
             return 2;
         }
         const auto summary=flowdaw::writeFlowCoreLibrary(std::filesystem::path(argv[1]),48000);
-        std::cout<<"FLOW Core Library: "<<summary.sampleCount<<" samples @ "<<summary.sampleRate<<" Hz\n";
+        std::cout<<"FLOW Core Library: "<<summary.sampleCount<<" samples + "<<summary.presetCount<<" presets @ "<<summary.sampleRate<<" Hz\n";
         return 0;
     }catch(const std::exception& e){
         std::cerr<<"FLOW Core Library generation failed: "<<e.what()<<"\n";
