@@ -1,7 +1,9 @@
 #include "flowdaw/PluginHost.hpp"
 #include "flowdaw/RealtimePluginGraph.hpp"
+#include "flowdaw/Serialization.hpp"
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -96,6 +98,16 @@ int main(){
         for(int frame=0;frame<8192;frame+=64)
             smallChain.process(chunks.data()+static_cast<std::size_t>(frame)*2,64);
         require(maxDiff(oneBlock,chunks)<2.0e-5f,"FLOW EQ must be block-size independent");
+
+        Project project;project.name="Phase 13 EQ persistence";project.master.plugins.push_back(parityEq);
+        const auto path=std::filesystem::temp_directory_path()/"flowdaw_phase13_eq.flow";
+        ProjectSerializer::save(project,path);
+        auto reopened=ProjectSerializer::load(path,false);
+        require(reopened.formatVersion==11,"FLOW EQ project persistence must remain .flow v11");
+        require(reopened.master.plugins.size()==1&&reopened.master.plugins.front().identifier=="flow.eq","FLOW EQ identity must survive save/reopen");
+        require(std::abs(pluginParameterValue(reopened.master.plugins.front(),"band4_gain_db",0.0f)-7.5f)<0.001f,"FLOW EQ parameters must survive save/reopen");
+        require(reopened.master.plugins.front().parameters.size()==params.size(),"FLOW EQ persisted parameter count changed");
+        std::filesystem::remove(path);std::filesystem::remove(path.string()+".bak");
 
         auto oldGain=makeBuiltinPlugin("flow.gain");
         setPluginParameter(oldGain,"gain",0.5f);
