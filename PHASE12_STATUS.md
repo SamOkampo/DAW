@@ -1,6 +1,6 @@
 # Phase 12 Status — Native Sound Library & Preset System
 
-**Status: IN PROGRESS**
+**Status: DONE**
 
 Phase 12 is explicitly authorized after the completed Phase 11 closure. Its goal is to make a fresh FLOWDAW installation immediately musical with legally redistributable native sounds and presets.
 
@@ -18,14 +18,23 @@ Phase 12 is explicitly authorized after the completed Phase 11 closure. Its goal
 - **12.1 Core Library architecture — DONE.** PR #131 passed the full FLOWDAW CI matrix and merged as `adf62aeb`; versioned manifest, stable IDs, safe relative-path resolution and deterministic core tests are integrated.
 - **12.2 FLOW Core drum/sample library — DONE.** PR #132 passed the full FLOWDAW CI matrix and merged as `71e55bb8`; twelve deterministic first-party 48 kHz WAVs, provenance, decode/signal/determinism tests and multiplatform install-tree checks are integrated.
 - **12.3 Native instrument preset catalog — DONE.** PR #135 passed the full FLOWDAW CI matrix and merged as `82e04034`; ten versioned `.flowpreset` files for Keys, Bass, 808, Lead and Pad roles are integrated.
-- **12.4 Browser integration — IMPLEMENTED / CI GATE.** Clean PR #140 contains FLOW Core Browser integration and awaits its full matrix/merge.
-- **12.5 Starter kits/templates — IMPLEMENTED / CI GATE.** Clean PR #142 contains portable starter templates and awaits ordered merge after 12.4.
-- **12.6 Packaging/install/discovery — IMPLEMENTED / CI GATE.** Clean PR #143 contains installed/package discovery and package validation and awaits ordered merge after 12.5.
-- **12.7 Licensing/content-integrity audit — IMPLEMENTED / CI GATE.** Clean PR #144 contains the content integrity/rights audit and awaits ordered merge after 12.6.
-- **12.8 Final integration/closure audit — IMPLEMENTED / PRE-CLOSURE CANDIDATE.** Automated install→discovery→audit→template→save/reopen→hydrate→render/export golden path plus installed-app checklist are defined. Phase 12 remains IN PROGRESS until the clean chain is merged green and final main verification passes.
+- **12.4 Browser integration — DONE.** PR #140 passed core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG validation and merged as `9edfeee0`; FLOW Core is integrated as a first-party Browser source with metadata search and existing safe preview/import workflows.
+- **12.5 Starter kits/templates — DONE.** PR #142 passed the full FLOWDAW CI matrix and merged as `3b547aa5`; Blank, Boom Bap, Trap and Lo-Fi starters use portable `content:<id>` references, native presets and tested save/reopen hydration while preserving `.flow` v11.
+- **12.6 Packaging/install/discovery — DONE.** PR #143 passed the full FLOWDAW CI matrix and merged as `50620e7c`; runtime discovery and TGZ/ZIP/DMG package validation are integrated for Linux, Windows and macOS.
+- **12.7 Licensing/content-integrity audit — DONE.** PR #144 passed the full FLOWDAW CI matrix and merged as `18a4b3ff`; automated manifest/assets/provenance/rights/WAV/preset integrity checks and package evidence are integrated. The separate product-level public licence/EULA choice remains a release-policy decision, not a hidden Phase 12 claim.
+- **12.8 Final integration/closure audit — DONE.** PR #145 passed the required core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE/AU/install/package matrix and merged as `81d37499`; the install→discovery→audit→template→save/reopen→hydrate→render/export golden path is integrated and `main` was verified after merge.
 
 See `PHASE12_DESIGN.md` for acceptance criteria.
 
-## Current checkpoint
+## Final closure
 
-12.1–12.3 are integrated. Clean PRs #140 → #142 → #143 → #144 plus this 12.8 candidate form the replacement clean chain. Phase 12 is not DONE until they merge green in order and main is verified.
+Phase 12 is complete and audited on `main`. PRs #131, #132, #135, #140, #142, #143, #144 and #145 are integrated. The final closure head passed the full multiplatform FLOWDAW CI matrix before merge, and `main` was verified at merge commit `81d37499`.
+
+Final invariants:
+- production desktop remains JUCE 9.0.2;
+- project format remains `.flow` v11;
+- first-party package/install paths are not serialized into portable projects;
+- no new filesystem, manifest parsing, content scanning or WAV decoding was introduced into the realtime audio callback;
+- no professional-mastering readiness claim is made by Phase 12.
+
+Phase 13 is not started by this closure.
