@@ -65,9 +65,15 @@ The bounded design is recorded in `PHASE11_6_DESIGN.md`; final architecture/real
 - **11.6.4 Tooltips/accessibility metadata/high-DPI validation — DONE.** PR #117 passed FLOWDAW CI run 37088405987 across core, legacy, Linux, Windows and macOS and merged as `a8d345d2`.
 - **11.6.5 Adaptive/accessibility integration regression + closure audit — DONE on merge of this closure checkpoint.** See `PHASE11_6_AUDIT.md` and the Phase 11.6 section in `docs/PRODUCTION_GOLDEN_PATH.md`.
 
-### 11.7 — Export / dialogs / settings / diagnostics productization
+### 11.7 — Export / dialogs / settings / diagnostics productization [DONE ON CLOSURE MERGE]
 
-Move device/plugin scanning/diagnostic-style controls away from the main creative surface and refine dialogs, export flow, recovery messaging and empty/error states.
+The bounded design is recorded in `PHASE11_7_DESIGN.md`; final closure evidence is recorded in `PHASE11_7_AUDIT.md`. Phase 11.7 productizes delivery, machine-local settings, plugin maintenance/diagnostics and recovery/error presentation without changing DSP, realtime ownership or `.flow` v11.
+
+- **11.7.1 Export flow and delivery feedback — DONE.** PR #120 passed FLOWDAW CI and merged as `cb44b027`.
+- **11.7.2 Settings and Audio I/O information architecture — DONE.** PR #121 passed FLOWDAW CI and merged as `434c0f96`.
+- **11.7.3 Plugin maintenance and diagnostics relocation — DONE.** PR #122 passed FLOWDAW CI and merged as `e4af16fd`.
+- **11.7.4 Recovery, empty and error states — DONE once PR #123 passes the required matrix and merges.**
+- **11.7.5 Productization integration regression + closure audit — DONE on merge of this closure checkpoint.** See `PHASE11_7_AUDIT.md` and the Phase 11.7 section in `docs/PRODUCTION_GOLDEN_PATH.md`.
 
 ### 11.8 — Visual regression and closure
 
@@ -88,8 +94,9 @@ Settings/diagnostics surfaces: audio-device configuration, plugin scan/quarantin
 ## Current checkpoint
 
 - Phase 10 is closed and its final main-branch CI passed.
-- **11.1 through 11.6 are DONE.** Phase 11.6 closure is recorded in `PHASE11_6_AUDIT.md`.
+- **11.1 through 11.6 are DONE.**
+- **11.7 is DONE on merge of the green closure checkpoint recorded in `PHASE11_7_AUDIT.md`.**
 - `.flow` remains v11 and the realtime contract is unchanged.
-- 11.7 and 11.8 remain pending; no Post-MVP work is authorized by this checkpoint.
+- 11.8 remains pending; no Post-MVP work is authorized by this checkpoint.
 
-Next permitted work: **11.7 — Export / dialogs / settings / diagnostics productization**. If its implementation boundary is not yet sufficiently designed, document its acceptance criteria, dependencies, tests and exclusions before implementation.
+Next permitted work after the 11.7 closure PR is green and merged: **11.8 — Visual regression and closure**.
