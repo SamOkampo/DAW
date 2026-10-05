@@ -25,6 +25,12 @@ std::vector<BuiltinPluginParameterDescriptor> builtinPluginParameterDescriptors(
         {"knee_db","Knee",0.0f,24.0f,0.1f,6.0f," dB"},
         {"makeup_db","Makeup",-12.0f,24.0f,0.1f,0.0f," dB"}
     };
+    if(id=="flow.limiter")return{
+        {"ceiling_db","Ceiling",-12.0f,0.0f,0.1f,-1.0f," dB"},
+        {"input_gain_db","Input Gain",-12.0f,24.0f,0.1f,0.0f," dB"},
+        {"lookahead_ms","Lookahead",0.0f,10.0f,0.1f,3.0f," ms"},
+        {"release_ms","Release",5.0f,500.0f,1.0f,80.0f," ms"}
+    };
     if(id=="flow.eq")return{
         {"band1_freq","Band 1 Frequency",20.0f,20000.0f,1.0f,80.0f," Hz"},
         {"band1_gain_db","Band 1 Gain",-18.0f,18.0f,0.1f,0.0f," dB"},
@@ -57,6 +63,7 @@ PluginInstance makeBuiltinPlugin(const std::string&requestedId){
     else if(id=="flow.width")name="FLOW Width";
     else if(id=="flow.eq")name="FLOW EQ";
     else if(id=="flow.compressor")name="FLOW Compressor";
+    else if(id=="flow.limiter")name="FLOW Limiter";
     else{id="flow.gain";name="FLOW Gain";}
     PluginInstance p;p.format="builtin";p.identifier=id;p.name=name;
     for(const auto&parameter:builtinPluginParameterDescriptors(id))setPluginParameter(p,parameter.id,parameter.defaultValue);
@@ -69,7 +76,8 @@ std::vector<PluginDescriptor> builtinPluginDescriptors(){
         {"builtin","flow.softclip","FLOW Soft Clip","FLOWDAW","effect",{},true},
         {"builtin","flow.width","FLOW Width","FLOWDAW","effect",{},true},
         {"builtin","flow.eq","FLOW EQ","FLOWDAW","effect",{},true},
-        {"builtin","flow.compressor","FLOW Compressor","FLOWDAW","effect",{},true}
+        {"builtin","flow.compressor","FLOW Compressor","FLOWDAW","effect",{},true},
+        {"builtin","flow.limiter","FLOW Limiter","FLOWDAW","effect",{},true}
     };
 }
 
