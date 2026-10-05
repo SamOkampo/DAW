@@ -1,5 +1,6 @@
 #include "flowdaw/Serialization.hpp"
 #include "flowdaw/Automation.hpp"
+#include "flowdaw/FirstPartyContent.hpp"
 #include "flowdaw/NativeDrums.hpp"
 #include "flowdaw/TimeStretch.hpp"
 #include "flowdaw/Wav.hpp"
@@ -84,7 +85,7 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
             std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){SampleAsset s;f>>tag;if(tag!="SAMPLE")throw std::runtime_error("Expected SAMPLE");f>>s.id>>std::quoted(s.name);std::string sp;f>>std::quoted(sp);s.path=sp;if(version>=2)f>>std::quoted(s.nativeKey);
                 std::size_t nslices=0;if(version>=4)f>>s.detectedBpm>>s.bpmConfidence>>s.sourceSampleId>>s.timeRatio>>nslices;
                 for(std::size_t j=0;j<nslices;++j){SampleSlice sl;f>>tag;if(tag!="SLICE")throw std::runtime_error("Expected SLICE");f>>sl.id>>std::quoted(sl.name)>>sl.startFrame>>sl.endFrame;if(version>=7)f>>sl.gain>>sl.pan>>sl.chokeGroup;s.slices.push_back(std::move(sl));}
-                if(loadAudio&&s.sourceSampleId==0){if(!s.nativeKey.empty())s.audio=std::make_shared<AudioBuffer>(makeNativeDrum(s.nativeKey,p.sampleRate));else if(!s.path.empty()&&std::filesystem::exists(s.path))s.audio=std::make_shared<AudioBuffer>(WavFile::read(s.path));}
+                if(loadAudio&&s.sourceSampleId==0){if(!s.nativeKey.empty()&&!isFirstPartyContentKey(s.nativeKey))s.audio=std::make_shared<AudioBuffer>(makeNativeDrum(s.nativeKey,p.sampleRate));else if(s.nativeKey.empty()&&!s.path.empty()&&std::filesystem::exists(s.path))s.audio=std::make_shared<AudioBuffer>(WavFile::read(s.path));}
                 p.samples.push_back(std::move(s));
             }
             if(loadAudio&&version>=4){for(auto&derived:p.samples){if(derived.sourceSampleId==0||derived.audio)continue;auto*source=p.findSample(derived.sourceSampleId);if(source&&source->audio&&derived.timeRatio>=0.5&&derived.timeRatio<=2.0)derived.audio=std::make_shared<AudioBuffer>(timeStretchWsola(*source->audio,derived.timeRatio));}}

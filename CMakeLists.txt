@@ -46,6 +46,8 @@ add_library(flowdaw_core
     src/AppSettings.cpp
     src/ContentLibrary.cpp
     src/CoreLibrary.cpp
+    src/FirstPartyContent.cpp
+    src/ProjectTemplates.cpp
     src/SessionRecovery.cpp
     src/PluginSafety.cpp
     src/RuntimeCapabilities.cpp
@@ -282,6 +284,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase12_preset_tests tests/test_phase12_presets.cpp)
     target_link_libraries(flowdaw_phase12_preset_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase12_preset_tests COMMAND flowdaw_phase12_preset_tests)
+
+    add_executable(flowdaw_phase12_template_tests tests/test_phase12_templates.cpp)
+    target_link_libraries(flowdaw_phase12_template_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase12_template_tests COMMAND flowdaw_phase12_template_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
