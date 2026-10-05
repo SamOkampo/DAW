@@ -31,6 +31,48 @@ std::vector<BuiltinPluginParameterDescriptor> builtinPluginParameterDescriptors(
         {"lookahead_ms","Lookahead",0.0f,10.0f,0.1f,3.0f," ms"},
         {"release_ms","Release",5.0f,500.0f,1.0f,80.0f," ms"}
     };
+    if(id=="flow.saturator")return{
+        {"drive_db","Drive",0.0f,24.0f,0.1f,6.0f," dB"},
+        {"tone","Tone",-1.0f,1.0f,0.01f,0.0f,""},
+        {"mode","Mode",0.0f,2.0f,1.0f,0.0f,""}
+    };
+    if(id=="flow.reverb")return{
+        {"room","Room",0.0f,1.0f,0.01f,0.55f,""},
+        {"decay_s","Decay",0.15f,12.0f,0.01f,2.0f," s"},
+        {"damping","Damping",0.0f,1.0f,0.01f,0.45f,""},
+        {"predelay_ms","Pre-delay",0.0f,200.0f,0.1f,18.0f," ms"},
+        {"width","Width",0.0f,1.0f,0.01f,1.0f,""}
+    };
+    if(id=="flow.delay")return{
+        {"time_ms","Time",1.0f,2000.0f,1.0f,375.0f," ms"},
+        {"feedback","Feedback",0.0f,0.95f,0.01f,0.35f,""},
+        {"filter_hz","Filter",500.0f,20000.0f,10.0f,9000.0f," Hz"},
+        {"ping_pong","Ping Pong",0.0f,1.0f,1.0f,0.0f,""},
+        {"sync_bpm","Sync BPM",0.0f,300.0f,1.0f,0.0f," BPM"},
+        {"sync_beats","Sync Beats",0.125f,4.0f,0.125f,0.5f," beats"}
+    };
+    if(id=="flow.chorus")return{
+        {"rate_hz","Rate",0.05f,10.0f,0.01f,0.8f," Hz"},
+        {"depth_ms","Depth",0.0f,20.0f,0.1f,6.0f," ms"},
+        {"base_ms","Base Delay",1.0f,30.0f,0.1f,12.0f," ms"},
+        {"feedback","Feedback",-0.90f,0.90f,0.01f,0.08f,""},
+        {"width","Width",0.0f,1.0f,0.01f,1.0f,""}
+    };
+    if(id=="flow.gate")return{
+        {"threshold_db","Threshold",-80.0f,0.0f,0.1f,-36.0f," dB"},
+        {"range_db","Range",-80.0f,0.0f,0.1f,-60.0f," dB"},
+        {"attack_ms","Attack",0.1f,100.0f,0.1f,2.0f," ms"},
+        {"hold_ms","Hold",0.0f,500.0f,1.0f,25.0f," ms"},
+        {"release_ms","Release",5.0f,2000.0f,1.0f,100.0f," ms"}
+    };
+    if(id=="flow.utility")return{
+        {"gain_db","Gain",-24.0f,24.0f,0.1f,0.0f," dB"},
+        {"polarity","Polarity",0.0f,1.0f,1.0f,0.0f,""},
+        {"mono","Mono",0.0f,1.0f,1.0f,0.0f,""},
+        {"swap","Swap L/R",0.0f,1.0f,1.0f,0.0f,""},
+        {"balance","Balance",-1.0f,1.0f,0.01f,0.0f,""},
+        {"width","Width",0.0f,2.0f,0.01f,1.0f,""}
+    };
     if(id=="flow.eq")return{
         {"band1_freq","Band 1 Frequency",20.0f,20000.0f,1.0f,80.0f," Hz"},
         {"band1_gain_db","Band 1 Gain",-18.0f,18.0f,0.1f,0.0f," dB"},
@@ -64,9 +106,16 @@ PluginInstance makeBuiltinPlugin(const std::string&requestedId){
     else if(id=="flow.eq")name="FLOW EQ";
     else if(id=="flow.compressor")name="FLOW Compressor";
     else if(id=="flow.limiter")name="FLOW Limiter";
+    else if(id=="flow.saturator")name="FLOW Saturator";
+    else if(id=="flow.reverb")name="FLOW Reverb";
+    else if(id=="flow.delay")name="FLOW Delay";
+    else if(id=="flow.chorus")name="FLOW Chorus";
+    else if(id=="flow.gate")name="FLOW Gate";
+    else if(id=="flow.utility")name="FLOW Utility";
     else{id="flow.gain";name="FLOW Gain";}
     PluginInstance p;p.format="builtin";p.identifier=id;p.name=name;
     for(const auto&parameter:builtinPluginParameterDescriptors(id))setPluginParameter(p,parameter.id,parameter.defaultValue);
+    if(id=="flow.reverb")p.wet=0.25f;else if(id=="flow.delay")p.wet=0.30f;else if(id=="flow.chorus")p.wet=0.35f;
     return p;
 }
 
@@ -77,7 +126,13 @@ std::vector<PluginDescriptor> builtinPluginDescriptors(){
         {"builtin","flow.width","FLOW Width","FLOWDAW","effect",{},true},
         {"builtin","flow.eq","FLOW EQ","FLOWDAW","effect",{},true},
         {"builtin","flow.compressor","FLOW Compressor","FLOWDAW","effect",{},true},
-        {"builtin","flow.limiter","FLOW Limiter","FLOWDAW","effect",{},true}
+        {"builtin","flow.limiter","FLOW Limiter","FLOWDAW","effect",{},true},
+        {"builtin","flow.saturator","FLOW Saturator","FLOWDAW","effect",{},true},
+        {"builtin","flow.reverb","FLOW Reverb","FLOWDAW","effect",{},true},
+        {"builtin","flow.delay","FLOW Delay","FLOWDAW","effect",{},true},
+        {"builtin","flow.chorus","FLOW Chorus","FLOWDAW","effect",{},true},
+        {"builtin","flow.gate","FLOW Gate","FLOWDAW","effect",{},true},
+        {"builtin","flow.utility","FLOW Utility","FLOWDAW","effect",{},true}
     };
 }
 
