@@ -1,4 +1,5 @@
 #include "flowdaw/FirstPartyContent.hpp"
+#include "flowdaw/TimeStretch.hpp"
 #include "flowdaw/Wav.hpp"
 #include <algorithm>
 #include <stdexcept>
@@ -42,6 +43,14 @@ std::size_t hydrateFirstPartyContent(Project& project,const std::filesystem::pat
         if(audio->frames()<=0)continue;
         sample.audio=std::move(audio);
         ++hydrated;
+    }
+    for(auto& derived:project.samples){
+        if(derived.sourceSampleId==0||derived.audio)continue;
+        auto* source=project.findSample(derived.sourceSampleId);
+        if(source&&source->audio&&derived.timeRatio>=0.5&&derived.timeRatio<=2.0){
+            derived.audio=std::make_shared<AudioBuffer>(timeStretchWsola(*source->audio,derived.timeRatio));
+            ++hydrated;
+        }
     }
     return hydrated;
 }
