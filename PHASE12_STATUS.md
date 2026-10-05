@@ -20,12 +20,12 @@ Phase 12 is explicitly authorized after the completed Phase 11 closure. Its goal
 - **12.3 Native instrument preset catalog — DONE.** PR #135 passed the full FLOWDAW CI matrix and merged as `82e04034`; ten versioned `.flowpreset` files for Keys, Bass, 808, Lead and Pad roles are integrated.
 - **12.4 Browser integration — IMPLEMENTED / CI GATE.** Clean PR #140 contains FLOW Core Browser integration and awaits its full matrix/merge.
 - **12.5 Starter kits/templates — IMPLEMENTED / CI GATE.** Clean PR #142 contains portable starter templates and awaits ordered merge after 12.4.
-- **12.6 Packaging/install/discovery — IMPLEMENTED / STACKED CI CANDIDATE.** Runtime discovery resolves Linux/Windows `share/FLOWDAW/...`, macOS app-bundle Resources and a development fallback; TGZ/ZIP/DMG CI inspects packaged content directly.
-- **12.7 Licensing/content-integrity audit — PENDING.**
+- **12.6 Packaging/install/discovery — IMPLEMENTED / CI GATE.** Clean PR #143 contains installed/package discovery and package validation and awaits ordered merge after 12.5.
+- **12.7 Licensing/content-integrity audit — IMPLEMENTED / STACKED CI CANDIDATE.** Automated audit validates manifest/assets/provenance/rights notice/WAV decode/preset identity/undeclared assets and package inclusion; no public licence is invented.
 - **12.8 Final integration/closure audit — PENDING.**
 
 See `PHASE12_DESIGN.md` for acceptance criteria.
 
 ## Current checkpoint
 
-12.1–12.3 are integrated. 12.4 (#140) is the active clean gate; 12.5 (#142) and 12.6 are prepared on the same clean lineage and must merge in order.
+12.1–12.3 are integrated. 12.4 (#140), 12.5 (#142), 12.6 (#143) and 12.7 are now on one clean lineage and must merge in order.
