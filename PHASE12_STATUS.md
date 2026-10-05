@@ -18,8 +18,8 @@ Phase 12 is explicitly authorized after the completed Phase 11 closure. Its goal
 - **12.1 Core Library architecture — DONE.** PR #131 passed the full FLOWDAW CI matrix and merged as `adf62aeb`; versioned manifest, stable IDs, safe relative-path resolution and deterministic core tests are integrated.
 - **12.2 FLOW Core drum/sample library — DONE.** PR #132 passed the full FLOWDAW CI matrix and merged as `71e55bb8`; twelve deterministic first-party 48 kHz WAVs, provenance, decode/signal/determinism tests and multiplatform install-tree checks are integrated.
 - **12.3 Native instrument preset catalog — DONE.** PR #135 passed core, legacy X11, Linux JUCE, Windows JUCE and macOS JUCE and merged as `82e04034`; ten versioned `.flowpreset` files for Keys, Bass, 808, Lead and Pad roles are integrated.
-- **12.4 Browser integration — IMPLEMENTED / CI GATE.** FLOW Core is a distinct first-party Sample Browser source; sample queries match stable ID/path/category/tags, rows expose FLOW categories, and existing preview/import/drag/favorites/recent behavior is reused without audio-thread filesystem work. Mark DONE only after this clean main-based PR passes the full FLOWDAW CI matrix and merges.
-- **12.5 Starter kits/templates — PENDING.**
+- **12.4 Browser integration — IMPLEMENTED / CI GATE.** FLOW Core is a distinct first-party Sample Browser source; sample queries match stable ID/path/category/tags, rows expose FLOW categories, and existing preview/import/drag/favorites/recent behavior is reused without audio-thread filesystem work. Awaiting clean PR #141 full CI/merge.
+- **12.5 Starter kits/templates — IMPLEMENTED / NEXT CLEAN GATE.** Blank, Boom Bap, Trap and Lo-Fi builders use portable `content:<id>` references plus FLOW Core presets, preserve `.flow` v11, rehydrate first-party audio on startup/recovery/open, retain legacy native-drum loading, and include save→reopen tests proving package/build roots are not serialized.
 - **12.6 Packaging/install/discovery — PENDING.**
 - **12.7 Licensing/content-integrity audit — PENDING.**
 - **12.8 Final integration/closure audit — PENDING.**
@@ -28,4 +28,4 @@ See `PHASE12_DESIGN.md` for acceptance criteria.
 
 ## Current checkpoint
 
-12.1 through 12.3 are integrated. 12.4 is now the active clean main-based CI gate; 12.5 remains prepared separately and must not merge before the 12.4 green merge.
+12.1 through 12.3 are integrated. Clean PR #141 is the active 12.4 gate. 12.5 is rebuilt on the clean 12.4 head and will be retargeted to main only after 12.4 merges green.
