@@ -305,6 +305,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase12_integrity_tests tests/test_phase12_integrity.cpp)
     target_link_libraries(flowdaw_phase12_integrity_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase12_integrity_tests COMMAND flowdaw_phase12_integrity_tests)
+
+    add_executable(flowdaw_phase12_golden_path_tests tests/test_phase12_golden_path.cpp)
+    target_link_libraries(flowdaw_phase12_golden_path_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase12_golden_path_tests COMMAND flowdaw_phase12_golden_path_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
