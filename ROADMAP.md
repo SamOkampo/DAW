@@ -154,6 +154,6 @@ Planned sequence:
 12. **13.12 DSP/realtime regression audit** — denormal/NaN safety, sample-rate/block-size independence, bypass/wet/latency and offline/realtime parity.
 13. **13.13 Final integration/closure audit** — installed-app native-only mix/export golden path plus architecture, realtime, compatibility and multiplatform CI closure.
 
-**Current checkpoint:** 13.1 is integrated; 13.2 (#148) and 13.3 (#149) are active gates; 13.4–13.11 are implemented on one clean ordered lineage. 13.12–13.13 remain prepared downstream.
+**Current checkpoint:** implementation for 13.1–13.13 is complete on a clean ordered branch lineage. 13.1 is integrated; 13.2 (#148) and 13.3 (#149) are active gates; later clean candidates are prepared through final closure. Phase 13 remains IN PROGRESS until ordered green merges and final `main` verification.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11. Phase 14 is not started.**
