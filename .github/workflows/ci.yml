@@ -34,7 +34,14 @@ jobs:
       - name: Build Studio executable
         run: cmake --build build-studio --parallel --target flowdaw flowdaw-doctor
       - name: Install smoke test
-        run: cmake --install build-studio --prefix "$RUNNER_TEMP/flowdaw-install" && test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw" && test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw-doctor" && "$RUNNER_TEMP/flowdaw-install/bin/flowdaw-doctor" status
+        run: |
+          cmake --install build-studio --prefix "$RUNNER_TEMP/flowdaw-install"
+          test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw"
+          test -x "$RUNNER_TEMP/flowdaw-install/bin/flowdaw-doctor"
+          "$RUNNER_TEMP/flowdaw-install/bin/flowdaw-doctor" status
+          test -f "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core/flow-core.manifest"
+          test -f "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core/PROVENANCE.txt"
+          test "$(find "$RUNNER_TEMP/flowdaw-install/share/FLOWDAW/content/flow-core" -name '*.wav' | wc -l)" -eq 12
       - name: Package smoke test
         run: cd build-studio && cpack -G TGZ && test -n "$(find . -maxdepth 1 -name 'FLOWDAW-*.tar.gz' -print -quit)"
 
@@ -51,7 +58,14 @@ jobs:
       - name: Execute real VST3 host integration tests
         run: ctest --test-dir build-juce -R flowdaw_phase7_juce_tests --output-on-failure && ctest --test-dir build-juce -R flowdaw_phase8_juce_tests --output-on-failure
       - name: Install JUCE desktop smoke test
-        run: cmake --install build-juce --prefix "$RUNNER_TEMP/flowdaw-juce-install" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/FLOWDAW" && test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-doctor" && "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-doctor" status
+        run: |
+          cmake --install build-juce --prefix "$RUNNER_TEMP/flowdaw-juce-install"
+          test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/FLOWDAW"
+          test -x "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-doctor"
+          "$RUNNER_TEMP/flowdaw-juce-install/bin/flowdaw-doctor" status
+          test -f "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core/flow-core.manifest"
+          test -f "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core/PROVENANCE.txt"
+          test "$(find "$RUNNER_TEMP/flowdaw-juce-install/share/FLOWDAW/content/flow-core" -name '*.wav' | wc -l)" -eq 12
       - name: Package Linux production build
         run: |
           cd build-juce
@@ -76,6 +90,10 @@ jobs:
           if (-not (Test-Path "$env:RUNNER_TEMP/flowdaw-windows-install/bin/FLOWDAW.exe")) { throw "FLOWDAW.exe missing after install" }
           if (-not (Test-Path "$env:RUNNER_TEMP/flowdaw-windows-install/bin/flowdaw-doctor.exe")) { throw "flowdaw-doctor.exe missing after install" }
           & "$env:RUNNER_TEMP/flowdaw-windows-install/bin/flowdaw-doctor.exe" status
+          $contentRoot = "$env:RUNNER_TEMP/flowdaw-windows-install/share/FLOWDAW/content/flow-core"
+          if (-not (Test-Path "$contentRoot/flow-core.manifest")) { throw "FLOW Core manifest missing after install" }
+          if (-not (Test-Path "$contentRoot/PROVENANCE.txt")) { throw "FLOW Core provenance missing after install" }
+          if ((Get-ChildItem -Path $contentRoot -Recurse -Filter "*.wav").Count -ne 12) { throw "FLOW Core WAV count mismatch after install" }
       - name: Package Windows portable build
         shell: pwsh
         run: |
@@ -109,6 +127,9 @@ jobs:
           test -x "$RUNNER_TEMP/flowdaw-macos-install/FLOWDAW.app/Contents/MacOS/FLOWDAW"
           test -x "$RUNNER_TEMP/flowdaw-macos-install/bin/flowdaw-doctor"
           "$RUNNER_TEMP/flowdaw-macos-install/bin/flowdaw-doctor" status
+          test -f "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core/flow-core.manifest"
+          test -f "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core/PROVENANCE.txt"
+          test "$(find "$RUNNER_TEMP/flowdaw-macos-install/share/FLOWDAW/content/flow-core" -name '*.wav' | wc -l)" -eq 12
       - name: Package macOS DMG
         run: |
           cd build-mac

@@ -44,6 +44,7 @@ add_library(flowdaw_core
     src/Workflow.cpp
     src/AppSettings.cpp
     src/ContentLibrary.cpp
+    src/CoreLibrary.cpp
     src/SessionRecovery.cpp
     src/PluginSafety.cpp
     src/RuntimeCapabilities.cpp
@@ -51,6 +52,29 @@ add_library(flowdaw_core
 )
 target_include_directories(flowdaw_core PUBLIC include)
 flowdaw_enable_warnings(flowdaw_core)
+
+
+add_executable(flowdaw-content-generator tools/generate_core_library.cpp)
+target_link_libraries(flowdaw-content-generator PRIVATE flowdaw_core)
+flowdaw_enable_warnings(flowdaw-content-generator)
+
+set(FLOWDAW_CORE_LIBRARY_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/flow-core")
+add_custom_command(
+    OUTPUT "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/flow-core.manifest"
+           "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/PROVENANCE.txt"
+    COMMAND $<TARGET_FILE:flowdaw-content-generator> "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}"
+    DEPENDS flowdaw-content-generator
+    COMMENT "Generating FLOW Core native sample library"
+    VERBATIM)
+add_custom_target(flowdaw_core_library ALL
+    DEPENDS "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/flow-core.manifest"
+            "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/PROVENANCE.txt")
+install(DIRECTORY "${FLOWDAW_CORE_LIBRARY_BUILD_DIR}/"
+    DESTINATION share/FLOWDAW/content/flow-core
+    FILES_MATCHING
+    PATTERN "*.wav"
+    PATTERN "*.manifest"
+    PATTERN "PROVENANCE.txt")
 
 find_library(PORTAUDIO_RUNTIME NAMES portaudio libportaudio.so.2)
 if(PORTAUDIO_RUNTIME)
@@ -86,6 +110,7 @@ if(FLOWDAW_ENABLE_JUCE_RUNTIME)
     if(FLOWDAW_BUILD_JUCE_APP)
         juce_add_gui_app(flowdaw-juce PRODUCT_NAME "FLOWDAW")
         target_sources(flowdaw-juce PRIVATE app/juce_main.cpp)
+        add_dependencies(flowdaw-juce flowdaw_core_library)
         target_link_libraries(flowdaw-juce PRIVATE flowdaw_juce_runtime juce::juce_gui_extra juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
         target_compile_definitions(flowdaw-juce PRIVATE JUCE_APPLICATION_NAME_STRING="FLOWDAW" JUCE_APPLICATION_VERSION_STRING="0.8.0" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1)
         if(APPLE)
@@ -163,6 +188,7 @@ target_link_libraries(flowdaw_stretch_benchmark PRIVATE flowdaw_core)
 flowdaw_enable_warnings(flowdaw_stretch_benchmark)
 
 add_executable(flowdaw-doctor tools/flowdaw_doctor.cpp)
+add_dependencies(flowdaw-doctor flowdaw_core_library)
 target_link_libraries(flowdaw-doctor PRIVATE flowdaw_core)
 flowdaw_enable_warnings(flowdaw-doctor)
 install(TARGETS flowdaw-doctor RUNTIME DESTINATION bin)
@@ -171,6 +197,7 @@ if(FLOWDAW_BUILD_APP)
     message(DEPRECATION "FLOWDAW_BUILD_APP enables the legacy X11 bootstrap. The production Studio is the JUCE FLOWDAW application.")
     find_package(X11 REQUIRED)
     add_executable(flowdaw app/main_phase5.cpp)
+    add_dependencies(flowdaw flowdaw_core_library)
     target_link_libraries(flowdaw PRIVATE flowdaw_core X11::X11)
     flowdaw_enable_warnings(flowdaw)
     install(TARGETS flowdaw RUNTIME DESTINATION bin)
@@ -245,6 +272,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase12_content_tests tests/test_phase12_content.cpp)
     target_link_libraries(flowdaw_phase12_content_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase12_content_tests COMMAND flowdaw_phase12_content_tests)
+
+    add_executable(flowdaw_phase12_library_tests tests/test_phase12_library.cpp)
+    target_link_libraries(flowdaw_phase12_library_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase12_library_tests COMMAND flowdaw_phase12_library_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
