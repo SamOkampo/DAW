@@ -38,8 +38,7 @@ int main(){
 
         const auto manifest=loadContentManifest(root/"flow-core.manifest");
         require(manifest.libraryId=="flow.core","FLOW Core stable library id");
-        require(manifest.libraryVersion==1,"FLOW Core library version");
-        require(manifest.entries.size()==12,"FLOW Core manifest entry count");
+        require(manifest.libraryVersion==2,"FLOW Core library version advances when native presets are added");
 
         const std::set<std::string> expectedCategories{
             "Drums/Kicks","Drums/Snares-Claps","Drums/Hats","Drums/Percussion","Drums/808s","FX"
@@ -49,11 +48,13 @@ int main(){
         const auto provenance=readText(root/"PROVENANCE.txt");
         require(provenance.find("No third-party recordings")!=std::string::npos,"FLOW Core provenance statement");
 
+        std::size_t sampleEntries=0;
         for(const auto& entry:manifest.entries){
-            require(entry.kind==ContentKind::Sample,"12.2 ships sample entries only");
             require(ids.insert(entry.id).second,"FLOW Core content IDs unique");
+            if(entry.kind!=ContentKind::Sample)continue;
+            ++sampleEntries;
             categories.insert(entry.category);
-            require(provenance.find(entry.id)!=std::string::npos,"every FLOW Core id has provenance");
+            require(provenance.find(entry.id)!=std::string::npos,"every FLOW Core sample id has provenance");
             const auto path=resolveContentPath(root,entry);
             require(std::filesystem::is_regular_file(path),"FLOW Core WAV exists");
             const auto audio=WavFile::read(path);
@@ -66,6 +67,7 @@ int main(){
             }
             require(peak>0.1f&&peak<=1.0f,"FLOW Core WAV has bounded audible signal");
         }
+        require(sampleEntries==12,"FLOW Core preserves the twelve Phase 12.2 samples");
         require(categories==expectedCategories,"FLOW Core covers all 12.2 categories");
 
         writeFlowCoreLibrary(second,48000);
