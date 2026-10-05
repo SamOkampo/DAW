@@ -17,7 +17,7 @@ Phase 13 is authorized after the completed/audited Phase 12 closure.
 
 - **13.1 Native DSP foundation + FLOW EQ — IMPLEMENTED / CI GATE.** Stateful prepared native processors replace the old realtime per-sample shortcut; FLOW EQ provides six parametric bands + output gain, generic native parameter metadata, scalable rack native-insert/parameter selectors and offline/realtime/persistence tests.
 - **13.2 FLOW Compressor — IMPLEMENTED / STACKED CI CANDIDATE.** Stereo-linked feed-forward compression with threshold/ratio/attack/release/knee/makeup, callback-safe prepared state, generic rack parameter exposure, offline/realtime parity, block-size independence and `.flow` v11 persistence tests. Must merge only after 13.1 is green and integrated.
-- **13.3 FLOW Limiter — PENDING.**
+- **13.3 FLOW Limiter — IMPLEMENTED / STACKED CANDIDATE.** Sample-peak limiter foundation with ceiling/input gain/lookahead/release, preallocated delay state, latency reporting for PDC, generic native parameter exposure, offline/realtime parity, block-size independence and `.flow` v11 persistence tests. True-peak mastering compliance remains Phase 14.
 - **13.4 FLOW Saturator — PENDING.**
 - **13.5 FLOW Reverb — PENDING.**
 - **13.6 FLOW Delay — PENDING.**
@@ -33,4 +33,4 @@ See `PHASE13_DESIGN.md`.
 
 ## Current checkpoint
 
-13.1 remains the active clean CI gate (#146). 13.2 is implemented on a stacked branch for early validation; merge order remains 13.1 → 13.2.
+13.1 is the active clean CI gate (#146). 13.2 is under stacked CI validation (#147). 13.3 is implemented but intentionally has no PR/CI yet to avoid runner congestion. Merge order remains 13.1 → 13.2 → 13.3.
