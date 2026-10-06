@@ -24,8 +24,8 @@ Phase 13 is authorized after the completed/audited Phase 12 closure.
 - **13.7 FLOW Chorus — IMPLEMENTED / CI GATE.** Modulated fractional delay with rate/depth/base delay/feedback/width and preallocated storage.
 - **13.8 FLOW Gate / Expander — IMPLEMENTED / CI GATE.** Stereo-linked threshold/range/attack/hold/release gate with deterministic envelope state.
 - **13.9 FLOW Utility — IMPLEMENTED / CI GATE.** Gain, polarity, mono, swap, balance and width in one callback-safe insert.
-- **13.10 Native plugin presets — PENDING.**
-- **13.11 Native plugin editing/productization — PENDING.**
+- **13.10 Native plugin presets — IMPLEMENTED / STACKED CI CANDIDATE.** Versioned `FLOWDAW_EFFECT_PRESET 1` format plus first-party presets for EQ, Compressor, Limiter, Saturator, Reverb, Delay, Chorus, Gate and Utility with save/load, instantiation and `.flow` v11 roundtrip tests.
+- **13.11 Native plugin editing/productization — IMPLEMENTED / STACKED CI CANDIDATE.** Production JUCE rack exposes native effect selection, semantic parameter selection, compatible preset selection/application, Undo and graph republish with accessibility metadata.
 - **13.12 DSP/realtime regression audit — PENDING.**
 - **13.13 Final integration/closure audit — PENDING.**
 

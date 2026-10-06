@@ -326,6 +326,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase13_native_suite_tests tests/test_phase13_native_suite.cpp)
     target_link_libraries(flowdaw_phase13_native_suite_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase13_native_suite_tests COMMAND flowdaw_phase13_native_suite_tests)
+
+    add_executable(flowdaw_phase13_preset_tests tests/test_phase13_presets.cpp)
+    target_link_libraries(flowdaw_phase13_preset_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase13_preset_tests COMMAND flowdaw_phase13_preset_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
