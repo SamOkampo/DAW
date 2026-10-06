@@ -88,7 +88,6 @@ jobs:
           test "$(tar -tzf "$pkg" | grep -E '\.flowpreset$' | wc -l)" -eq 10
           python3 ../tools/release_manifest.py --version 1.0.0-rc.1 --commit "$GITHUB_SHA" --platform linux --output release-manifest-linux.json --checksums SHA256SUMS-linux "$pkg"
       - name: Upload Linux release-candidate artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: flowdaw-linux-${{ github.sha }}
@@ -139,7 +138,6 @@ jobs:
           python ../tools/release_manifest.py --version 1.0.0-rc.1 --commit "$env:GITHUB_SHA" --platform windows --output release-manifest-windows.json --checksums SHA256SUMS-windows $pkg.FullName
           Pop-Location
       - name: Upload Windows release-candidate artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: flowdaw-windows-${{ github.sha }}
@@ -198,7 +196,6 @@ jobs:
           trap - EXIT
           python3 ../tools/release_manifest.py --version 1.0.0-rc.1 --commit "$GITHUB_SHA" --platform macos --output release-manifest-macos.json --checksums SHA256SUMS-macos "$dmg"
       - name: Upload macOS release-candidate artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: flowdaw-macos-${{ github.sha }}
