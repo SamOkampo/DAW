@@ -159,7 +159,7 @@ Planned sequence:
 **Production desktop remains JUCE 9.0.2. Project format remains v11. Phase 14 is not started.**
 
 
-## Phase 14 — Mastering / Loudness / Delivery [IN PROGRESS]
+## Phase 14 — Mastering / Loudness / Delivery [DONE]
 
 Phase 14 is explicitly authorized after the completed Phase 13 closure. It closes the standards-based mastering measurement and delivery gap while preserving JUCE 9.0.2, realtime safety and portable `.flow` v11 projects.
 
@@ -172,7 +172,7 @@ Planned sequence:
 6. **14.6 Mastering regression audit** — multi-rate loudness/true-peak/dither/export/realtime/project-compatibility audit.
 7. **14.7 Final mastering closure** — installed-app analysis → normalize/export → decode/re-analyse golden path plus multiplatform CI closure.
 
-**Current checkpoint:** #153 gates 14.1–14.3, #154 gates 14.4–14.5, and 14.6–14.7 are implemented on the final ordered closure branch. Phase 14 remains IN PROGRESS until all current-head CI gates merge and `main` is verified.
+**Phase 14 closure:** 14.1–14.7 are complete. PR #153 (`a352df30`) integrated analysis/normalisation/dithered export, PR #154 (`4cebace1`) integrated Master Analysis and EBU-oriented delivery UI, and PR #155 (`8bf5be1b`) integrated the regression audit and final render→analyze→PCM24 TPDF→decode/re-analyze golden path. All three heads passed the required core, legacy X11, Linux, Windows and macOS production CI matrices before merge. `main` was verified after the final technical merge. See `PHASE14_STATUS.md`, `PHASE14_6_AUDIT.md` and `PHASE14_7_AUDIT.md`.
 
 **Standards target:** ITU-R BS.1770-5 (2023), EBU R128 v5.0 (2023) and EBU Tech 3341 v4.0. FLOWDAW does not claim third-party ITU/EBU certification.
 
