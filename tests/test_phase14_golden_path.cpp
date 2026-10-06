@@ -1,4 +1,5 @@
 #include "flowdaw/Mastering.hpp"
+#include "flowdaw/Export.hpp"
 #include "flowdaw/MusicalTime.hpp"
 #include "flowdaw/NativePresets.hpp"
 #include "flowdaw/Serialization.hpp"
