@@ -6,6 +6,7 @@
 #include <cmath>
 #include <numeric>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace flowdaw {
@@ -123,26 +124,35 @@ double truePeakLinear(const AudioBuffer& audio){
     double peak=0.0;
     for(float x:audio.interleaved)peak=std::max(peak,std::abs(static_cast<double>(x)));
 
-    // Offline 4x band-limited interpolation. 24-tap Blackman-windowed sinc
-    // gives deterministic high-quality inter-sample peak estimation without
-    // changing the realtime callback.
+    // Offline 4x band-limited interpolation. The three fractional phases use
+    // one pre-normalised 24-tap Blackman-windowed sinc kernel each.
     constexpr int radius=12;
+    constexpr int taps=radius*2;
+    std::array<std::array<double,taps>,3> coefficients{};
+    for(int phaseIndex=0;phaseIndex<3;++phaseIndex){
+        const double phase=0.25*static_cast<double>(phaseIndex+1);
+        double sum=0.0;
+        for(int tap=0;tap<taps;++tap){
+            const int k=tap-(radius-1);
+            const double d=phase-static_cast<double>(k);
+            const double value=sinc(d)*blackman(d/static_cast<double>(radius));
+            coefficients[static_cast<std::size_t>(phaseIndex)][static_cast<std::size_t>(tap)]=value;
+            sum+=value;
+        }
+        if(std::abs(sum)>1.0e-12)for(double& value:coefficients[static_cast<std::size_t>(phaseIndex)])value/=sum;
+    }
+
     for(int channel=0;channel<audio.channels;++channel){
         for(SampleIndex n=0;n+1<audio.frames();++n){
-            for(int phase=1;phase<4;++phase){
-                const double t=static_cast<double>(n)+0.25*phase;
-                double y=0.0,weight=0.0;
-                for(int k=-radius+1;k<=radius;++k){
-                    const auto index=static_cast<SampleIndex>(std::floor(t))+k;
+            for(int phaseIndex=0;phaseIndex<3;++phaseIndex){
+                double y=0.0;
+                for(int tap=0;tap<taps;++tap){
+                    const int k=tap-(radius-1);
+                    const auto index=n+static_cast<SampleIndex>(k);
                     if(index<0||index>=audio.frames())continue;
-                    const double d=t-static_cast<double>(index);
-                    if(std::abs(d)>radius)continue;
-                    const double w=blackman(d/static_cast<double>(radius));
-                    const double coefficient=sinc(d)*w;
-                    y+=static_cast<double>(audio.interleaved[static_cast<std::size_t>(index)*audio.channels+channel])*coefficient;
-                    weight+=coefficient;
+                    y+=static_cast<double>(audio.interleaved[static_cast<std::size_t>(index)*audio.channels+channel])
+                        *coefficients[static_cast<std::size_t>(phaseIndex)][static_cast<std::size_t>(tap)];
                 }
-                if(std::abs(weight)>1.0e-12)y/=weight;
                 peak=std::max(peak,std::abs(y));
             }
         }
