@@ -85,7 +85,20 @@ jobs:
           tar -tzf "$pkg" | grep -q 'share/FLOWDAW/content/flow-core/flow-core.manifest'
           tar -tzf "$pkg" | grep -q 'share/FLOWDAW/content/flow-core/CONTENT_RIGHTS.txt'
           test "$(tar -tzf "$pkg" | grep -E '\.wav$' | wc -l)" -eq 12
-          test "$(tar -tzf "$pkg" | grep -E '\.flowpreset
+          test "$(tar -tzf "$pkg" | grep -E '\.flowpreset$' | wc -l)" -eq 10
+          python3 ../tools/release_manifest.py --version 1.0.0-rc.1 --commit "$GITHUB_SHA" --platform linux --output release-manifest-linux.json --checksums SHA256SUMS-linux "$pkg"
+      - name: Upload Linux release-candidate artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowdaw-linux-${{ github.sha }}
+          path: |
+            build-juce/FLOWDAW-*.tar.gz
+            build-juce/release-manifest-linux.json
+            build-juce/SHA256SUMS-linux
+
+
+  windows-juce:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -193,104 +206,3 @@ jobs:
             build-mac/FLOWDAW-*.dmg
             build-mac/release-manifest-macos.json
             build-mac/SHA256SUMS-macos
- | wc -l)" -eq 10
-          python3 ../tools/release_manifest.py --version 1.0.0-rc.1 --commit "$GITHUB_SHA" --platform linux --output release-manifest-linux.json --checksums SHA256SUMS-linux "$pkg"
-      - name: Upload Linux release-candidate artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: flowdaw-linux-${{ github.sha }}
-          path: |
-            build-juce/FLOWDAW-*.tar.gz
-            build-juce/release-manifest-linux.json
-            build-juce/SHA256SUMS-linux
-
-
-  windows-juce:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Configure JUCE 9.0.2 runtime
-        run: cmake -S . -B build-win -DFLOWDAW_BUILD_APP=OFF -DFLOWDAW_BUILD_TESTS=ON -DFLOWDAW_ENABLE_JUCE_RUNTIME=ON -DFLOWDAW_FETCH_JUCE=ON -DFLOWDAW_BUILD_JUCE_APP=ON -DFLOWDAW_BUILD_JUCE_TEST_PLUGIN=ON
-      - name: Build Windows desktop and real VST3 fixtures
-        run: cmake --build build-win --config Release --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests flowdaw_phase8_juce_tests flowdaw-doctor
-      - name: Execute Windows VST3 host integration tests
-        run: ctest --test-dir build-win -C Release -R "flowdaw_phase(7|8)_juce_tests" --output-on-failure
-      - name: Install Windows desktop smoke test
-        shell: pwsh
-        run: |
-          cmake --install build-win --config Release --prefix "$env:RUNNER_TEMP/flowdaw-windows-install"
-          if (-not (Test-Path "$env:RUNNER_TEMP/flowdaw-windows-install/bin/FLOWDAW.exe")) { throw "FLOWDAW.exe missing after install" }
-          if (-not (Test-Path "$env:RUNNER_TEMP/flowdaw-windows-install/bin/flowdaw-doctor.exe")) { throw "flowdaw-doctor.exe missing after install" }
-          & "$env:RUNNER_TEMP/flowdaw-windows-install/bin/flowdaw-doctor.exe" status
-          $contentRoot = "$env:RUNNER_TEMP/flowdaw-windows-install/share/FLOWDAW/content/flow-core"
-          if (-not (Test-Path "$contentRoot/flow-core.manifest")) { throw "FLOW Core manifest missing after install" }
-          if (-not (Test-Path "$contentRoot/PROVENANCE.txt")) { throw "FLOW Core provenance missing after install" }
-          if (-not (Test-Path "$contentRoot/CONTENT_RIGHTS.txt")) { throw "FLOW Core rights notice missing after install" }
-          if ((Get-ChildItem -Path $contentRoot -Recurse -Filter "*.wav").Count -ne 12) { throw "FLOW Core WAV count mismatch after install" }
-          if ((Get-ChildItem -Path $contentRoot -Recurse -Filter "*.flowpreset").Count -ne 10) { throw "FLOW Core preset count mismatch after install" }
-      - name: Package Windows portable build
-        shell: pwsh
-        run: |
-          Push-Location build-win
-          cpack -C Release -G ZIP
-          $pkg = Get-ChildItem -Filter "FLOWDAW-*.zip" | Select-Object -First 1
-          if (-not $pkg) { throw "FLOWDAW Windows ZIP package missing" }
-          $unpack = "$env:RUNNER_TEMP/flowdaw-windows-package"
-          if (Test-Path $unpack) { Remove-Item -Recurse -Force $unpack }
-          Expand-Archive -Path $pkg.FullName -DestinationPath $unpack
-          $manifest = Get-ChildItem -Path $unpack -Recurse -Filter "flow-core.manifest" | Select-Object -First 1
-          if (-not $manifest) { throw "FLOW Core manifest missing from Windows ZIP" }
-          if (-not (Get-ChildItem -Path $unpack -Recurse -Filter "CONTENT_RIGHTS.txt" | Select-Object -First 1)) { throw "FLOW Core rights notice missing from Windows ZIP" }
-          if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.wav").Count -ne 12) { throw "FLOW Core WAV count mismatch in Windows ZIP" }
-          if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.flowpreset").Count -ne 10) { throw "FLOW Core preset count mismatch in Windows ZIP" }
-          Pop-Location
-
-  macos-juce:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Configure JUCE 9.0.2 runtime with AU host
-        run: cmake -S . -B build-mac -DCMAKE_BUILD_TYPE=Release -DFLOWDAW_BUILD_APP=OFF -DFLOWDAW_BUILD_TESTS=ON -DFLOWDAW_ENABLE_JUCE_RUNTIME=ON -DFLOWDAW_FETCH_JUCE=ON -DFLOWDAW_BUILD_JUCE_APP=ON -DFLOWDAW_BUILD_JUCE_TEST_PLUGIN=ON
-      - name: Build macOS desktop, VST3 and AU fixtures
-        run: cmake --build build-mac --parallel 2 --target flowdaw-juce flowdaw_phase7_juce_tests flowdaw_phase8_juce_tests flowdaw-doctor
-      - name: Register AU fixtures with CoreAudio
-        run: |
-          mkdir -p "$HOME/Library/Audio/Plug-Ins/Components"
-          find build-mac -type d -path "*/Release/AU/*.component" -print0 | while IFS= read -r -d '' component; do
-            ditto "$component" "$HOME/Library/Audio/Plug-Ins/Components/$(basename "$component")"
-          done
-          killall -9 AudioComponentRegistrar 2>/dev/null || true
-          sleep 2
-          auval -a >/dev/null 2>&1 || true
-      - name: Execute macOS VST3 and AU host integration tests
-        run: ctest --test-dir build-mac -R "flowdaw_phase(7|8)_(juce|au)_tests" --output-on-failure
-      - name: Install macOS desktop smoke test
-        run: |
-          cmake --install build-mac --prefix "$RUNNER_TEMP/flowdaw-macos-install"
-          test -x "$RUNNER_TEMP/flowdaw-macos-install/FLOWDAW.app/Contents/MacOS/FLOWDAW"
-          test -x "$RUNNER_TEMP/flowdaw-macos-install/bin/flowdaw-doctor"
-          "$RUNNER_TEMP/flowdaw-macos-install/bin/flowdaw-doctor" status
-          contentRoot="$RUNNER_TEMP/flowdaw-macos-install/FLOWDAW.app/Contents/Resources/FLOWDAW/content/flow-core"
-          test -f "$contentRoot/flow-core.manifest"
-          test -f "$contentRoot/PROVENANCE.txt"
-          test -f "$contentRoot/CONTENT_RIGHTS.txt"
-          test "$(find "$contentRoot" -name '*.wav' | wc -l)" -eq 12
-          test "$(find "$contentRoot" -name '*.flowpreset' | wc -l)" -eq 10
-      - name: Package macOS DMG
-        run: |
-          cd build-mac
-          cpack -G DragNDrop
-          dmg="$(find . -maxdepth 1 -name 'FLOWDAW-*.dmg' -print -quit)"
-          test -n "$dmg"
-          mount="$RUNNER_TEMP/flowdaw-dmg"
-          mkdir -p "$mount"
-          hdiutil attach "$dmg" -nobrowse -mountpoint "$mount"
-          trap 'hdiutil detach "$mount" >/dev/null 2>&1 || true' EXIT
-          contentRoot="$mount/FLOWDAW.app/Contents/Resources/FLOWDAW/content/flow-core"
-          test -f "$contentRoot/flow-core.manifest"
-          test -f "$contentRoot/CONTENT_RIGHTS.txt"
-          test "$(find "$contentRoot" -name '*.wav' | wc -l)" -eq 12
-          test "$(find "$contentRoot" -name '*.flowpreset' | wc -l)" -eq 10
-          hdiutil detach "$mount"
-          trap - EXIT
