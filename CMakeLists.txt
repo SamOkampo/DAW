@@ -40,6 +40,7 @@ add_library(flowdaw_core
     src/PluginHost.cpp
     src/BuiltinPluginDSP.cpp
     src/RealtimeMeter.cpp
+    src/Loudness.cpp
     src/RealtimePluginGraph.cpp
     src/RealtimeRouting.cpp
     src/ProductionAssistant.cpp
@@ -338,6 +339,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase13_golden_path_tests tests/test_phase13_golden_path.cpp)
     target_link_libraries(flowdaw_phase13_golden_path_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase13_golden_path_tests COMMAND flowdaw_phase13_golden_path_tests)
+
+    add_executable(flowdaw_phase14_loudness_tests tests/test_phase14_loudness.cpp)
+    target_link_libraries(flowdaw_phase14_loudness_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase14_loudness_tests COMMAND flowdaw_phase14_loudness_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
