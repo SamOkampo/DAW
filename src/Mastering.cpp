@@ -122,7 +122,7 @@ double blackman(double x){
 double truePeakLinear(const AudioBuffer& audio){
     if(audio.channels<=0||audio.frames()<=0)return 0.0;
     double peak=0.0;
-    for(float x:audio.interleaved)peak=std::max(peak,std::abs(static_cast<double>(x)));
+    for(float x:audio.interleaved)if(std::isfinite(x))peak=std::max(peak,std::abs(static_cast<double>(x)));
 
     // Offline 4x band-limited interpolation. The three fractional phases use
     // one pre-normalised 24-tap Blackman-windowed sinc kernel each.
@@ -150,8 +150,9 @@ double truePeakLinear(const AudioBuffer& audio){
                     const int k=tap-(radius-1);
                     const auto index=n+static_cast<SampleIndex>(k);
                     if(index<0||index>=audio.frames())continue;
-                    y+=static_cast<double>(audio.interleaved[static_cast<std::size_t>(index)*audio.channels+channel])
-                        *coefficients[static_cast<std::size_t>(phaseIndex)][static_cast<std::size_t>(tap)];
+                    const float source=audio.interleaved[static_cast<std::size_t>(index)*audio.channels+channel];
+                    const double finiteSource=std::isfinite(source)?static_cast<double>(source):0.0;
+                    y+=finiteSource*coefficients[static_cast<std::size_t>(phaseIndex)][static_cast<std::size_t>(tap)];
                 }
                 peak=std::max(peak,std::abs(y));
             }
@@ -167,7 +168,8 @@ double db(double linear){
 void applyGain(AudioBuffer& audio,double gainDb){
     const double gain=std::pow(10.0,gainDb/20.0);
     for(float& x:audio.interleaved){
-        const double y=static_cast<double>(x)*gain;
+        const double source=std::isfinite(x)?static_cast<double>(x):0.0;
+        const double y=source*gain;
         x=static_cast<float>(std::clamp(y,-1.0,1.0));
     }
 }
@@ -189,8 +191,9 @@ MasteringMetrics analyzeMastering(const AudioBuffer& audio){
     for(SampleIndex frame=0;frame<frames;++frame){
         double sum=0.0;
         for(int channel=0;channel<audio.channels;++channel){
-            const float raw=audio.interleaved[static_cast<std::size_t>(frame)*audio.channels+channel];
-            samplePeak=std::max(samplePeak,std::abs(static_cast<double>(raw)));
+            const float input=audio.interleaved[static_cast<std::size_t>(frame)*audio.channels+channel];
+            const double raw=std::isfinite(input)?static_cast<double>(input):0.0;
+            samplePeak=std::max(samplePeak,std::abs(raw));
             const double y=highpasses[static_cast<std::size_t>(channel)].process(shelves[static_cast<std::size_t>(channel)].process(raw));
             sum+=y*y;
         }
