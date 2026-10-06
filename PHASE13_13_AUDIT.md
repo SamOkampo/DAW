@@ -1,6 +1,6 @@
 # Phase 13.13 Final Integration / Closure Audit
 
-**State: PRE-CLOSURE — PASS ONLY AFTER ORDERED GREEN MERGES**
+**State: CLOSED / PASS**
 
 ## Native-only production golden path
 
@@ -44,16 +44,18 @@ The JUCE production rack exposes:
 
 No native plugin requires an external SDK or third-party binary.
 
-## Closure gates
+## Closure evidence
 
-Phase 13 may be marked DONE only after the ordered implementation lineage is merged with green relevant CI:
-1. 13.1 Native DSP foundation + FLOW EQ
-2. 13.2 FLOW Compressor
-3. 13.3 FLOW Limiter
-4. 13.4–13.9 remaining native suite
-5. 13.10–13.11 presets/productization
-6. 13.12–13.13 audit/golden path
+**CLOSED / PASS.**
 
-Required final evidence: core tests, legacy X11 smoke, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package, macOS JUCE/VST3/AU/install/DMG.
+Ordered green merge chain:
+1. 13.1 → PR #146 → `f336269c`
+2. 13.2 → PR #148 → `7f41b0d0`
+3. 13.3 → PR #149 → `b4b77974`
+4. 13.4–13.9 → PR #150 → `02a2e4f1`
+5. 13.10–13.11 → PR #151 → `759bf809`
+6. 13.12–13.13 → PR #152 → `d2329753`
 
-Phase 14 is not started by this audit.
+The final #152 head passed core tests, legacy X11 smoke, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG validation before merge. `main` was verified after the technical closure merge.
+
+Project format remains `.flow` v11, the realtime-safety contract remains intact, and Phase 14 is not started by this closure.
