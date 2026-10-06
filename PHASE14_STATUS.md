@@ -1,6 +1,6 @@
 # Phase 14 Status — Mastering / Loudness / Delivery
 
-**Status: IN PROGRESS**
+**Status: DONE**
 
 ## Invariants
 
@@ -12,16 +12,33 @@
 
 ## Phase structure
 
-- **14.1 Standards contract + mastering analysis model — IMPLEMENTED / CI GATE.** K-weighted programme loudness, absolute/relative gating, Momentary/Short-term maxima, LRA, sample peak and offline 4x true-peak metrics.
-- **14.2 Loudness normalisation / true-peak ceiling — IMPLEMENTED / CI GATE.** Static-gain target normalisation with explicit true-peak-constrained outcome.
-- **14.3 Export bit depth + dithering policy — IMPLEMENTED / CI GATE.** Float32, PCM24 and PCM16 WAV delivery with TPDF default for integer reductions plus mastering export reports.
-- **14.4 Mastering meter productization — IMPLEMENTED / STACKED CI CANDIDATE.** Studio exposes offline Master Analysis with persistent Integrated/Momentary/Short-term/LRA/true-peak summary while the callback meter remains the low-latency playback meter.
-- **14.5 Delivery workflow / compliance report — IMPLEMENTED / STACKED CI CANDIDATE.** Export menu retains Float32 Master Mix/Stems and adds an EBU R128-oriented PCM24+TPDF -23 LUFS/-1 dBTP delivery path with achieved LUFS/TP and peak-constrained status.
-- **14.6 Mastering regression audit — IMPLEMENTED / PRE-CLOSURE.** Multi-rate loudness/true-peak, NaN/Inf safety, deterministic dither, Float32 no-dither and architecture/realtime/project-compatibility evidence is recorded in `PHASE14_6_AUDIT.md`.
-- **14.7 Final mastering closure — IMPLEMENTED / PRE-CLOSURE.** End-to-end `.flow` v11 → render → analysis → PCM24 TPDF target export → decode → re-analysis golden path is implemented in `tests/test_phase14_golden_path.cpp` and documented in `PHASE14_7_AUDIT.md`.
+- **14.1 Standards contract + mastering analysis model — DONE.** PR #153 passed the full FLOWDAW CI matrix and merged as `a352df30`; K-weighted Integrated/Momentary/Short-term loudness, LRA, sample peak and offline 4x true-peak analysis are integrated.
+- **14.2 Loudness normalisation / true-peak ceiling — DONE.** PR #153 merged as `a352df30`; static programme gain targets -23 LUFS by default, respects the configured true-peak ceiling and explicitly reports peak-constrained outcomes without hidden dynamics.
+- **14.3 Export bit depth + dithering policy — DONE.** PR #153 merged as `a352df30`; Float32 remains undithered while PCM24/PCM16 support deterministic TPDF dither by default for float-to-integer delivery.
+- **14.4 Mastering meter productization — DONE.** PR #154 passed the full FLOWDAW CI matrix and merged as `4cebace1`; production JUCE exposes offline Master Analysis while the callback meter remains a low-latency realtime estimate.
+- **14.5 Delivery workflow / compliance report — DONE.** PR #154 merged as `4cebace1`; legacy Float32/stems remain available and the EBU-oriented PCM24+TPDF -23 LUFS/-1 dBTP delivery path reports achieved loudness, true peak, applied gain and peak-limited status.
+- **14.6 Mastering regression audit — DONE / PASS.** PR #155 passed the full FLOWDAW CI matrix and merged as `8bf5be1b`; multi-rate loudness/true-peak, NaN/Inf safety, dither/export behavior and architecture/realtime/`.flow` compatibility are audited in `PHASE14_6_AUDIT.md`.
+- **14.7 Final mastering closure — DONE / PASS.** PR #155 merged as `8bf5be1b`; the `.flow` v11 → render → analyze → PCM24 TPDF target export → decode → re-analyze golden path passed and `main` was verified after merge.
 
 See `PHASE14_DESIGN.md`.
 
-## Current checkpoint
+## Final closure
 
-#153 gates 14.1–14.3, #154 gates 14.4–14.5, and this branch is the final 14.6–14.7 closure candidate. Phase 14 remains IN PROGRESS until all current-head CI gates pass and merge in order.
+Phase 14 is complete and audited on `main`.
+
+Ordered green merge chain:
+- 14.1–14.3 → PR #153 → `a352df30`
+- 14.4–14.5 → PR #154 → `4cebace1`
+- 14.6–14.7 → PR #155 → `8bf5be1b`
+
+Each implementation head passed core tests, legacy X11 smoke, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG validation before merge.
+
+Final invariants:
+- production desktop remains JUCE 9.0.2;
+- portable project format remains `.flow` v11;
+- standards-grade mastering analysis/export runs offline/control-path, not in the realtime callback;
+- legacy realtime meters remain callback-safe estimates;
+- no third-party ITU/EBU certification is claimed;
+- no Phase 15 is started by this closure.
+
+The duplicate experimental PR line #156–#159 was closed without merge after the ordered block chain became authoritative.
