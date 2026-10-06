@@ -157,3 +157,10 @@ Planned sequence:
 **Phase 13 closure:** 13.1–13.13 are complete. PRs #146, #148, #149, #150, #151 and #152 passed the required core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG gates in ordered sequence before merge. The final audit validates prepared callback-safe native DSP, `.flow` v11 compatibility, native effect presets/rack productization, realtime regression coverage and a native-only save/reopen → render → WAV export golden path. `main` was verified after final merge `d2329753`. See `PHASE13_STATUS.md`, `PHASE13_12_AUDIT.md` and `PHASE13_13_AUDIT.md`.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11. Phase 14 is not started.**
+
+
+## Phase 14 — Loudness, Dither & Mastering Metering [IN PROGRESS]
+
+Authorized after Phase 13 closure. Sequence: 14.1 standards-aligned offline LUFS/LRA/true-peak analysis; 14.2 PCM16/24 + TPDF dither policy and export reports; 14.3 mastering-meter/export productization; 14.4 regression/realtime audit; 14.5 mastering golden path and final closure.
+
+**Current checkpoint:** 14.1 is implemented on `phase14-1-loudness-analysis` and awaiting CI. Production desktop remains JUCE 9.0.2; project format remains v11.
