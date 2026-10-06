@@ -23,10 +23,12 @@ Acceptance:
 
 ## Remaining sequence
 
-- **15.2 Licensing / dependency compliance — TECHNICAL AUDIT DONE / OWNER DECISION PENDING.**
-  - `docs/DEPENDENCY_COMPLIANCE.md` and `THIRD_PARTY_NOTICES.md` inventory the pinned JUCE 9.0.2 dependency and the two upstream licensing paths without silently choosing one.
-  - `docs/OWNER_RELEASE_DECISIONS.md` records the owner-controlled distribution decision.
-  - Public/commercial 1.0 promotion remains blocked until the product owner explicitly selects and satisfies the intended FLOWDAW/JUCE distribution terms.
+- **15.2 Licensing / dependency compliance — OWNER MODEL SELECTED / JUCE ACCEPTANCE GATE PENDING.**
+  - Product owner/licensor selected: Samuel Ocampo Echeverry.
+  - Distribution model selected: proprietary/commercial FLOWDAW.
+  - JUCE business route selected: JUCE 9 Starter while eligible; contractual acceptance remains pending until valid acceptance by the owner or required parent/guardian.
+  - Added `EULA.md`, `FLOW_CORE_LICENSE.md` and `COPYRIGHT.md`.
+  - `docs/DEPENDENCY_COMPLIANCE.md` and `THIRD_PARTY_NOTICES.md` preserve the dependency/compliance record.
 
 - **15.3 Release artifacts / versioning / integrity — IMPLEMENTED / CI PENDING.**
   - Candidate version: `1.0.0-rc.1`.
