@@ -34,11 +34,11 @@ static std::size_t nonZeroSamples(const AudioBuffer& audio){
 
 int main(){
     try{
-        // BS.1770-style calibration: stereo 1 kHz sine at -20 dBFS peak is about -20.7 LUFS.
+        // BS.1770 K-weighting adds about 0.65 dB at 1 kHz; stereo -20 dBFS peak calibrates near -20.04 LUFS.
         auto calibration=sine(48000,2,6.0,1000.0,0.1);
         const auto m=analyzeMastering(calibration);
         require(std::isfinite(m.integratedLufs),"integrated LUFS must be finite");
-        require(std::abs(m.integratedLufs-(-20.7))<0.45,"1 kHz stereo loudness calibration drift");
+        require(std::abs(m.integratedLufs-(-20.04))<0.18,"1 kHz stereo loudness calibration drift");
         require(std::abs(m.momentaryMaxLufs-m.integratedLufs)<0.2,"momentary steady-state calibration");
         require(std::abs(m.shortTermMaxLufs-m.integratedLufs)<0.2,"short-term steady-state calibration");
         require(m.loudnessRangeLu<0.2,"steady tone LRA should be near zero");
