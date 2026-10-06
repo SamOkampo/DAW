@@ -1,6 +1,6 @@
 # Phase 13.12 Audit — Native DSP / Realtime Safety
 
-**State: IMPLEMENTED / PRE-CLOSURE**
+**State: CLOSED / PASS**
 
 This audit covers the Phase 13 first-party effect architecture before final sequential CI/merge closure.
 
@@ -62,3 +62,17 @@ Phase 13 Limiter is a sample-peak limiter foundation. This phase does **not** cl
 - delivery-platform loudness targets.
 
 Those remain Phase 14 work.
+
+
+## Closure evidence
+
+PASS.
+
+- PR #146 (13.1) passed the full FLOWDAW CI matrix and merged as `f336269c`.
+- PR #148 (13.2) passed the full matrix and merged as `7f41b0d0`.
+- PR #149 (13.3) passed the full matrix and merged as `b4b77974`.
+- PR #150 (13.4–13.9) passed the full matrix and merged as `02a2e4f1`.
+- PR #151 (13.10–13.11) passed the full matrix and merged as `759bf809`.
+- PR #152 (13.12–13.13) passed the full matrix and merged as `d2329753`.
+
+The Phase 13 realtime/DSP audit is therefore closed. The scope boundary remains unchanged: LUFS compliance, mastering-grade true-peak compliance and dithering policy belong to Phase 14.
