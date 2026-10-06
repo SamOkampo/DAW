@@ -1,6 +1,6 @@
 # Phase 14.7 Final Mastering Closure Audit
 
-**State: PRE-CLOSURE — PASS ONLY AFTER ORDERED GREEN MERGES**
+**State: CLOSED / PASS**
 
 ## Production golden path
 
@@ -36,17 +36,16 @@ and adds:
 
 Master Analysis is offline/control-thread work and does not replace the callback-safe playback meter.
 
-## Required final evidence
+## Closure evidence
 
-Before Phase 14 can be marked DONE:
+**CLOSED / PASS.**
 
-- core tests green;
-- legacy X11 smoke green;
-- Linux JUCE/VST3/install/package green;
-- Windows JUCE/VST3/install/package green;
-- macOS JUCE/VST3/AU/install/DMG green;
-- ordered PR merges verified on `main`;
-- ROADMAP / status / audits updated to closed state.
+The ordered green merge chain is complete:
+1. PR #153 → `a352df30`
+2. PR #154 → `4cebace1`
+3. PR #155 → `8bf5be1b`
+
+The final golden path covers `.flow` v11 save/reopen, production offline render, Master Analysis, optional -23 LUFS / -1 dBTP constrained static normalization, PCM24 TPDF export, decode and re-analysis. The final block passed the required core/X11/Linux/Windows/macOS CI matrix before merge.
 
 ## Claim boundary
 
