@@ -157,3 +157,23 @@ Planned sequence:
 **Phase 13 closure:** 13.1–13.13 are complete. PRs #146, #148, #149, #150, #151 and #152 passed the required core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG gates in ordered sequence before merge. The final audit validates prepared callback-safe native DSP, `.flow` v11 compatibility, native effect presets/rack productization, realtime regression coverage and a native-only save/reopen → render → WAV export golden path. `main` was verified after final merge `d2329753`. See `PHASE13_STATUS.md`, `PHASE13_12_AUDIT.md` and `PHASE13_13_AUDIT.md`.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11. Phase 14 is not started.**
+
+
+## Phase 14 — Mastering / Loudness / Delivery [IN PROGRESS]
+
+Phase 14 is explicitly authorized after the completed Phase 13 closure. It closes the standards-based mastering measurement and delivery gap while preserving JUCE 9.0.2, realtime safety and portable `.flow` v11 projects.
+
+Planned sequence:
+1. **14.1 Standards contract + mastering analysis model** — BS.1770-style K-weighted Integrated/Momentary/Short-term loudness, LRA, sample peak and 4x true-peak metrics.
+2. **14.2 Loudness normalisation / true-peak ceiling** — optional -23 LUFS / -1 dBTP EBU R128-oriented static-gain normalisation with explicit peak-limited outcome.
+3. **14.3 Export bit depth + dithering policy** — Float32, PCM24 and PCM16 WAV with deterministic TPDF dither by default for integer bit-depth reduction.
+4. **14.4 Mastering meter productization** — offline Master Analysis in JUCE without moving standards processing into the audio callback.
+5. **14.5 Delivery workflow / compliance report** — EBU-oriented 24-bit TPDF export and visible achieved loudness/true-peak/gain report while retaining legacy export/stems.
+6. **14.6 Mastering regression audit** — multi-rate loudness/true-peak/dither/export/realtime/project-compatibility audit.
+7. **14.7 Final mastering closure** — installed-app analysis → normalize/export → decode/re-analyse golden path plus multiplatform CI closure.
+
+**Current checkpoint:** 14.1–14.3 are implemented on `phase14-1-3-mastering-core` and await their clean CI/merge gate. 14.4–14.7 are not yet merged.
+
+**Standards target:** ITU-R BS.1770-5 (2023), EBU R128 v5.0 (2023) and EBU Tech 3341 v4.0. FLOWDAW does not claim third-party ITU/EBU certification.
+
+**Production desktop remains JUCE 9.0.2. Project format remains v11.**

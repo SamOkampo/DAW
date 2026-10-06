@@ -15,5 +15,7 @@ class WavFile {
 public:
     static AudioBuffer read(const std::filesystem::path& path);
     static void writeFloat32(const std::filesystem::path& path, const AudioBuffer& audio);
+    static void writePcm24(const std::filesystem::path& path,const AudioBuffer& audio,bool tpdfDither=true);
+    static void writePcm16(const std::filesystem::path& path,const AudioBuffer& audio,bool tpdfDither=true);
 };
 }
