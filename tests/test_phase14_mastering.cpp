@@ -29,6 +29,15 @@ static bool anyNonZero(const AudioBuffer& b){
 
 int main(){
     try{
+        // EBU Tech 3341 minimum-requirement Test 1: stereo 1 kHz sine,
+        // -23 dBFS peak per channel, 20 seconds => M/S/I -23.0 ±0.1 LUFS.
+        const float ebuAmplitude=static_cast<float>(std::pow(10.0,-23.0/20.0));
+        const auto ebuSignal=sine(48000,2,20.0,1000.0,ebuAmplitude);
+        const auto ebu=analyzeMasteringAudio(ebuSignal);
+        require(std::abs(ebu.integratedLufs+23.0)<=0.10,"EBU Tech 3341 Test 1 integrated loudness");
+        require(std::abs(ebu.maxMomentaryLufs+23.0)<=0.10,"EBU Tech 3341 Test 1 momentary loudness");
+        require(std::abs(ebu.maxShortTermLufs+23.0)<=0.10,"EBU Tech 3341 Test 1 short-term loudness");
+
         auto a=sine(48000,2,8.0,1000.0,0.05f);
         auto b=a;for(auto&x:b.interleaved)x*=2.0f;
         const auto ma=analyzeMasteringAudio(a),mb=analyzeMasteringAudio(b);
