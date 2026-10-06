@@ -122,7 +122,7 @@ double blackman(double x){
 double truePeakLinear(const AudioBuffer& audio){
     if(audio.channels<=0||audio.frames()<=0)return 0.0;
     double peak=0.0;
-    for(float x:audio.interleaved)peak=std::max(peak,std::abs(static_cast<double>(x)));
+    for(float x:audio.interleaved)if(std::isfinite(x))peak=std::max(peak,std::abs(static_cast<double>(x)));
 
     // Offline 4x band-limited interpolation. The three fractional phases use
     // one pre-normalised 24-tap Blackman-windowed sinc kernel each.
