@@ -343,6 +343,10 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase14_loudness_tests tests/test_phase14_loudness.cpp)
     target_link_libraries(flowdaw_phase14_loudness_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase14_loudness_tests COMMAND flowdaw_phase14_loudness_tests)
+
+    add_executable(flowdaw_phase14_export_tests tests/test_phase14_export.cpp)
+    target_link_libraries(flowdaw_phase14_export_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase14_export_tests COMMAND flowdaw_phase14_export_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
