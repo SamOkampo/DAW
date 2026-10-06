@@ -157,3 +157,17 @@ Planned sequence:
 **Phase 13 closure:** 13.1–13.13 are complete. PRs #146, #148, #149, #150, #151 and #152 passed the required core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG gates in ordered sequence before merge. The final audit validates prepared callback-safe native DSP, `.flow` v11 compatibility, native effect presets/rack productization, realtime regression coverage and a native-only save/reopen → render → WAV export golden path. `main` was verified after final merge `d2329753`. See `PHASE13_STATUS.md`, `PHASE13_12_AUDIT.md` and `PHASE13_13_AUDIT.md`.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11. Phase 14 is not started.**
+
+
+## Phase 14 — Mastering Measurement & Delivery [IN PROGRESS]
+
+Phase 14 is explicitly authorized after the completed Phase 13 closure.
+
+1. **14.1 Loudness / true-peak analysis** — BS.1770/R128-aligned K-weighting, Momentary, Short-Term, Integrated, LRA, sample peak and offline dBTP.
+2. **14.2 Dither / delivery formats** — Float32 compatibility plus PCM24/PCM16 final-stage TPDF and two-pass gain-only mastering export constrained by true peak.
+3. **14.3 Mastering meter / export productization** — Analyze Master and mastering delivery entries in the production JUCE Export menu; realtime meter explicitly labeled TP EST.
+4. **14.4 Regression / closure audit** — EBU reference vector, loudness/gating/normalization/true-peak/dither/PCM/export regression plus architecture, realtime, compatibility and multiplatform CI closure.
+
+**Current checkpoint:** 14.1–14.4 are implemented on `phase14-mastering-closure` and await the full clean CI/merge gate. Project format remains `.flow` v11. See `PHASE14_DESIGN.md`, `PHASE14_STATUS.md` and `PHASE14_AUDIT.md`.
+
+**Claim boundary:** FLOWDAW targets standards-aligned internal mastering measurement and delivery; Phase 14 does not claim independent EBU/ITU certification.
