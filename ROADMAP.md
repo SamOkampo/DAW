@@ -163,4 +163,4 @@ Planned sequence:
 
 Authorized after Phase 13 closure. Sequence: 14.1 standards-aligned offline LUFS/LRA/true-peak analysis; 14.2 PCM16/24 + TPDF dither policy and export reports; 14.3 mastering-meter/export productization; 14.4 regression/realtime audit; 14.5 mastering golden path and final closure.
 
-**Current checkpoint:** 14.1 (#157) is the clean gate, 14.2 (#158) is stacked, and 14.3 mastering analysis/export productization is implemented on the ordered descendant branch.
+**Current checkpoint:** #157 gates 14.1, #158 gates 14.2, #159 gates 14.3, and 14.4–14.5 final audit/golden-path work is implemented on the ordered closure branch. Phase 14 remains IN PROGRESS until all current-head CI gates merge and `main` is verified.
