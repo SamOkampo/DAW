@@ -1,6 +1,6 @@
 # Phase 14.6 Audit — Mastering / Loudness / Realtime Safety
 
-**State: IMPLEMENTED / PRE-CLOSURE**
+**State: CLOSED / PASS**
 
 ## Standards scope
 
@@ -57,6 +57,14 @@ PASS by architecture:
 - no project graph/router/plugin/PDC changes are required;
 - `.flow` remains v11 because mastering delivery choices are not persisted song state.
 
-## Remaining closure gate
+## Closure evidence
 
-Phase 14 is not DONE until the ordered implementation PRs pass the full core/X11/Linux/Windows/macOS matrix, merge, and the final golden path is verified on `main`.
+**PASS.**
+
+- 14.1–14.3 → PR #153 → `a352df30`
+- 14.4–14.5 → PR #154 → `4cebace1`
+- 14.6–14.7 → PR #155 → `8bf5be1b`
+
+Each block head passed core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG validation before merge.
+
+The mastering regression audit is therefore closed. `.flow` remains v11, standards processing remains offline/control-path, and the realtime callback contract is unchanged.
