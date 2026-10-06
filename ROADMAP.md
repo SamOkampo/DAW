@@ -172,7 +172,7 @@ Planned sequence:
 6. **14.6 Mastering regression audit** — multi-rate loudness/true-peak/dither/export/realtime/project-compatibility audit.
 7. **14.7 Final mastering closure** — installed-app analysis → normalize/export → decode/re-analyse golden path plus multiplatform CI closure.
 
-**Current checkpoint:** 14.1–14.3 are implemented on `phase14-1-3-mastering-core` and await their clean CI/merge gate. 14.4–14.7 are not yet merged.
+**Current checkpoint:** 14.1–14.3 are the active clean CI gate (#153). 14.4–14.5 are implemented on the ordered descendant branch and await validation/merge after the mastering core. 14.6–14.7 remain pending.
 
 **Standards target:** ITU-R BS.1770-5 (2023), EBU R128 v5.0 (2023) and EBU Tech 3341 v4.0. FLOWDAW does not claim third-party ITU/EBU certification.
 
