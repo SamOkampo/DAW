@@ -32,7 +32,7 @@ The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 s
 - New sessions start with a usable native beat plus a FLOW Keys melodic Pattern.
 - Cross-platform CI validates Linux, Windows and macOS production builds; Windows creates a portable ZIP and macOS creates a DMG.
 
-Project format is currently **v11**. Application version is currently **0.8.0**; Phase 15 owns the release-version decision rather than changing the portable project format.
+Project format is currently **v11**. Release candidate version is **1.0.0-rc.1**; the portable project format remains **v11**.
 
 ## Build the production Studio
 
@@ -129,3 +129,18 @@ See:
 The Phase 14 technical product baseline is complete, but public/commercial distribution is not declared complete yet. Phase 15 tracks the remaining release gates: owner-selected FLOWDAW licence/EULA and JUCE/dependency compliance, release metadata/versioning, signed/notarized platform artifacts where applicable, physical-device/manual installed-app validation, public install/support/privacy documentation, and an RC → 1.0 closure gate.
 
 FLOWDAW does not claim that CI packaging alone substitutes for legal licensing choices, code-signing credentials, notarization, or human hardware validation.
+
+### Release-candidate documentation
+
+- `CHANGELOG.md`
+- `RELEASE_NOTES_1.0.0-rc.1.md`
+- `THIRD_PARTY_NOTICES.md`
+- `docs/INSTALL.md`
+- `docs/QUICK_START.md`
+- `docs/TROUBLESHOOTING.md`
+- `docs/KNOWN_LIMITATIONS.md`
+- `docs/PRIVACY.md`
+- `docs/SUPPORT.md`
+- `docs/SIGNING.md`
+- `docs/RELEASE_CHECKLIST.md`
+- `PHASE15_MANUAL_QA.md`
