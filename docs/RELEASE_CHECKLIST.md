@@ -14,9 +14,9 @@ Target candidate: **1.0.0-rc.1**
 
 ## Owner / legal
 
-- [ ] FLOWDAW software/content distribution licence or EULA is explicitly selected.
-- [ ] The selected JUCE 9 licensing path is documented and satisfied for distribution.
-- [ ] Required third-party notices are reviewed.
+- [x] FLOWDAW proprietary/commercial distribution model selected; EULA/content licence drafts added.
+- [ ] JUCE 9 Starter route is documented; complete valid EULA acceptance before distribution.
+- [x] Third-party notice/compliance files are present; final pre-release legal review remains recommended.
 
 ## Protected release credentials
 
