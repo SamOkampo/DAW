@@ -32,6 +32,29 @@ void exportProjectWav(const Project&project,const std::filesystem::path&path,dou
     std::filesystem::create_directories(path.parent_path().empty()?std::filesystem::path("."):path.parent_path());
     WavFile::writeFloat32(path,audio);
 }
+
+MasteringExportResult exportMasteringWav(const Project&project,const std::filesystem::path&path,const MasteringExportOptions&options,double tailSeconds,std::shared_ptr<PluginHost>pluginHost){
+    auto audio=renderProjectOffline(project,tailSeconds,pluginHost);
+    MasteringExportResult result;
+    result.before=analyzeMasteringAudio(audio);
+    result.after=result.before;
+    if(options.normalizeToTarget)result.appliedGainDb=normalizeMasteringGain(audio,options.target,&result.before,&result.after);
+    result.compliance=evaluateMasteringCompliance(result.after,options.target);
+
+    std::filesystem::create_directories(path.parent_path().empty()?std::filesystem::path("."):path.parent_path());
+    switch(options.encoding){
+      case MasteringExportEncoding::float32:
+        WavFile::writeFloat32(path,audio);
+        break;
+      case MasteringExportEncoding::pcm24:
+        WavFile::writePcm(path,audio,{WavIntegerBitDepth::pcm24,options.tpdfDither,0x464c4f57u});
+        break;
+      case MasteringExportEncoding::pcm16:
+        WavFile::writePcm(path,audio,{WavIntegerBitDepth::pcm16,options.tpdfDither,0x464c4f57u});
+        break;
+    }
+    return result;
+}
 std::vector<std::filesystem::path> exportTrackStems(const Project&project,const std::filesystem::path&directory,double tailSeconds,std::shared_ptr<PluginHost>pluginHost){
     std::filesystem::create_directories(directory);std::vector<std::filesystem::path> paths;paths.reserve(project.tracks.size());
     for(std::size_t i=0;i<project.tracks.size();++i){
