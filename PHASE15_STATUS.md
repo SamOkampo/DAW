@@ -23,10 +23,10 @@ Acceptance:
 
 ## Remaining sequence
 
-- **15.2 Licensing / dependency compliance — PENDING.**
-  - FLOWDAW currently has no declared top-level product licence/EULA in the audited Phase 12.7 baseline.
-  - Product owner must choose the intended source/distribution/commercial terms.
-  - Applicable JUCE and dependency obligations must be satisfied before a public/commercial-ready claim.
+- **15.2 Licensing / dependency compliance — TECHNICAL AUDIT DONE / OWNER DECISION PENDING.**
+  - `docs/DEPENDENCY_COMPLIANCE.md` and `THIRD_PARTY_NOTICES.md` inventory the pinned JUCE 9.0.2 dependency and the two upstream licensing paths without silently choosing one.
+  - `docs/OWNER_RELEASE_DECISIONS.md` records the owner-controlled distribution decision.
+  - Public/commercial 1.0 promotion remains blocked until the product owner explicitly selects and satisfies the intended FLOWDAW/JUCE distribution terms.
 
 - **15.3 Release artifacts / versioning / integrity — IMPLEMENTED / CI PENDING.**
   - Candidate version: `1.0.0-rc.1`.
@@ -50,8 +50,9 @@ Acceptance:
   - RC identity, changelog, release notes, integrity tooling and cross-platform artifact plumbing are implemented.
   - Promotion still requires full green CI plus the explicit legal/signing/manual checklist.
 
-- **15.8 1.0 release closure — PENDING.**
-  - Final release artifacts/docs/checksums plus completed legal, signing/notarization and manual gates.
+- **15.8 1.0 release closure — PROMOTION PROCEDURE DONE / EXTERNAL GATES PENDING.**
+  - `docs/RELEASE_PROMOTION.md` defines the exact RC → 1.0 evidence and rollback procedure.
+  - Final 1.0 cannot truthfully be marked CLOSED/PASS until owner/legal, signing/notarization and physical installed-app evidence exists.
 
 ## What “finished” means
 
