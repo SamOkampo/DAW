@@ -761,26 +761,50 @@ private:
         const Id derivedId=derived.id;project_.samples.push_back(std::move(derived));clip=firstClipForSample(sourceId);clip->sampleId=derivedId;clip->sourceStart=0;clip->sourceLength=stretched->frames();clip->lengthTicks=MusicalTime::samplesToTicks(stretched->frames(),project_.transport.bpm,stretched->sampleRate);undo_.commit(std::move(before),project_,"Match sample BPM");publishEdit("Matched "+juce::String(source,1)+" -> "+juce::String(project_.transport.bpm,1)+" BPM");selectSampleId(derivedId);
     }
     void updateExportStatus(){status_.setText(juce::String(exportWorkflow_.statusText()),juce::dontSendNotification);}
+    juce::String masteringSummary(const LoudnessReport&r)const{
+        const auto value=[](double x,const char*suffix){return std::isfinite(x)?juce::String(x,1)+suffix:juce::String("-inf")+suffix;};
+        return "I "+value(r.integratedLufs," LUFS")+" • ST "+value(r.shortTermMaxLufs," LUFS")+" • M "+value(r.momentaryMaxLufs," LUFS")+" • LRA "+juce::String(r.loudnessRangeLu,1)+" LU • TP "+value(r.truePeakDbtp," dBTP");
+    }
+    void analyzeMastering(){
+        try{
+            status_.setText("Analyzing full programme loudness…",juce::dontSendNotification);
+            const auto audio=renderProjectOffline(project_,2.0,pluginHost_);
+            const auto report=MasteringAnalyzer::analyze(audio);
+            status_.setText("MASTERING • "+masteringSummary(report),juce::dontSendNotification);
+        }catch(const std::exception&e){status_.setText("Mastering analysis failed: "+juce::String(e.what()),juce::dontSendNotification);}
+        exportMix_.grabKeyboardFocus();
+    }
     void showExportMenu(){
         juce::PopupMenu menu;
-        menu.addSectionHeader("DELIVER • "+juce::String(project_.name));
-        menu.addItem(1,"Master Mix • WAV • "+juce::String(project_.sampleRate)+" Hz");
-        menu.addItem(2,"Track Stems • "+juce::String(static_cast<int>(project_.tracks.size()))+" track(s)");
+        menu.addSectionHeader("MASTERING / DELIVER • "+juce::String(project_.name));
+        menu.addItem(1,"Analyze Programme • LUFS / LRA / True Peak");
+        menu.addSeparator();
+        menu.addItem(2,"EBU R128 Master • PCM24 + TPDF • -23 LUFS / -1 dBTP");
+        menu.addItem(3,"Master • PCM24 + TPDF • Preserve Loudness");
+        menu.addItem(4,"Master • Float32 • Preserve Loudness");
+        menu.addItem(5,"Track Stems • "+juce::String(static_cast<int>(project_.tracks.size()))+" track(s)");
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&exportMix_),[this](int result){
-            if(result==1){exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::masterMix);updateExportStatus();chooseMixExport();}
-            else if(result==2){exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::stems);updateExportStatus();chooseStemExport();}
+            if(result==1){analyzeMastering();return;}
+            if(result==2){MasterExportOptions o;o.encoding=WavEncoding::PCM24;o.dither=DitherMode::TPDF;o.normalizeLoudness=true;o.targetLufs=-23.0;o.maxTruePeakDbtp=-1.0;o.loudnessToleranceLu=0.5;chooseMixExport(o,"EBU R128");}
+            else if(result==3){MasterExportOptions o;o.encoding=WavEncoding::PCM24;o.dither=DitherMode::TPDF;chooseMixExport(o,"PCM24 TPDF");}
+            else if(result==4){MasterExportOptions o;o.encoding=WavEncoding::Float32;o.dither=DitherMode::None;chooseMixExport(o,"Float32");}
+            else if(result==5){exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::stems);updateExportStatus();chooseStemExport();}
             else{exportWorkflow_.cancel();updateExportStatus();exportMix_.grabKeyboardFocus();}
         });
     }
-    void chooseMixExport(){
-        auto base=projectPath_.empty()?juce::File::getSpecialLocation(juce::File::userDocumentsDirectory):juce::File(projectPath_.parent_path().string());auto name=projectPath_.empty()?"FLOWDAW_mix.wav":juce::String(projectPath_.stem().string()+"_mix.wav");chooser_=std::make_unique<juce::FileChooser>("Export Master Mix",base.getChildFile(name),"*.wav");
-        chooser_->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::warnAboutOverwriting,[this](const juce::FileChooser&fc){
+    void chooseMixExport(MasterExportOptions options,juce::String profile){
+        exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::masterMix);updateExportStatus();
+        auto base=projectPath_.empty()?juce::File::getSpecialLocation(juce::File::userDocumentsDirectory):juce::File(projectPath_.parent_path().string());auto name=projectPath_.empty()?"FLOWDAW_master.wav":juce::String(projectPath_.stem().string()+"_master.wav");chooser_=std::make_unique<juce::FileChooser>("Export Master • "+profile,base.getChildFile(name),"*.wav");
+        chooser_->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::warnAboutOverwriting,[this,options,profile](const juce::FileChooser&fc){
             auto f=fc.getResult();
             if(f==juce::File{}){exportWorkflow_.cancel();updateExportStatus();chooser_.reset();exportMix_.grabKeyboardFocus();return;}
             exportWorkflow_.startRendering(f.getFullPathName().toStdString());updateExportStatus();
-            try{exportProjectWav(project_,std::filesystem::path(f.getFullPathName().toStdString()),2.0,pluginHost_);exportWorkflow_.complete(f.getFileName().toStdString());}
-            catch(const std::exception&e){exportWorkflow_.fail(e.what());}
-            updateExportStatus();chooser_.reset();exportMix_.grabKeyboardFocus();
+            try{
+                const auto report=exportProjectMasterWav(project_,std::filesystem::path(f.getFullPathName().toStdString()),options,pluginHost_);
+                exportWorkflow_.complete(f.getFileName().toStdString());
+                status_.setText(profile+" • "+masteringSummary(report.delivered)+" • gain "+juce::String(report.appliedGainDb,1)+" dB"+(report.truePeakLimitMet?" • TP PASS":" • TP CHECK")+(report.loudnessTargetMet?" • LUFS PASS":" • LUFS CHECK"),juce::dontSendNotification);
+            }catch(const std::exception&e){exportWorkflow_.fail(e.what());updateExportStatus();}
+            chooser_.reset();exportMix_.grabKeyboardFocus();
         });
     }
     void chooseStemExport(){
@@ -965,7 +989,7 @@ private:
         if(arrangement_){const auto tick=MusicalTime::samplesToTicks(engine_.playheadSamples(),project_.transport.bpm,engine_.sampleRate());arrangement_->setPlayheadTick(tick);}
         const auto meters=engine_.meterSnapshot();
         const auto db=[](float value){return value>0.000001f?20.0f*std::log10(value):-120.0f;};
-        meterLabel_.setText("MASTER • TP "
+        meterLabel_.setText("MASTER LIVE EST • TP "
                             +juce::String(std::max(db(meters.master.truePeakLeft),db(meters.master.truePeakRight)),1)
                             +" dB • PK "+juce::String(std::max(db(meters.master.samplePeakLeft),db(meters.master.samplePeakRight)),1)
                             +" dB • RMS "+juce::String(std::max(db(meters.master.rmsLeft),db(meters.master.rmsRight)),1)+" dB",juce::dontSendNotification);
