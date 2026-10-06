@@ -12,6 +12,7 @@
 #include "flowdaw/JucePluginBackend.hpp"
 #include "flowdaw/NativeDrums.hpp"
 #include "flowdaw/NativePresets.hpp"
+#include "flowdaw/Mastering.hpp"
 #include "flowdaw/PluginSafety.hpp"
 #include "flowdaw/RecoveryPresentation.hpp"
 #include "flowdaw/Serialization.hpp"
@@ -248,6 +249,7 @@ public:
         refreshTrackChoice();refreshMixerTargets();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();syncChopControls();updateBpmLabel();setEditorMode(EditorMode::Arrangement);
         note_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(note_);
         meterLabel_.setText("MASTER • waiting for audio",juce::dontSendNotification);meterLabel_.setJustificationType(juce::Justification::centredRight);addAndMakeVisible(meterLabel_);
+        masteringLabel_.setText("MASTERING • Analyze Master from Export…",juce::dontSendNotification);masteringLabel_.setJustificationType(juce::Justification::centredLeft);addAndMakeVisible(masteringLabel_);
         mixerPanelToggle_.setButtonText("Hide Mixer");mixerPanelToggle_.setTooltip("Show or hide the Mixer presentation panel");mixerPanelToggle_.onClick=[this]{mixerPanelRequested_=!mixerPanelRequested_;resized();repaint();};addAndMakeVisible(mixerPanelToggle_);
         utilityPanelToggle_.setButtonText("Settings / Audio");utilityPanelToggle_.setTooltip("Open the dedicated Audio I/O settings surface; device changes apply immediately and remain app-local");utilityPanelToggle_.onClick=[this]{utilityPanelRequested_=!utilityPanelRequested_;if(utilityPanelRequested_)pluginMaintenanceRequested_=false;resized();repaint();if(utilityPanelRequested_)status_.setText("Settings / Audio I/O • changes apply immediately; close Settings to return to the creative workspace",juce::dontSendNotification);};addAndMakeVisible(utilityPanelToggle_);
         pluginMaintenanceToggle_.setButtonText("Plugin Maintenance");pluginMaintenanceToggle_.setTooltip("Open plugin scanning, quarantine and validation diagnostics without occupying the creative plugin workflow");pluginMaintenanceToggle_.onClick=[this]{pluginMaintenanceRequested_=!pluginMaintenanceRequested_;if(pluginMaintenanceRequested_)utilityPanelRequested_=false;refreshPluginMaintenanceStatus();resized();repaint();if(pluginMaintenanceRequested_)status_.setText("Plugin Maintenance • scan and quarantine diagnostics are isolated from the creative rack workflow",juce::dontSendNotification);};addAndMakeVisible(pluginMaintenanceToggle_);
@@ -344,8 +346,9 @@ public:
         const int meterWidth=std::min(310,std::max(180,context.getWidth()/3));
         meterLabel_.setBounds(context.removeFromRight(meterWidth).reduced(4,2));
         note_.setBounds(context.reduced(4,2));
+        masteringLabel_.setBounds(r.removeFromTop(24).reduced(4,1));
 
-        r.removeFromTop(8);
+        r.removeFromTop(6);
 
         auto controls=r.removeFromTop(38);pluginSearch_.setBounds(controls.removeFromLeft(230).reduced(3));pluginKindChoice_.setBounds(controls.removeFromLeft(135).reduced(3));pluginChoice_.setBounds(controls.removeFromLeft(430).reduced(3));openEditor_.setBounds(controls.removeFromLeft(190).reduced(3));
         auto instrument=r.removeFromTop(38);trackChoice_.setBounds(instrument.removeFromLeft(280).reduced(3));setInstrument_.setBounds(instrument.removeFromLeft(120).reduced(3));clearInstrument_.setBounds(instrument.removeFromLeft(125).reduced(3));addTrackFx_.setBounds(instrument.removeFromLeft(108).reduced(3));addMasterFx_.setBounds(instrument.removeFromLeft(112).reduced(3));nativePluginChoice_.setBounds(instrument.removeFromLeft(180).reduced(3));addRackNative_.setBounds(instrument.removeFromLeft(104).reduced(3));
@@ -390,6 +393,7 @@ private:
         projectLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textSecondary());
         note_.setColour(juce::Label::textColourId,juceui::FlowTheme::textSecondary());note_.setFont(juce::Font(11.5f,juce::Font::bold));
         meterLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textMuted());meterLabel_.setFont(juce::Font(11.0f));
+        masteringLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::aqua().withAlpha(0.86f));masteringLabel_.setFont(juce::Font(11.5f,juce::Font::bold));
         bpmLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textPrimary());
         pluginMaintenanceLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::aqua());pluginDiagnostics_.setColour(juce::Label::textColourId,juceui::FlowTheme::textSecondary());
         for(auto*button:{&newProject_,&loadProject_,&importWav_,&saveProject_,&play_,&stop_,&bpmMinus_,&bpmPlus_,&undoButton_,&redoButton_,&commandPalette_,&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_,&mixerPanelToggle_,&utilityPanelToggle_,&pluginMaintenanceToggle_,&scan_})button->setLookAndFeel(&shellLookAndFeel_);
@@ -545,7 +549,8 @@ private:
         mixerSendGain_.setTitle("Send gain");mixerSendGain_.setDescription("Level sent from the active track to the selected bus.");mixerSendGain_.setTooltip("Track-to-bus send level");
         mixerSendPre_.setTitle("Pre-fader send");mixerSendPre_.setHelpText("Toggle whether the selected send is taken before the channel fader.");
         trackMeter_.setTitle("Active channel meter");trackMeter_.setDescription("Read-only level meter for the selected track, bus, or master target.");
-        meterLabel_.setTitle("Master level summary");meterLabel_.setDescription("Read-only master true-peak, sample-peak, and RMS summary.");
+        meterLabel_.setTitle("Master level summary");meterLabel_.setDescription("Read-only realtime master true-peak estimate, sample-peak, and RMS summary.");
+        masteringLabel_.setTitle("Mastering analysis summary");masteringLabel_.setDescription("Offline BS.1770-5 / EBU R128-oriented Integrated, Momentary, Short-term, Loudness Range and true-peak analysis. This is not a third-party certification.");
         mixerPanelToggle_.setTitle("Mixer panel visibility");mixerPanelToggle_.setDescription("Show or hide the Mixer presentation panel.");
         utilityPanelToggle_.setTitle("Audio I/O panel visibility");utilityPanelToggle_.setDescription("Show or hide Audio I/O controls without changing the current device state.");
         patternChoice_.setTitle("Pattern selector");sampleChoice_.setTitle("Sample selector");
@@ -761,14 +766,41 @@ private:
         const Id derivedId=derived.id;project_.samples.push_back(std::move(derived));clip=firstClipForSample(sourceId);clip->sampleId=derivedId;clip->sourceStart=0;clip->sourceLength=stretched->frames();clip->lengthTicks=MusicalTime::samplesToTicks(stretched->frames(),project_.transport.bpm,stretched->sampleRate);undo_.commit(std::move(before),project_,"Match sample BPM");publishEdit("Matched "+juce::String(source,1)+" -> "+juce::String(project_.transport.bpm,1)+" BPM");selectSampleId(derivedId);
     }
     void updateExportStatus(){status_.setText(juce::String(exportWorkflow_.statusText()),juce::dontSendNotification);}
+    juce::String masteringValue(double value,int decimals,const juce::String& suffix)const{
+        return std::isfinite(value)?juce::String(value,decimals)+suffix:juce::String("—");
+    }
+    juce::String masteringSummary(const MasteringMetrics& m)const{
+        return "MASTERING • I "+masteringValue(m.integratedLufs,1," LUFS")
+            +" • Mmax "+masteringValue(m.momentaryMaxLufs,1," LUFS")
+            +" • Smax "+masteringValue(m.shortTermMaxLufs,1," LUFS")
+            +" • LRA "+masteringValue(m.loudnessRangeLu,1," LU")
+            +" • TP "+masteringValue(m.maxTruePeakDbTP,1," dBTP");
+    }
+    void publishMasteringAnalysis(const MasteringMetrics& m){
+        masteringMetrics_=m;hasMasteringAnalysis_=true;masteringLabel_.setText(masteringSummary(m),juce::dontSendNotification);
+    }
+    void analyzeMaster(){
+        try{
+            status_.setText("Master Analysis • rendering offline…",juce::dontSendNotification);
+            const auto audio=renderProjectOffline(project_,2.0,pluginHost_);
+            const auto metrics=analyzeMastering(audio);publishMasteringAnalysis(metrics);
+            status_.setText("Master Analysis complete • BS.1770-5 / EBU R128-oriented internal measurement",juce::dontSendNotification);
+        }catch(const std::exception&e){status_.setText("Master Analysis failed: "+juce::String(e.what()),juce::dontSendNotification);}
+        exportMix_.grabKeyboardFocus();
+    }
     void showExportMenu(){
         juce::PopupMenu menu;
         menu.addSectionHeader("DELIVER • "+juce::String(project_.name));
-        menu.addItem(1,"Master Mix • WAV • "+juce::String(project_.sampleRate)+" Hz");
+        menu.addItem(1,"Master Mix • Float32 WAV • "+juce::String(project_.sampleRate)+" Hz");
         menu.addItem(2,"Track Stems • "+juce::String(static_cast<int>(project_.tracks.size()))+" track(s)");
+        menu.addSeparator();
+        menu.addItem(3,"Analyze Master • LUFS / LRA / dBTP");
+        menu.addItem(4,"EBU R128 Master • PCM24 + TPDF • -23 LUFS / -1 dBTP");
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&exportMix_),[this](int result){
             if(result==1){exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::masterMix);updateExportStatus();chooseMixExport();}
             else if(result==2){exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::stems);updateExportStatus();chooseStemExport();}
+            else if(result==3){analyzeMaster();}
+            else if(result==4){exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::masterMix);updateExportStatus();chooseEbuMasterExport();}
             else{exportWorkflow_.cancel();updateExportStatus();exportMix_.grabKeyboardFocus();}
         });
     }
@@ -780,6 +812,26 @@ private:
             exportWorkflow_.startRendering(f.getFullPathName().toStdString());updateExportStatus();
             try{exportProjectWav(project_,std::filesystem::path(f.getFullPathName().toStdString()),2.0,pluginHost_);exportWorkflow_.complete(f.getFileName().toStdString());}
             catch(const std::exception&e){exportWorkflow_.fail(e.what());}
+            updateExportStatus();chooser_.reset();exportMix_.grabKeyboardFocus();
+        });
+    }
+    void chooseEbuMasterExport(){
+        auto base=projectPath_.empty()?juce::File::getSpecialLocation(juce::File::userDocumentsDirectory):juce::File(projectPath_.parent_path().string());
+        auto name=projectPath_.empty()?"FLOWDAW_R128_24bit.wav":juce::String(projectPath_.stem().string()+"_R128_24bit.wav");
+        chooser_=std::make_unique<juce::FileChooser>("Export EBU R128 Master",base.getChildFile(name),"*.wav");
+        chooser_->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::warnAboutOverwriting,[this](const juce::FileChooser&fc){
+            auto f=fc.getResult();
+            if(f==juce::File{}){exportWorkflow_.cancel();updateExportStatus();chooser_.reset();exportMix_.grabKeyboardFocus();return;}
+            exportWorkflow_.startRendering(f.getFullPathName().toStdString());updateExportStatus();
+            try{
+                MasterExportOptions options;options.bitDepth=MasterBitDepth::PCM24;options.dither=DitherMode::TPDF;options.normalizeLoudness=true;
+                options.target.targetLufs=-23.0;options.target.maxTruePeakDbTP=-1.0;options.target.toleranceLu=0.2;
+                const auto report=exportMasteredWav(project_,std::filesystem::path(f.getFullPathName().toStdString()),options,2.0,pluginHost_);
+                publishMasteringAnalysis(report.delivered);
+                juce::String detail=f.getFileName()+" • "+masteringValue(report.delivered.integratedLufs,1," LUFS")+" • "+masteringValue(report.delivered.maxTruePeakDbTP,1," dBTP");
+                if(report.limitedByTruePeak)detail+=" • loudness target constrained by TP ceiling";
+                exportWorkflow_.complete(detail.toStdString());
+            }catch(const std::exception&e){exportWorkflow_.fail(e.what());}
             updateExportStatus();chooser_.reset();exportMix_.grabKeyboardFocus();
         });
     }
@@ -981,7 +1033,7 @@ private:
     void resetRecoverySnapshot(){autosaveTicks_=0;autosaveRecovery();}
     void saveSafety(){try{safety_.save(safetyPath_);}catch(...){} }
     void saveDeviceSettings(){auto s=deviceManager_.getAudioDeviceSetup();settings_.audio.preferredSampleRate=s.sampleRate>0?static_cast<int>(s.sampleRate):48000;settings_.audio.bufferSize=sanitizeBufferSize(static_cast<unsigned long>(std::max(1,s.bufferSize)));settings_.audio.inputDevice=s.inputDeviceName.toStdString();settings_.audio.outputDevice=s.outputDeviceName.toStdString();try{saveAppSettings(settings_,settingsPath_);}catch(...){} }
-    AppSettings settings_;flowdaw::ui::ExportWorkflowState exportWorkflow_;PluginSafetyRegistry safety_;std::unique_ptr<SessionRecovery> recovery_;std::filesystem::path settingsPath_,safetyPath_,projectPath_,flowCoreRoot_=runtimeFlowCoreRoot();Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::vector<int> visiblePluginIndices_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::unique_ptr<juceui::ArrangementComponent> arrangement_;std::unique_ptr<juceui::PianoRollComponent> piano_;std::unique_ptr<juceui::SamplerComponent> sampler_;std::unique_ptr<juceui::StepSequencerComponent> sequencer_;std::unique_ptr<juceui::AutomationAssistComponent> automationAssist_;std::unique_ptr<juceui::SampleBrowserComponent> sampleBrowser_;EditorMode editorMode_=EditorMode::Arrangement;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juceui::ShellLookAndFeel shellLookAndFeel_;juce::Label title_,status_,projectLabel_,note_,meterLabel_,bpmLabel_,mixerSectionLabel_,mixerRoutingLabel_,mixerVolumeLabel_,mixerPanLabel_,trackMeterLabel_,rackParamLabel_,pluginMaintenanceLabel_,pluginDiagnostics_;int settingsSaveTicks_=0,autosaveTicks_=0;bool recoveredAtStartup_=false,preserveRecoveryOnExit_=false,suppressMixerCallbacks_=false,mixerGestureActive_=false,suppressRackCallbacks_=false,rackGestureActive_=false,rackEditorDirty_=false,suppressChopCallbacks_=false,chopGestureActive_=false,recordingChops_=false,audioRecording_=false,mixerPanelRequested_=true,utilityPanelRequested_=false,pluginMaintenanceRequested_=false,pluginScanCompleted_=false;Id chopRecordPatternId_=0,audioRecordTrackId_=0,rackEditorPluginId_=0;Tick chopRecordStartTick_=0,audioRecordStartTick_=0;Project mixerBefore_,rackBefore_,rackEditorBefore_,chopBefore_,chopRecordBefore_,audioRecordBefore_;juce::TextButton newProject_,loadProject_,importWav_,saveProject_,play_,stop_,bpmMinus_,bpmPlus_,undoButton_,redoButton_,commandPalette_,scan_,pluginMaintenanceToggle_,openEditor_,setInstrument_,clearInstrument_,addTrackFx_,addMasterFx_,muteTrack_,soloTrack_,mixerSetSend_,mixerRemoveSend_,arrangementTab_,pianoTab_,sequencerTab_,automationTab_,samplerTab_,mixerPanelToggle_,utilityPanelToggle_,bankPrev_,bankNext_,analyzeSample_,chop8_,autoChop_,chopBeat_,chopBar_,matchBpm_,exportMix_,exportStems_,stopPreview_,recChops_,chopReset_,recAudio_,monitorInput_,prevTake_,nextTake_,renamePad_,padGainMinus_,padGainPlus_,padPanMinus_,padPanPlus_,padChokeMinus_,padChokePlus_,addRackGain_,addRackClip_,addRackWidth_,addRackExternal_,addRackNative_,applyNativePreset_,rackMoveUp_,rackMoveDown_,rackEnabled_,rackBypass_,rackRemove_,openRackEditor_;juce::ComboBox pluginChoice_,pluginKindChoice_,trackChoice_,mixerTargetChoice_,mixerOutputChoice_,mixerSendBusChoice_,patternChoice_,sampleChoice_,rackTargetChoice_,rackPluginChoice_,rackParamChoice_,nativePluginChoice_,nativePresetChoice_,chopGridChoice_;juce::TextEditor pluginSearch_,padName_;juce::Slider mixerVolume_,mixerPan_,mixerSendGain_,rackWet_,rackParam_,chopQuantizeStrength_,chopHumanizeStrength_;juce::ToggleButton mixerSendPre_;juceui::StereoMeterComponent trackMeter_;int rackNativeParameterIndex_=0;
+    AppSettings settings_;flowdaw::ui::ExportWorkflowState exportWorkflow_;PluginSafetyRegistry safety_;std::unique_ptr<SessionRecovery> recovery_;std::filesystem::path settingsPath_,safetyPath_,projectPath_,flowCoreRoot_=runtimeFlowCoreRoot();Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::vector<int> visiblePluginIndices_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::unique_ptr<juceui::ArrangementComponent> arrangement_;std::unique_ptr<juceui::PianoRollComponent> piano_;std::unique_ptr<juceui::SamplerComponent> sampler_;std::unique_ptr<juceui::StepSequencerComponent> sequencer_;std::unique_ptr<juceui::AutomationAssistComponent> automationAssist_;std::unique_ptr<juceui::SampleBrowserComponent> sampleBrowser_;EditorMode editorMode_=EditorMode::Arrangement;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juceui::ShellLookAndFeel shellLookAndFeel_;juce::Label title_,status_,projectLabel_,note_,meterLabel_,masteringLabel_,bpmLabel_,mixerSectionLabel_,mixerRoutingLabel_,mixerVolumeLabel_,mixerPanLabel_,trackMeterLabel_,rackParamLabel_,pluginMaintenanceLabel_,pluginDiagnostics_;MasteringMetrics masteringMetrics_{};bool hasMasteringAnalysis_=false;int settingsSaveTicks_=0,autosaveTicks_=0;bool recoveredAtStartup_=false,preserveRecoveryOnExit_=false,suppressMixerCallbacks_=false,mixerGestureActive_=false,suppressRackCallbacks_=false,rackGestureActive_=false,rackEditorDirty_=false,suppressChopCallbacks_=false,chopGestureActive_=false,recordingChops_=false,audioRecording_=false,mixerPanelRequested_=true,utilityPanelRequested_=false,pluginMaintenanceRequested_=false,pluginScanCompleted_=false;Id chopRecordPatternId_=0,audioRecordTrackId_=0,rackEditorPluginId_=0;Tick chopRecordStartTick_=0,audioRecordStartTick_=0;Project mixerBefore_,rackBefore_,rackEditorBefore_,chopBefore_,chopRecordBefore_,audioRecordBefore_;juce::TextButton newProject_,loadProject_,importWav_,saveProject_,play_,stop_,bpmMinus_,bpmPlus_,undoButton_,redoButton_,commandPalette_,scan_,pluginMaintenanceToggle_,openEditor_,setInstrument_,clearInstrument_,addTrackFx_,addMasterFx_,muteTrack_,soloTrack_,mixerSetSend_,mixerRemoveSend_,arrangementTab_,pianoTab_,sequencerTab_,automationTab_,samplerTab_,mixerPanelToggle_,utilityPanelToggle_,bankPrev_,bankNext_,analyzeSample_,chop8_,autoChop_,chopBeat_,chopBar_,matchBpm_,exportMix_,exportStems_,stopPreview_,recChops_,chopReset_,recAudio_,monitorInput_,prevTake_,nextTake_,renamePad_,padGainMinus_,padGainPlus_,padPanMinus_,padPanPlus_,padChokeMinus_,padChokePlus_,addRackGain_,addRackClip_,addRackWidth_,addRackExternal_,addRackNative_,applyNativePreset_,rackMoveUp_,rackMoveDown_,rackEnabled_,rackBypass_,rackRemove_,openRackEditor_;juce::ComboBox pluginChoice_,pluginKindChoice_,trackChoice_,mixerTargetChoice_,mixerOutputChoice_,mixerSendBusChoice_,patternChoice_,sampleChoice_,rackTargetChoice_,rackPluginChoice_,rackParamChoice_,nativePluginChoice_,nativePresetChoice_,chopGridChoice_;juce::TextEditor pluginSearch_,padName_;juce::Slider mixerVolume_,mixerPan_,mixerSendGain_,rackWet_,rackParam_,chopQuantizeStrength_,chopHumanizeStrength_;juce::ToggleButton mixerSendPre_;juceui::StereoMeterComponent trackMeter_;int rackNativeParameterIndex_=0;
 };
 
 class MainWindow final:public juce::DocumentWindow{
