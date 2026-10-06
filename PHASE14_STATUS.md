@@ -4,7 +4,7 @@
 
 - **14.1 Offline loudness / true-peak analysis — IMPLEMENTED / CI GATE.**
 - **14.2 Master export depth + dither policy — IMPLEMENTED / STACKED CI CANDIDATE.** Float32/PCM24/PCM16 delivery, optional TPDF dither for integer reduction, loudness/true-peak target limiting and post-write delivery report are implemented with regression tests.
-- **14.3 Mastering meter productization — PENDING.**
+- **14.3 Mastering meter productization — IMPLEMENTED / STACKED CI CANDIDATE.** JUCE Deliver menu exposes full-program LUFS/LRA/true-peak analysis, EBU R128 PCM24+TPDF export, preserve-loudness PCM24/Float32 profiles and post-write PASS/CHECK metrics; realtime meter is explicitly labelled as a live estimate.
 - **14.4 Realtime/mastering regression audit — PENDING.**
 - **14.5 Final mastering golden path / closure — PENDING.**
 
@@ -12,4 +12,4 @@ Invariants: JUCE 9.0.2; `.flow` v11; no filesystem/locks/logging/UI/dynamic allo
 
 ## Current checkpoint
 
-14.1 is the active clean CI gate (#157). 14.2 is implemented on its ordered descendant branch and must merge only after 14.1.
+14.1 is the active clean CI gate (#157); 14.2 is stacked at #158; 14.3 is implemented on this ordered descendant branch. Merge order remains 14.1 → 14.2 → 14.3.
