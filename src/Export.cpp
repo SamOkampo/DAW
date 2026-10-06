@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <cmath>
 
 namespace flowdaw {
 Tick projectEndTick(const Project&project){
@@ -31,6 +32,25 @@ void exportProjectWav(const Project&project,const std::filesystem::path&path,dou
     auto audio=renderProjectOffline(project,tailSeconds,pluginHost);
     std::filesystem::create_directories(path.parent_path().empty()?std::filesystem::path("."):path.parent_path());
     WavFile::writeFloat32(path,audio);
+}
+MasterExportReport exportProjectMasterWav(const Project&project,const std::filesystem::path&path,const MasterExportOptions&options,std::shared_ptr<PluginHost>pluginHost){
+    auto audio=renderProjectOffline(project,options.tailSeconds,pluginHost);
+    MasterExportReport report;report.before=MasteringAnalyzer::analyze(audio);
+    if(options.normalizeLoudness&&!report.before.silence&&std::isfinite(report.before.integratedLufs)){
+        const double desired=options.targetLufs-report.before.integratedLufs;
+        const double truePeakHeadroom=std::isfinite(report.before.truePeakDbtp)?options.maxTruePeakDbtp-report.before.truePeakDbtp:desired;
+        report.appliedGainDb=std::min(desired,truePeakHeadroom);
+        const double gain=std::pow(10.0,report.appliedGainDb/20.0);
+        for(auto&sample:audio.interleaved)sample=static_cast<float>(static_cast<double>(sample)*gain);
+    }
+    std::filesystem::create_directories(path.parent_path().empty()?std::filesystem::path("."):path.parent_path());
+    WavWriteOptions wav;wav.encoding=options.encoding;wav.dither=options.encoding==WavEncoding::Float32?DitherMode::None:options.dither;wav.ditherSeed=options.ditherSeed;
+    WavFile::write(path,audio,wav);
+    const auto deliveredAudio=WavFile::read(path);
+    report.delivered=MasteringAnalyzer::analyze(deliveredAudio);
+    report.loudnessTargetMet=!options.normalizeLoudness||(std::isfinite(report.delivered.integratedLufs)&&std::abs(report.delivered.integratedLufs-options.targetLufs)<=options.loudnessToleranceLu);
+    report.truePeakLimitMet=!std::isfinite(report.delivered.truePeakDbtp)||report.delivered.truePeakDbtp<=options.maxTruePeakDbtp+0.05;
+    return report;
 }
 std::vector<std::filesystem::path> exportTrackStems(const Project&project,const std::filesystem::path&directory,double tailSeconds,std::shared_ptr<PluginHost>pluginHost){
     std::filesystem::create_directories(directory);std::vector<std::filesystem::path> paths;paths.reserve(project.tracks.size());
