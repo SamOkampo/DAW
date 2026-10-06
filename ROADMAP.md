@@ -135,7 +135,7 @@ Planned sequence:
 **Production desktop remains JUCE 9.0.2. Project format remains v11.**
 
 
-## Phase 13 — Native Plugins Suite [IN PROGRESS]
+## Phase 13 — Native Plugins Suite [DONE]
 
 Phase 13 is explicitly authorized after the completed Phase 12 closure. It expands FLOWDAW's first-party effect rack while preserving JUCE 9.0.2, the immutable realtime graph and portable `.flow` v11 projects.
 
@@ -154,6 +154,6 @@ Planned sequence:
 12. **13.12 DSP/realtime regression audit** — denormal/NaN safety, sample-rate/block-size independence, bypass/wet/latency and offline/realtime parity.
 13. **13.13 Final integration/closure audit** — installed-app native-only mix/export golden path plus architecture, realtime, compatibility and multiplatform CI closure.
 
-**Current checkpoint:** 13.1–13.3 are integrated. #150 gates 13.4–13.9, #151 gates 13.10–13.11, and 13.12–13.13 are implemented on the final ordered closure branch. Phase 13 remains IN PROGRESS until all current-head CI gates merge and `main` is verified.
+**Phase 13 closure:** 13.1–13.13 are complete. PRs #146, #148, #149, #150, #151 and #152 passed the required core, legacy X11, Linux JUCE/VST3/install/package, Windows JUCE/VST3/install/package and macOS JUCE/VST3/AU/install/DMG gates in ordered sequence before merge. The final audit validates prepared callback-safe native DSP, `.flow` v11 compatibility, native effect presets/rack productization, realtime regression coverage and a native-only save/reopen → render → WAV export golden path. `main` was verified after final merge `d2329753`. See `PHASE13_STATUS.md`, `PHASE13_12_AUDIT.md` and `PHASE13_13_AUDIT.md`.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11. Phase 14 is not started.**
