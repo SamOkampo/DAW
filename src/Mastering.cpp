@@ -11,6 +11,7 @@
 namespace flowdaw {
 namespace {
 
+constexpr double kPi=3.1415926535897932384626433832795;
 constexpr double kLoudnessOffset=-0.691;
 constexpr double kAbsoluteGate=-70.0;
 
@@ -30,7 +31,7 @@ Biquad kShelf(int sampleRate){
     constexpr double gainDb=3.999843853973347;
     constexpr double q=0.7071752369554196;
     constexpr double fc=1681.974450955533;
-    const double k=std::tan(M_PI*fc/static_cast<double>(sampleRate));
+    const double k=std::tan(kPi*fc/static_cast<double>(sampleRate));
     const double vh=std::pow(10.0,gainDb/20.0);
     const double vb=std::pow(vh,0.4996667741545416);
     const double a0=1.0+k/q+k*k;
@@ -46,7 +47,7 @@ Biquad kShelf(int sampleRate){
 Biquad kHighPass(int sampleRate){
     constexpr double q=0.5003270373238773;
     constexpr double fc=38.13547087602444;
-    const double k=std::tan(M_PI*fc/static_cast<double>(sampleRate));
+    const double k=std::tan(kPi*fc/static_cast<double>(sampleRate));
     const double a0=1.0+k/q+k*k;
     Biquad f;
     f.b0=1.0/a0;
@@ -107,14 +108,14 @@ double gatedIntegrated(const std::vector<double>& blockEnergy){
 
 double sinc(double x){
     if(std::abs(x)<1.0e-12)return 1.0;
-    const double pix=M_PI*x;
+    const double pix=kPi*x;
     return std::sin(pix)/pix;
 }
 
 double blackman(double x){
     // x normalized to [-1,1].
     const double a=std::clamp((x+1.0)*0.5,0.0,1.0);
-    return 0.42-0.5*std::cos(2.0*M_PI*a)+0.08*std::cos(4.0*M_PI*a);
+    return 0.42-0.5*std::cos(2.0*kPi*a)+0.08*std::cos(4.0*kPi*a);
 }
 
 double truePeakLinear(const AudioBuffer& audio){
