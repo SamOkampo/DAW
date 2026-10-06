@@ -26,7 +26,7 @@ Phase 13 is authorized after the completed/audited Phase 12 closure.
 - **13.9 FLOW Utility — IMPLEMENTED / CI GATE.** Gain, polarity, mono, swap, balance and width in one callback-safe insert.
 - **13.10 Native plugin presets — IMPLEMENTED / STACKED CI CANDIDATE.** Versioned `FLOWDAW_EFFECT_PRESET 1` format plus first-party presets for EQ, Compressor, Limiter, Saturator, Reverb, Delay, Chorus, Gate and Utility with save/load, instantiation and `.flow` v11 roundtrip tests.
 - **13.11 Native plugin editing/productization — IMPLEMENTED / STACKED CI CANDIDATE.** Production JUCE rack exposes native effect selection, semantic parameter selection, compatible preset selection/application, Undo and graph republish with accessibility metadata.
-- **13.12 DSP/realtime regression audit — PENDING.**
-- **13.13 Final integration/closure audit — PENDING.**
+- **13.12 DSP/realtime regression audit — IMPLEMENTED / PRE-CLOSURE.** Multi-sample-rate/block-size finite-output, reset, bypass, wet/dry, latency and parameter-bound coverage plus structural realtime audit in `PHASE13_12_AUDIT.md`.
+- **13.13 Final integration/closure audit — IMPLEMENTED / PRE-CLOSURE.** Native-only production golden path covers preset-backed Track/Master racks, `.flow` v11 save/reopen, production offline render and master WAV export. Phase 13 is not DONE until all ordered CI gates merge and final `main` is verified.
 
 See `PHASE13_DESIGN.md`.
