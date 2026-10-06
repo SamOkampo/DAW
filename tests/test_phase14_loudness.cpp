@@ -28,7 +28,7 @@ int main(){
         auto tone=sine(48000,2,6.0,1000.0,0.1);
         auto report=MasteringAnalyzer::analyze(tone);
         require(!report.silence&&std::isfinite(report.integratedLufs),"tone integrated loudness finite");
-        require(report.integratedLufs>-25.5&&report.integratedLufs<-21.0,"1 kHz tone loudness outside expected BS.1770-aligned range");
+        require(report.integratedLufs>-21.5&&report.integratedLufs<-18.5,"1 kHz stereo tone loudness outside expected BS.1770-aligned range");
         require(std::abs(report.momentaryMaxLufs-report.integratedLufs)<0.5,"steady tone momentary/integrated mismatch");
         require(std::abs(report.shortTermMaxLufs-report.integratedLufs)<0.5,"steady tone short-term/integrated mismatch");
         require(report.loudnessRangeLu<0.2,"steady tone LRA should be near zero");
