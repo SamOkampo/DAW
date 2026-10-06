@@ -8,7 +8,7 @@
 - Authoritative technical baseline: commit `5135d6ee32773c6c20d2b8f0272da91e37a92619`.
 - Production desktop remains JUCE 9.0.2.
 - Portable project format remains `.flow` v11.
-- Application version remains 0.8.0 until the release-version gate deliberately changes it.
+- Release candidate is now deliberately versioned as 1.0.0-rc.1; portable project format remains v11.
 - Phase 15 must not add speculative DSP/product scope merely to create more phases.
 
 ## 15.1 — Release truth / metadata baseline
@@ -28,23 +28,27 @@ Acceptance:
   - Product owner must choose the intended source/distribution/commercial terms.
   - Applicable JUCE and dependency obligations must be satisfied before a public/commercial-ready claim.
 
-- **15.3 Release artifacts / versioning / integrity — PENDING.**
-  - Decide RC/application version.
-  - Generate release notes/changelog plus artifact hashes/manifests and traceability.
+- **15.3 Release artifacts / versioning / integrity — IMPLEMENTED / CI PENDING.**
+  - Candidate version: `1.0.0-rc.1`.
+  - CMake/app packaging metadata, changelog and RC release notes are synchronized.
+  - `tools/release_manifest.py` generates deterministic SHA-256 manifests and checksum files.
+  - Linux/Windows/macOS main-branch CI uploads packaged RC artifacts plus matching manifest/checksum metadata.
 
-- **15.4 Signing / notarization — PENDING / EXTERNAL CREDENTIALS.**
-  - Windows signing and macOS signing/notarization where applicable.
-  - Certificates/tokens remain outside the repository.
+- **15.4 Signing / notarization — TECHNICAL POLICY DONE / CREDENTIAL GATE PENDING.**
+  - `docs/SIGNING.md` defines the protected production gate and forbids committing credentials.
+  - Windows/macOS signing/notarization cannot truthfully be marked PASS until valid owner credentials execute against the exact release artifact.
 
-- **15.5 Physical installed-app validation — PENDING / HUMAN HARDWARE GATE.**
-  - Run installed/package golden path on real systems.
-  - Validate representative audio/MIDI devices, scaling and third-party plugin scans.
+- **15.5 Physical installed-app validation — TEST PLAN DONE / HUMAN EVIDENCE PENDING.**
+  - `PHASE15_MANUAL_QA.md` defines Windows/macOS/Linux package-level evidence for audio, recording, plugins, save/reopen, export and display scaling.
+  - CI cannot self-certify this hardware gate.
 
-- **15.6 Public onboarding / support / privacy docs — PENDING.**
-  - Installation, quick start, known limitations, recovery/support, plugin troubleshooting and privacy/telemetry statement.
+- **15.6 Public onboarding / support / privacy docs — DONE on branch / CI PENDING.**
+  - Added install, quick-start, troubleshooting, known-limitations, privacy, support and signing documentation.
+  - Current privacy statement explicitly records that this source baseline has no FLOWDAW account, analytics SDK, advertising SDK or telemetry pipeline.
 
-- **15.7 Release candidate / beta gate — PENDING.**
-  - Tagged RC, full CI green, required manual evidence and no release-blocking issue.
+- **15.7 Release candidate / beta gate — RC PREP DONE / INTEGRATION + EXTERNAL EVIDENCE PENDING.**
+  - RC identity, changelog, release notes, integrity tooling and cross-platform artifact plumbing are implemented.
+  - Promotion still requires full green CI plus the explicit legal/signing/manual checklist.
 
 - **15.8 1.0 release closure — PENDING.**
   - Final release artifacts/docs/checksums plus completed legal, signing/notarization and manual gates.
