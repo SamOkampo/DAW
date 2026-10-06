@@ -92,7 +92,7 @@ int main(){
 
         // Production project export: 24-bit + TPDF + EBU target remains .flow-independent export state.
         Project project;project.sampleRate=48000;project.transport.bpm=120.0;project.name="Phase 14 mastering export";
-        SampleAsset sample;sample.name="tone";sample.audio=std::make_shared<AudioBuffer>(sine(48000,2,4.0,1000.0,0.025));sample.path={};
+        SampleAsset sample;sample.name="tone";sample.audio=std::make_shared<AudioBuffer>(sine(48000,2,4.0,1000.0,0.025));sample.path.clear();
         const Id sampleId=sample.id;project.samples.push_back(sample);
         Track track;track.name="Tone";Clip clip;clip.sampleId=sampleId;clip.sourceLength=sample.audio->frames();clip.lengthTicks=MusicalTime::samplesToTicks(clip.sourceLength,120.0,48000);track.clips.push_back(clip);project.tracks.push_back(track);
         MasterExportOptions options;options.bitDepth=MasterBitDepth::PCM24;options.dither=DitherMode::TPDF;options.normalizeLoudness=true;options.target=ebu;
