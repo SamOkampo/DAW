@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <cmath>
 #include <fstream>
 #include <stdexcept>
 
@@ -50,12 +51,51 @@ AudioBuffer WavFile::read(const std::filesystem::path& path) {
     }
     return out;
 }
-void WavFile::writeFloat32(const std::filesystem::path& path, const AudioBuffer& audio) {
-    if (audio.channels<1 || audio.channels>2 || audio.sampleRate<=0) throw std::invalid_argument("Invalid audio buffer");
-    std::ofstream f(path,std::ios::binary); if(!f) throw std::runtime_error("Cannot write WAV");
-    const std::uint32_t dataBytes=static_cast<std::uint32_t>(audio.interleaved.size()*sizeof(float));
-    f.write("RIFF",4); writeU32(f,36+dataBytes); f.write("WAVEfmt ",8); writeU32(f,16); writeU16(f,3); writeU16(f,static_cast<std::uint16_t>(audio.channels));
-    writeU32(f,static_cast<std::uint32_t>(audio.sampleRate)); writeU32(f,static_cast<std::uint32_t>(audio.sampleRate*audio.channels*4)); writeU16(f,static_cast<std::uint16_t>(audio.channels*4)); writeU16(f,32);
-    f.write("data",4); writeU32(f,dataBytes); f.write(reinterpret_cast<const char*>(audio.interleaved.data()),dataBytes);
+void WavFile::write(const std::filesystem::path&path,const AudioBuffer&audio,const WavWriteOptions&options){
+    if(audio.channels<1||audio.channels>2||audio.sampleRate<=0)throw std::invalid_argument("Invalid audio buffer");
+    const bool floating=options.encoding==WavEncoding::Float32;
+    const int bits=floating?32:(options.encoding==WavEncoding::PCM24?24:16);
+    const int bytesPerSample=bits/8;
+    const std::uint64_t rawBytes=static_cast<std::uint64_t>(audio.interleaved.size())*static_cast<std::uint64_t>(bytesPerSample);
+    if(rawBytes>0xffffffffULL)throw std::runtime_error("WAV exceeds RIFF 32-bit size limit");
+    const auto dataBytes=static_cast<std::uint32_t>(rawBytes);
+    std::ofstream f(path,std::ios::binary);if(!f)throw std::runtime_error("Cannot write WAV");
+    f.write("RIFF",4);writeU32(f,36+dataBytes);f.write("WAVEfmt ",8);writeU32(f,16);
+    writeU16(f,floating?3:1);writeU16(f,static_cast<std::uint16_t>(audio.channels));
+    writeU32(f,static_cast<std::uint32_t>(audio.sampleRate));
+    writeU32(f,static_cast<std::uint32_t>(audio.sampleRate*audio.channels*bytesPerSample));
+    writeU16(f,static_cast<std::uint16_t>(audio.channels*bytesPerSample));writeU16(f,static_cast<std::uint16_t>(bits));
+    f.write("data",4);writeU32(f,dataBytes);
+
+    if(floating){
+        f.write(reinterpret_cast<const char*>(audio.interleaved.data()),dataBytes);
+        return;
+    }
+
+    std::uint32_t state=options.ditherSeed?options.ditherSeed:0x464c4f57u;
+    auto randomUnit=[&]()mutable{
+        state^=state<<13;state^=state>>17;state^=state<<5;
+        return static_cast<double>(state)/4294967296.0;
+    };
+    const double scale=options.encoding==WavEncoding::PCM24?8388608.0:32768.0;
+    for(float input:audio.interleaved){
+        double x=std::clamp(static_cast<double>(std::isfinite(input)?input:0.0f),-1.0,1.0);
+        if(options.dither==DitherMode::TPDF)x+=(randomUnit()-randomUnit())/scale;
+        long long q=static_cast<long long>(std::llround(x*scale));
+        const long long minValue=options.encoding==WavEncoding::PCM24?-8388608LL:-32768LL;
+        const long long maxValue=options.encoding==WavEncoding::PCM24?8388607LL:32767LL;
+        q=std::clamp(q,minValue,maxValue);
+        if(options.encoding==WavEncoding::PCM16){
+            const auto s=static_cast<std::int16_t>(q);
+            writeU16(f,static_cast<std::uint16_t>(s));
+        }else{
+            const auto v=static_cast<std::uint32_t>(static_cast<std::int32_t>(q));
+            const unsigned char bytes[3]={static_cast<unsigned char>(v&0xffu),static_cast<unsigned char>((v>>8)&0xffu),static_cast<unsigned char>((v>>16)&0xffu)};
+            f.write(reinterpret_cast<const char*>(bytes),3);
+        }
+    }
+}
+void WavFile::writeFloat32(const std::filesystem::path&path,const AudioBuffer&audio){
+    write(path,audio,{WavEncoding::Float32,DitherMode::None,0x464c4f57u});
 }
 }
