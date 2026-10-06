@@ -134,6 +134,9 @@ FLOWDAW does not claim that CI packaging alone substitutes for legal licensing c
 
 - `CHANGELOG.md`
 - `RELEASE_NOTES_1.0.0-rc.1.md`
+- `EULA.md` — proprietary FLOWDAW licence draft
+- `FLOW_CORE_LICENSE.md` — royalty-free production-use licence for FLOW Core
+- `COPYRIGHT.md` — ownership/copyright scope
 - `THIRD_PARTY_NOTICES.md`
 - `docs/INSTALL.md`
 - `docs/QUICK_START.md`
