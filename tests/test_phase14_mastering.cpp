@@ -84,8 +84,8 @@ int main(){
         require(reread24.frames()==a.frames()&&reread24.sampleRate==a.sampleRate,"PCM24 roundtrip shape");
 
         Project project;project.sampleRate=48000;project.transport.bpm=120.0;project.name="Phase14 mastering export";
-        SampleAsset asset;asset.name="tone";asset.audio=sine(48000,2,4.0,1000.0,0.05f);const Id sid=asset.id;project.samples.push_back(asset);
-        Track track;track.name="Mastering Tone";Clip clip;clip.sampleId=sid;clip.sourceLength=asset.audio.frames();clip.lengthTicks=MusicalTime::samplesToTicks(asset.audio.frames(),120.0,48000);track.clips.push_back(clip);project.tracks.push_back(track);
+        SampleAsset asset;asset.name="tone";asset.audio=std::make_shared<AudioBuffer>(sine(48000,2,4.0,1000.0,0.05f));const Id sid=asset.id;project.samples.push_back(asset);
+        Track track;track.name="Mastering Tone";Clip clip;clip.sampleId=sid;clip.sourceLength=asset.audio->frames();clip.lengthTicks=MusicalTime::samplesToTicks(asset.audio->frames(),120.0,48000);track.clips.push_back(clip);project.tracks.push_back(track);
         MasteringExportOptions opts;opts.encoding=MasteringExportEncoding::pcm24;opts.tpdfDither=true;opts.normalizeToTarget=true;opts.target=target;
         const auto masteredPath=dir/"mastered.wav";
         const auto report=exportMasteringWav(project,masteredPath,opts,0.0);
