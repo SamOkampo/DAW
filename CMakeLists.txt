@@ -343,6 +343,14 @@ if(FLOWDAW_BUILD_TESTS)
     add_executable(flowdaw_phase14_mastering_tests tests/test_phase14_mastering.cpp)
     target_link_libraries(flowdaw_phase14_mastering_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_phase14_mastering_tests COMMAND flowdaw_phase14_mastering_tests)
+
+    add_executable(flowdaw_phase14_audit_tests tests/test_phase14_audit.cpp)
+    target_link_libraries(flowdaw_phase14_audit_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase14_audit_tests COMMAND flowdaw_phase14_audit_tests)
+
+    add_executable(flowdaw_phase14_golden_path_tests tests/test_phase14_golden_path.cpp)
+    target_link_libraries(flowdaw_phase14_golden_path_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_phase14_golden_path_tests COMMAND flowdaw_phase14_golden_path_tests)
 endif()
 
 set(CPACK_PACKAGE_NAME "FLOWDAW")
