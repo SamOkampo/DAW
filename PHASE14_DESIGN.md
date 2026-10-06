@@ -1,6 +1,6 @@
 # Phase 14 Design — Loudness / True-Peak / Dither / Mastering Metering
 
-**State: AUTHORIZED / IN PROGRESS**
+**State: CLOSED / PASS**
 
 Phase 14 closes the mastering-measurement/export gap left explicitly by Phase 13.
 
@@ -98,3 +98,10 @@ Required closure matrix remains core tests, legacy X11, Linux JUCE/VST3/install/
 ## Claim boundary
 
 Phase 14 may claim an internally validated BS.1770-5 / EBU R128-aligned mastering workflow after closure. It must not claim certification by ITU, EBU, a broadcaster, streaming platform or independent test laboratory.
+
+
+## Closure evidence
+
+Phase 14 closed through the ordered green merge chain #153 → #154 → #155. The final technical merge on `main` is `8bf5be1b`.
+
+The implementation is internally validated against the stated BS.1770-5 / EBU R128 / Tech 3341 targets, but FLOWDAW does not claim external certification or approval from ITU, EBU, a broadcaster, streaming service or independent laboratory.
