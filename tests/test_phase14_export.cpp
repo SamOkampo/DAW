@@ -18,8 +18,8 @@ static AudioBuffer tone(int sr,int frames,float amp){
 }
 static Project projectWithTone(){
     Project p;p.name="Phase14";p.sampleRate=48000;p.transport.bpm=120.0;
-    SampleAsset a;a.name="tone";a.audio=tone(48000,240000,0.1f);const Id id=a.id;p.samples.push_back(a);
-    Track t;t.name="Tone";Clip c;c.sampleId=id;c.sourceLength=a.audio.frames();c.lengthTicks=MusicalTime::samplesToTicks(a.audio.frames(),120.0,48000);t.clips.push_back(c);p.tracks.push_back(t);
+    SampleAsset a;a.name="tone";a.audio=std::make_shared<AudioBuffer>(tone(48000,240000,0.1f));const Id id=a.id;p.samples.push_back(a);
+    Track t;t.name="Tone";Clip c;c.sampleId=id;c.sourceLength=a.audio->frames();c.lengthTicks=MusicalTime::samplesToTicks(a.audio->frames(),120.0,48000);t.clips.push_back(c);p.tracks.push_back(t);
     return p;
 }
 int main(){
