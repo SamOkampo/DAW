@@ -154,11 +154,8 @@ double blackmanWindow(double x,double radius){
 
 double truePeak(const AudioBuffer& audio){
     if(audio.frames()<=0||audio.channels<=0)return 0.0;
-    int factor=1;
-    if(audio.sampleRate<64000)factor=8;
-    else if(audio.sampleRate<128000)factor=4;
-    else if(audio.sampleRate<192000)factor=2;
-    constexpr int radius=16;
+    const int factor=audio.sampleRate>=192000?1:std::max(2,static_cast<int>(std::ceil(192000.0/audio.sampleRate)));
+    constexpr int radius=8;
     std::vector<std::vector<double>> kernels(static_cast<std::size_t>(factor));
     for(int phase=0;phase<factor;++phase){
         const double frac=static_cast<double>(phase)/factor;
