@@ -4,7 +4,7 @@ FLOWDAW is a hip-hop-first desktop DAW built around one principle: remove techni
 
 ## Current state
 
-**Phase 0 through Phase 10 are complete. Phase 11 (UI/UX & Productization) is now in progress, starting with the design-system and application-shell architecture.**
+**Phase 0 through Phase 14 are complete and audited on `main`. Phase 15 (Release Readiness / Distribution) is now in progress, starting from the frozen Phase 14 technical baseline.**
 
 The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 shell remains source-available only as an explicit legacy regression/bootstrap target.
 
@@ -32,7 +32,7 @@ The production desktop path is now the **JUCE 9.0.2 Studio**. The original X11 s
 - New sessions start with a usable native beat plus a FLOW Keys melodic Pattern.
 - Cross-platform CI validates Linux, Windows and macOS production builds; Windows creates a portable ZIP and macOS creates a DMG.
 
-Project format is currently **v11**.
+Project format is currently **v11**. Release candidate version is **1.0.0-rc.1**; the portable project format remains **v11**.
 
 ## Build the production Studio
 
@@ -117,7 +117,33 @@ See:
 - `AUDIO_ENGINE.md`
 - `PROJECT_FORMAT.md`
 - `ROADMAP.md`
-- `PHASE1_STATUS.md` through `PHASE11_STATUS.md`
-- `PHASE10_AUDIT.md` — Phase 10 architecture/realtime/project-compatibility closure audit
+- `PHASE1_STATUS.md` through `PHASE15_STATUS.md`
+- `PHASE14_STATUS.md`, `PHASE14_6_AUDIT.md` and `PHASE14_7_AUDIT.md` — mastering/loudness/delivery closure evidence
+- `PHASE15_STATUS.md` — release-readiness gates and remaining distribution blockers
 - `docs/PRODUCTION_GOLDEN_PATH.md` — manual installed-app acceptance flow from starter project through export
 - `docs/TIME_STRETCH_EVALUATION.md`
+
+
+## Release readiness
+
+The Phase 14 technical product baseline is complete, but public/commercial distribution is not declared complete yet. Phase 15 tracks the remaining release gates: owner-selected FLOWDAW licence/EULA and JUCE/dependency compliance, release metadata/versioning, signed/notarized platform artifacts where applicable, physical-device/manual installed-app validation, public install/support/privacy documentation, and an RC → 1.0 closure gate.
+
+FLOWDAW does not claim that CI packaging alone substitutes for legal licensing choices, code-signing credentials, notarization, or human hardware validation.
+
+### Release-candidate documentation
+
+- `CHANGELOG.md`
+- `RELEASE_NOTES_1.0.0-rc.1.md`
+- `EULA.md` — proprietary FLOWDAW licence draft
+- `FLOW_CORE_LICENSE.md` — royalty-free production-use licence for FLOW Core
+- `COPYRIGHT.md` — ownership/copyright scope
+- `THIRD_PARTY_NOTICES.md`
+- `docs/INSTALL.md`
+- `docs/QUICK_START.md`
+- `docs/TROUBLESHOOTING.md`
+- `docs/KNOWN_LIMITATIONS.md`
+- `docs/PRIVACY.md`
+- `docs/SUPPORT.md`
+- `docs/SIGNING.md`
+- `docs/RELEASE_CHECKLIST.md`
+- `PHASE15_MANUAL_QA.md`

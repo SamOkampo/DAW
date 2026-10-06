@@ -1040,7 +1040,7 @@ class MainWindow final:public juce::DocumentWindow{
 public:MainWindow():DocumentWindow("FLOWDAW",juce::Colours::black,DocumentWindow::allButtons){setUsingNativeTitleBar(true);setResizable(true,false);setResizeLimits(flowdaw::ui::ShellLayoutMetrics::minimumWidth,flowdaw::ui::ShellLayoutMetrics::minimumHeight,32768,32768);setContentOwned(new MainComponent(),true);centreWithSize(getWidth(),getHeight());setVisible(true);}void closeButtonPressed()override{juce::JUCEApplication::getInstance()->systemRequestedQuit();}
 };
 class FlowdawApplication final:public juce::JUCEApplication{
-public:const juce::String getApplicationName()override{return"FLOWDAW";}const juce::String getApplicationVersion()override{return"0.8.0";}bool moreThanOneInstanceAllowed()override{return true;}void initialise(const juce::String&)override{window_=std::make_unique<MainWindow>();}void shutdown()override{window_.reset();}void systemRequestedQuit()override{quit();}void anotherInstanceStarted(const juce::String&)override{}
+public:const juce::String getApplicationName()override{return"FLOWDAW";}const juce::String getApplicationVersion()override{return FLOWDAW_RELEASE_VERSION;}bool moreThanOneInstanceAllowed()override{return true;}void initialise(const juce::String&)override{window_=std::make_unique<MainWindow>();}void shutdown()override{window_.reset();}void systemRequestedQuit()override{quit();}void anotherInstanceStarted(const juce::String&)override{}
 private:std::unique_ptr<MainWindow>window_;
 };
 }

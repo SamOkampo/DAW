@@ -18,6 +18,12 @@ jobs:
         run: ctest --test-dir build --output-on-failure
       - name: Doctor smoke test
         run: ./build/flowdaw-doctor status
+      - name: Release metadata tooling smoke test
+        run: |
+          printf 'flowdaw-release-smoke\n' > "$RUNNER_TEMP/release-smoke.bin"
+          python3 tools/release_manifest.py --version 1.0.0-rc.1 --commit "$GITHUB_SHA" --platform linux-smoke --output "$RUNNER_TEMP/release-manifest.json" --checksums "$RUNNER_TEMP/SHA256SUMS" "$RUNNER_TEMP/release-smoke.bin"
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['version']=='1.0.0-rc.1' and d['commit'] and len(d['artifacts'])==1" "$RUNNER_TEMP/release-manifest.json"
+          test -s "$RUNNER_TEMP/SHA256SUMS"
       - name: Build stretch benchmark
         run: cmake --build build --target flowdaw_stretch_benchmark --parallel
       - name: Benchmark stretch backend
@@ -80,6 +86,15 @@ jobs:
           tar -tzf "$pkg" | grep -q 'share/FLOWDAW/content/flow-core/CONTENT_RIGHTS.txt'
           test "$(tar -tzf "$pkg" | grep -E '\.wav$' | wc -l)" -eq 12
           test "$(tar -tzf "$pkg" | grep -E '\.flowpreset$' | wc -l)" -eq 10
+          python3 ../tools/release_manifest.py --version 1.0.0-rc.1 --commit "$GITHUB_SHA" --platform linux --output release-manifest-linux.json --checksums SHA256SUMS-linux "$pkg"
+      - name: Upload Linux release-candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowdaw-linux-${{ github.sha }}
+          path: |
+            build-juce/FLOWDAW-*.tar.gz
+            build-juce/release-manifest-linux.json
+            build-juce/SHA256SUMS-linux
 
 
   windows-juce:
@@ -120,7 +135,16 @@ jobs:
           if (-not (Get-ChildItem -Path $unpack -Recurse -Filter "CONTENT_RIGHTS.txt" | Select-Object -First 1)) { throw "FLOW Core rights notice missing from Windows ZIP" }
           if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.wav").Count -ne 12) { throw "FLOW Core WAV count mismatch in Windows ZIP" }
           if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.flowpreset").Count -ne 10) { throw "FLOW Core preset count mismatch in Windows ZIP" }
+          python ../tools/release_manifest.py --version 1.0.0-rc.1 --commit "$env:GITHUB_SHA" --platform windows --output release-manifest-windows.json --checksums SHA256SUMS-windows $pkg.FullName
           Pop-Location
+      - name: Upload Windows release-candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowdaw-windows-${{ github.sha }}
+          path: |
+            build-win/FLOWDAW-*.zip
+            build-win/release-manifest-windows.json
+            build-win/SHA256SUMS-windows
 
   macos-juce:
     runs-on: macos-latest
@@ -170,3 +194,12 @@ jobs:
           test "$(find "$contentRoot" -name '*.flowpreset' | wc -l)" -eq 10
           hdiutil detach "$mount"
           trap - EXIT
+          python3 ../tools/release_manifest.py --version 1.0.0-rc.1 --commit "$GITHUB_SHA" --platform macos --output release-manifest-macos.json --checksums SHA256SUMS-macos "$dmg"
+      - name: Upload macOS release-candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowdaw-macos-${{ github.sha }}
+          path: |
+            build-mac/FLOWDAW-*.dmg
+            build-mac/release-manifest-macos.json
+            build-mac/SHA256SUMS-macos

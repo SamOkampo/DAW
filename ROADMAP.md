@@ -177,3 +177,24 @@ Planned sequence:
 **Standards target:** ITU-R BS.1770-5 (2023), EBU R128 v5.0 (2023) and EBU Tech 3341 v4.0. FLOWDAW does not claim third-party ITU/EBU certification.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11.**
+
+
+## Phase 15 — Release Readiness / Distribution [IN PROGRESS]
+
+Phase 15 starts from the completed Phase 14 technical baseline. It does not reopen DSP, realtime or portable-project architecture unless release validation finds a concrete regression. The goal is to turn the technically complete DAW into a truthful, supportable and distributable release.
+
+Planned sequence:
+1. **15.1 Release truth / metadata baseline** — synchronize README/roadmap/status with the real Phase 14 closure, inventory release blockers and freeze the technical baseline without changing `.flow` v11.
+2. **15.2 Licensing / dependency compliance gate** — product owner selects FLOWDAW source/distribution licence or commercial EULA; verify applicable JUCE licence path and third-party notices before declaring public/commercial redistribution ready.
+3. **15.3 Release artifacts / versioning / integrity** — choose the RC/application version, produce traceable Linux/Windows/macOS artifacts, release notes/changelog, hashes/manifests and artifact provenance.
+4. **15.4 Signing / notarization** — sign Windows/macOS release artifacts and notarize macOS where required; credentials remain external secrets and are never committed to the repository.
+5. **15.5 Physical installed-app validation** — run the production golden path on real packaged builds with representative audio/MIDI devices, display scaling and third-party plugin scans; record platform-specific issues instead of treating CI as a substitute.
+6. **15.6 Public onboarding / support / privacy docs** — installation/quick-start, known limitations, recovery/support path, plugin troubleshooting, content/licensing notices and truthful privacy/telemetry statement.
+7. **15.7 Release candidate / beta gate** — tagged RC, full CI green, required manual evidence recorded and no unresolved release-blocking issue.
+8. **15.8 1.0 release closure** — final release notes/artifacts, checksums, legal/compliance gate, signed/notarized delivery where applicable and post-release rollback/support instructions.
+
+**Phase 15.1 status:** in progress on branch `phase15-release-readiness`. The Phase 14 technical baseline is frozen; no Phase 15 DSP feature expansion is authorized by this release-readiness phase.
+
+**Known external/owner gates:** FLOWDAW licence/EULA choice, applicable JUCE commercial/open-source compliance decision, signing/notarization credentials, and human hardware validation cannot be truthfully auto-completed by repository CI alone.
+
+**Production desktop remains JUCE 9.0.2. Portable project format remains v11.**
