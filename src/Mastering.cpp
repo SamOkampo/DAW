@@ -27,32 +27,31 @@ struct Biquad {
 };
 
 Biquad highShelf(double sampleRate,double frequency,double q,double gainDb){
-    const double A=std::pow(10.0,gainDb/40.0);
-    const double w0=2.0*kPi*frequency/sampleRate;
-    const double cs=std::cos(w0),sn=std::sin(w0);
-    const double alpha=sn/(2.0*q);
-    const double beta=2.0*std::sqrt(A)*alpha;
-    const double a0=(A+1.0)-(A-1.0)*cs+beta;
+    // De Man implementation used to preserve the BS.1770 48 kHz response
+    // while deriving equivalent coefficients at other sample rates.
+    const double k=std::tan(kPi*frequency/sampleRate);
+    const double vh=std::pow(10.0,gainDb/20.0);
+    const double vb=std::pow(vh,0.499666774155);
+    const double a0=1.0+k/q+k*k;
     Biquad f;
-    f.b0=A*((A+1.0)+(A-1.0)*cs+beta)/a0;
-    f.b1=-2.0*A*((A-1.0)+(A+1.0)*cs)/a0;
-    f.b2=A*((A+1.0)+(A-1.0)*cs-beta)/a0;
-    f.a1=2.0*((A-1.0)-(A+1.0)*cs)/a0;
-    f.a2=((A+1.0)-(A-1.0)*cs-beta)/a0;
+    f.b0=(vh+vb*k/q+k*k)/a0;
+    f.b1=2.0*(k*k-vh)/a0;
+    f.b2=(vh-vb*k/q+k*k)/a0;
+    f.a1=2.0*(k*k-1.0)/a0;
+    f.a2=(1.0-k/q+k*k)/a0;
     return f;
 }
 
 Biquad highPass(double sampleRate,double frequency,double q){
-    const double w0=2.0*kPi*frequency/sampleRate;
-    const double cs=std::cos(w0),sn=std::sin(w0);
-    const double alpha=sn/(2.0*q);
-    const double a0=1.0+alpha;
+    const double k=std::tan(kPi*frequency/sampleRate);
+    const double a0=1.0+k/q+k*k;
     Biquad f;
-    f.b0=((1.0+cs)*0.5)/a0;
-    f.b1=-(1.0+cs)/a0;
-    f.b2=f.b0;
-    f.a1=(-2.0*cs)/a0;
-    f.a2=(1.0-alpha)/a0;
+    f.b0=1.0;
+    f.b1=-2.0;
+    f.b2=1.0;
+    f.a1=2.0*(k*k-1.0)/a0;
+    f.a2=(1.0-k/q+k*k)/a0;
+    // The De Man high-pass numerator is intentionally not divided by a0.
     return f;
 }
 
