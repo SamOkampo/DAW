@@ -5,27 +5,27 @@
 namespace flowdaw::juceui {
 
 struct FlowTheme final {
-    static juce::Colour canvasTop(){return juce::Colour(0xff0b0914);}
-    static juce::Colour canvasBottom(){return juce::Colour(0xff070b10);}
-    static juce::Colour surface(){return juce::Colour(0xff121421);}
-    static juce::Colour surfaceRaised(){return juce::Colour(0xff1a1b2a);}
-    static juce::Colour surfaceHover(){return juce::Colour(0xff242438);}
-    static juce::Colour borderSubtle(){return juce::Colour(0xff303044);}
-    static juce::Colour borderStrong(){return juce::Colour(0xff4a4964);}
-    static juce::Colour textPrimary(){return juce::Colour(0xfff5f2fb);}
-    static juce::Colour textSecondary(){return juce::Colour(0xffbbb7c9);}
-    static juce::Colour textMuted(){return juce::Colour(0xff817d91);}
-    static juce::Colour accent(){return juce::Colour(0xffe45b98);}
-    static juce::Colour accentHot(){return juce::Colour(0xffff7ab5);}
-    static juce::Colour accentDeep(){return juce::Colour(0xff8f4cff);}
-    static juce::Colour aqua(){return juce::Colour(0xff52d6c7);}
-    static juce::Colour focus(){return juce::Colour(0xff85e8dc);}
-    static juce::Colour success(){return juce::Colour(0xff59d69a);}
-    static juce::Colour warning(){return juce::Colour(0xffffbe63);}
-    static juce::Colour danger(){return juce::Colour(0xffff667d);}
-    static juce::Colour meterSafe(){return juce::Colour(0xff52d6c7);}
-    static juce::Colour meterHot(){return juce::Colour(0xffffbe63);}
-    static juce::Colour meterClip(){return juce::Colour(0xffff667d);}
+    static juce::Colour canvasTop(){return juce::Colour(0xff0a1019);}
+    static juce::Colour canvasBottom(){return juce::Colour(0xff070b12);}
+    static juce::Colour surface(){return juce::Colour(0xff121a25);}
+    static juce::Colour surfaceRaised(){return juce::Colour(0xff1d2835);}
+    static juce::Colour surfaceHover(){return juce::Colour(0xff2a3646);}
+    static juce::Colour borderSubtle(){return juce::Colour(0xff384657);}
+    static juce::Colour borderStrong(){return juce::Colour(0xff607189);}
+    static juce::Colour textPrimary(){return juce::Colour(0xfff3f1ea);}
+    static juce::Colour textSecondary(){return juce::Colour(0xffc4ccd5);}
+    static juce::Colour textMuted(){return juce::Colour(0xff929fae);}
+    static juce::Colour accent(){return juce::Colour(0xffbc8867);}
+    static juce::Colour accentHot(){return juce::Colour(0xffedba91);}
+    static juce::Colour accentDeep(){return juce::Colour(0xff8073d4);}
+    static juce::Colour aqua(){return juce::Colour(0xff6acbbd);}
+    static juce::Colour focus(){return juce::Colour(0xffbaf0e4);}
+    static juce::Colour success(){return juce::Colour(0xff6ccd9f);}
+    static juce::Colour warning(){return juce::Colour(0xffe9bf7b);}
+    static juce::Colour danger(){return juce::Colour(0xffee7c8c);}
+    static juce::Colour meterSafe(){return juce::Colour(0xff6acbbd);}
+    static juce::Colour meterHot(){return juce::Colour(0xffe9bf7b);}
+    static juce::Colour meterClip(){return juce::Colour(0xffee7c8c);}
 
     static constexpr int space1=4;
     static constexpr int space2=8;
