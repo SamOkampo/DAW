@@ -1036,8 +1036,47 @@ private:
     AppSettings settings_;flowdaw::ui::ExportWorkflowState exportWorkflow_;PluginSafetyRegistry safety_;std::unique_ptr<SessionRecovery> recovery_;std::filesystem::path settingsPath_,safetyPath_,projectPath_,flowCoreRoot_=runtimeFlowCoreRoot();Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::vector<int> visiblePluginIndices_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::unique_ptr<juceui::ArrangementComponent> arrangement_;std::unique_ptr<juceui::PianoRollComponent> piano_;std::unique_ptr<juceui::SamplerComponent> sampler_;std::unique_ptr<juceui::StepSequencerComponent> sequencer_;std::unique_ptr<juceui::AutomationAssistComponent> automationAssist_;std::unique_ptr<juceui::SampleBrowserComponent> sampleBrowser_;EditorMode editorMode_=EditorMode::Arrangement;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juceui::ShellLookAndFeel shellLookAndFeel_;juce::Label title_,status_,projectLabel_,note_,meterLabel_,masteringLabel_,bpmLabel_,mixerSectionLabel_,mixerRoutingLabel_,mixerVolumeLabel_,mixerPanLabel_,trackMeterLabel_,rackParamLabel_,pluginMaintenanceLabel_,pluginDiagnostics_;MasteringMetrics masteringMetrics_{};bool hasMasteringAnalysis_=false;int settingsSaveTicks_=0,autosaveTicks_=0;bool recoveredAtStartup_=false,preserveRecoveryOnExit_=false,suppressMixerCallbacks_=false,mixerGestureActive_=false,suppressRackCallbacks_=false,rackGestureActive_=false,rackEditorDirty_=false,suppressChopCallbacks_=false,chopGestureActive_=false,recordingChops_=false,audioRecording_=false,mixerPanelRequested_=true,utilityPanelRequested_=false,pluginMaintenanceRequested_=false,pluginScanCompleted_=false;Id chopRecordPatternId_=0,audioRecordTrackId_=0,rackEditorPluginId_=0;Tick chopRecordStartTick_=0,audioRecordStartTick_=0;Project mixerBefore_,rackBefore_,rackEditorBefore_,chopBefore_,chopRecordBefore_,audioRecordBefore_;juce::TextButton newProject_,loadProject_,importWav_,saveProject_,play_,stop_,bpmMinus_,bpmPlus_,undoButton_,redoButton_,commandPalette_,scan_,pluginMaintenanceToggle_,openEditor_,setInstrument_,clearInstrument_,addTrackFx_,addMasterFx_,muteTrack_,soloTrack_,mixerSetSend_,mixerRemoveSend_,arrangementTab_,pianoTab_,sequencerTab_,automationTab_,samplerTab_,mixerPanelToggle_,utilityPanelToggle_,bankPrev_,bankNext_,analyzeSample_,chop8_,autoChop_,chopBeat_,chopBar_,matchBpm_,exportMix_,exportStems_,stopPreview_,recChops_,chopReset_,recAudio_,monitorInput_,prevTake_,nextTake_,renamePad_,padGainMinus_,padGainPlus_,padPanMinus_,padPanPlus_,padChokeMinus_,padChokePlus_,addRackGain_,addRackClip_,addRackWidth_,addRackExternal_,addRackNative_,applyNativePreset_,rackMoveUp_,rackMoveDown_,rackEnabled_,rackBypass_,rackRemove_,openRackEditor_;juce::ComboBox pluginChoice_,pluginKindChoice_,trackChoice_,mixerTargetChoice_,mixerOutputChoice_,mixerSendBusChoice_,patternChoice_,sampleChoice_,rackTargetChoice_,rackPluginChoice_,rackParamChoice_,nativePluginChoice_,nativePresetChoice_,chopGridChoice_;juce::TextEditor pluginSearch_,padName_;juce::Slider mixerVolume_,mixerPan_,mixerSendGain_,rackWet_,rackParam_,chopQuantizeStrength_,chopHumanizeStrength_;juce::ToggleButton mixerSendPre_;juceui::StereoMeterComponent trackMeter_;int rackNativeParameterIndex_=0;
 };
 
+// A smaller outer window scrolls a legible studio canvas instead of clipping
+// fixed-width editing controls or demanding a display larger than the laptop.
+class StudioViewport final:public juce::Viewport{
+public:
+    StudioViewport(){
+        setScrollBarsShown(true,true);
+        setScrollBarThickness(11);
+        setViewedComponent(new MainComponent(),true);
+        setSize(1440,1040);
+        resizeCanvas();
+    }
+    void resized()override{
+        juce::Viewport::resized();
+        resizeCanvas();
+    }
+private:
+    void resizeCanvas(){
+        auto*studio=getViewedComponent();
+        if(!studio)return;
+        const auto metrics=flowdaw::ui::DesktopCanvasMetrics::calculate(getViewWidth(),getViewHeight());
+        if(studio->getWidth()!=metrics.canvasWidth||studio->getHeight()!=metrics.canvasHeight)
+            studio->setSize(metrics.canvasWidth,metrics.canvasHeight);
+    }
+};
+
 class MainWindow final:public juce::DocumentWindow{
-public:MainWindow():DocumentWindow("FLOWDAW",juce::Colours::black,DocumentWindow::allButtons){setUsingNativeTitleBar(true);setResizable(true,false);setResizeLimits(flowdaw::ui::ShellLayoutMetrics::minimumWidth,flowdaw::ui::ShellLayoutMetrics::minimumHeight,32768,32768);setContentOwned(new MainComponent(),true);centreWithSize(getWidth(),getHeight());setVisible(true);}void closeButtonPressed()override{juce::JUCEApplication::getInstance()->systemRequestedQuit();}
+public:
+    MainWindow():DocumentWindow("FLOWDAW",juceui::FlowTheme::canvasBottom(),DocumentWindow::allButtons){
+        setUsingNativeTitleBar(true);
+        setResizable(true,false);
+        const auto*primary=juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
+        const auto area=primary?primary->userArea:juce::Rectangle<int>(0,0,1280,800);
+        setResizeLimits(
+            std::min(flowdaw::ui::DesktopCanvasMetrics::minimumWindowWidth,area.getWidth()),
+            std::min(flowdaw::ui::DesktopCanvasMetrics::minimumWindowHeight,area.getHeight()),
+            32768,32768);
+        setContentOwned(new StudioViewport(),true);
+        centreWithSize(std::min(1440,area.getWidth()),std::min(1040,area.getHeight()));
+        setVisible(true);
+    }
+    void closeButtonPressed()override{juce::JUCEApplication::getInstance()->systemRequestedQuit();}
 };
 class FlowdawApplication final:public juce::JUCEApplication{
 public:const juce::String getApplicationName()override{return"FLOWDAW";}const juce::String getApplicationVersion()override{return"0.8.0";}bool moreThanOneInstanceAllowed()override{return true;}void initialise(const juce::String&)override{window_=std::make_unique<MainWindow>();}void shutdown()override{window_.reset();}void systemRequestedQuit()override{quit();}void anotherInstanceStarted(const juce::String&)override{}
