@@ -57,6 +57,22 @@ int main(){
     assert(clamped.content.width==ShellLayoutMetrics::minimumWidth-2*ShellLayoutMetrics::inset);
     assert(clamped.content.height==ShellLayoutMetrics::minimumHeight-2*ShellLayoutMetrics::inset);
 
+    // Outer windows fit smaller PCs; studio controls remain readable inside
+    // a scrollable canvas. A large or maximized window uses all available area.
+    for(const auto&size:std::array<std::pair<int,int>,6>{{{640,480},{800,600},{1024,768},{1366,768},{1920,1080},{3840,2160}}}){
+        const auto canvas=flowdaw::ui::DesktopCanvasMetrics::calculate(size.first,size.second);
+        assert(canvas.canvasWidth==std::max(size.first,flowdaw::ui::DesktopCanvasMetrics::minimumCanvasWidth));
+        assert(canvas.canvasHeight==std::max(size.second,flowdaw::ui::DesktopCanvasMetrics::minimumCanvasHeight));
+        assert(canvas.horizontalScroll==(size.first<canvas.canvasWidth));
+        assert(canvas.verticalScroll==(size.second<canvas.canvasHeight));
+        const auto shell=ShellLayoutMetrics::calculate(canvas.canvasWidth,canvas.canvasHeight);
+        assert(shell.contains(shell.header));
+        assert(shell.contains(shell.recordTools));
+        // Reserve enough space below Phase 13/14 control rows for the editor.
+        constexpr int reserved=2*ShellLayoutMetrics::inset+46+48+44+28+24+6+38+38+34+88+38+38+4;
+        assert(canvas.canvasHeight-reserved>=PanelLayoutMetrics::editorMinHeight);
+    }
+
     const ShellRect minPanelArea{0,0,1148,286};
     const auto minPanels=PanelLayoutMetrics::calculate(minPanelArea);
     assert(minPanels.browser.width>=PanelLayoutMetrics::browserMinWidth);
