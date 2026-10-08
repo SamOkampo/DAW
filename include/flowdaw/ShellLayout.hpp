@@ -89,6 +89,19 @@ struct DesktopCanvasMetrics {
     }
 };
 
+// Browser action controls must wrap when the Browser sits beside the editor.
+struct BrowserToolbarMetrics {
+    static constexpr int singleRowMinimumWidth=396;
+    static constexpr int rowHeight=32;
+    static constexpr int rowGap=4;
+    [[nodiscard]] static constexpr bool useTwoRows(int availableWidth) noexcept {
+        return availableWidth<singleRowMinimumWidth;
+    }
+    [[nodiscard]] static constexpr int height(int availableWidth) noexcept {
+        return useTwoRows(availableWidth)?rowHeight*2+rowGap:rowHeight;
+    }
+};
+
 struct PanelLayoutMetrics {
     static constexpr int browserMinWidth=220;
     static constexpr int browserMaxWidth=420;
