@@ -61,6 +61,34 @@ struct ShellLayoutMetrics {
     }
 };
 
+// The top-level desktop window may shrink below the production canvas size.
+// A Viewport keeps every control reachable without shrinking text or clipping
+// the editor on laptops, display scaling and small remote desktop sessions.
+struct DesktopCanvasMetrics {
+    static constexpr int minimumWindowWidth=720;
+    static constexpr int minimumWindowHeight=520;
+    static constexpr int minimumCanvasWidth=ShellLayoutMetrics::minimumWidth;
+    // Phase 13/14 introduced more tool rows; the old 720px shell minimum
+    // leaves less than the editor's required 240px of vertical space.
+    static constexpr int minimumCanvasHeight=840;
+
+    int canvasWidth=minimumCanvasWidth;
+    int canvasHeight=minimumCanvasHeight;
+    bool horizontalScroll=false;
+    bool verticalScroll=false;
+
+    [[nodiscard]] static constexpr DesktopCanvasMetrics calculate(int viewWidth,int viewHeight) noexcept {
+        DesktopCanvasMetrics m{};
+        const int visibleWidth=std::max(0,viewWidth);
+        const int visibleHeight=std::max(0,viewHeight);
+        m.canvasWidth=std::max(visibleWidth,minimumCanvasWidth);
+        m.canvasHeight=std::max(visibleHeight,minimumCanvasHeight);
+        m.horizontalScroll=m.canvasWidth>visibleWidth;
+        m.verticalScroll=m.canvasHeight>visibleHeight;
+        return m;
+    }
+};
+
 struct PanelLayoutMetrics {
     static constexpr int browserMinWidth=220;
     static constexpr int browserMaxWidth=420;
