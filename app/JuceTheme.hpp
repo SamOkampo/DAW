@@ -17,7 +17,7 @@ struct FlowTheme final {
     static juce::Colour textMuted(){return juce::Colour(0xff929fae);}
     static juce::Colour accent(){return juce::Colour(0xffbc8867);}
     static juce::Colour accentHot(){return juce::Colour(0xffedba91);}
-    static juce::Colour accentDeep(){return juce::Colour(0xff8073d4);}
+    static juce::Colour accentDeep(){return juce::Colour(0xff6654b8);}
     static juce::Colour aqua(){return juce::Colour(0xff6acbbd);}
     static juce::Colour focus(){return juce::Colour(0xffbaf0e4);}
     static juce::Colour success(){return juce::Colour(0xff6ccd9f);}
