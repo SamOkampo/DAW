@@ -73,6 +73,21 @@ int main(){
         assert(canvas.canvasHeight-reserved>=PanelLayoutMetrics::editorMinHeight);
     }
 
+    // Browser controls must remain in the available panel, not vanish beyond
+    // its right edge when a 220-420px Browser is next to the editor.
+    for(const int browserWidth:{220,260,280,320,400,420}){
+        const int available=browserWidth-20;
+        const bool wrapped=flowdaw::ui::BrowserToolbarMetrics::useTwoRows(available);
+        assert(wrapped==(available<396));
+        assert(flowdaw::ui::BrowserToolbarMetrics::height(available)==(wrapped?68:32));
+        if(wrapped){
+            constexpr int primaryActions=54+62+48;
+            assert(primaryActions<=available);
+            const int first=available*21/100,second=available*31/100,third=available*25/100;
+            assert(first>0&&second>0&&third>0&&available-first-second-third>0);
+        }
+    }
+
     const ShellRect minPanelArea{0,0,1148,286};
     const auto minPanels=PanelLayoutMetrics::calculate(minPanelArea);
     assert(minPanels.browser.width>=PanelLayoutMetrics::browserMinWidth);
