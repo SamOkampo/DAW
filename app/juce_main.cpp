@@ -262,8 +262,8 @@ public:
     void paint(juce::Graphics&g)override{
         auto bounds=getLocalBounds().toFloat();
         juce::ColourGradient backdrop(juceui::FlowTheme::canvasTop(),bounds.getX(),bounds.getY(),juceui::FlowTheme::canvasBottom(),bounds.getRight(),bounds.getBottom(),false);
-        backdrop.addColour(0.34,juce::Colour(0xff151027));
-        backdrop.addColour(0.72,juce::Colour(0xff071319));
+        backdrop.addColour(0.34,juceui::FlowTheme::surfaceRaised());
+        backdrop.addColour(0.72,juceui::FlowTheme::canvasBottom());
         g.setGradientFill(backdrop);g.fillRect(bounds);
 
         juce::ColourGradient roseGlow(juceui::FlowTheme::accent().withAlpha(0.18f),72.0f,20.0f,juce::Colours::transparentBlack,430.0f,300.0f,true);
@@ -272,8 +272,8 @@ public:
         g.setGradientFill(aquaGlow);g.fillEllipse(bounds.getRight()-650.0f,-150.0f,760.0f,620.0f);
 
         auto shell=bounds.reduced(12.0f);shell.setHeight(std::min(170.0f,shell.getHeight()));
-        juce::ColourGradient deck(juce::Colour(0xff171425).withAlpha(0.94f),shell.getX(),shell.getY(),juce::Colour(0xff0d151c).withAlpha(0.91f),shell.getRight(),shell.getBottom(),false);
-        deck.addColour(0.52,juce::Colour(0xff1b1426).withAlpha(0.86f));
+        juce::ColourGradient deck(juceui::FlowTheme::surfaceRaised().withAlpha(0.94f),shell.getX(),shell.getY(),juceui::FlowTheme::surface().withAlpha(0.91f),shell.getRight(),shell.getBottom(),false);
+        deck.addColour(0.52,juceui::FlowTheme::surfaceRaised().withAlpha(0.86f));
         g.setGradientFill(deck);g.fillRoundedRectangle(shell,juceui::FlowTheme::radiusPanel);
         g.setColour(juceui::FlowTheme::borderSubtle().withAlpha(0.74f));g.drawRoundedRectangle(shell,juceui::FlowTheme::radiusPanel,1.0f);
         g.setColour(juceui::FlowTheme::borderSubtle().withAlpha(0.52f));
@@ -286,13 +286,13 @@ public:
 
         if(mixerSectionLabel_.isShowing()){
             auto mixerDeck=mixerSectionLabel_.getBounds().getUnion(trackMeter_.getBounds()).expanded(7,5).toFloat();
-            juce::ColourGradient mixerFill(juce::Colour(0xff171323).withAlpha(0.97f),mixerDeck.getX(),mixerDeck.getY(),juce::Colour(0xff08171b).withAlpha(0.96f),mixerDeck.getRight(),mixerDeck.getBottom(),false);
-            mixerFill.addColour(0.48,juce::Colour(0xff111a27).withAlpha(0.98f));
+            juce::ColourGradient mixerFill(juceui::FlowTheme::surfaceRaised().withAlpha(0.97f),mixerDeck.getX(),mixerDeck.getY(),juceui::FlowTheme::surface().withAlpha(0.96f),mixerDeck.getRight(),mixerDeck.getBottom(),false);
+            mixerFill.addColour(0.48,juceui::FlowTheme::surfaceRaised().withAlpha(0.98f));
             g.setGradientFill(mixerFill);g.fillRoundedRectangle(mixerDeck,12.0f);
             g.setColour(juceui::FlowTheme::borderSubtle().withAlpha(0.86f));g.drawRoundedRectangle(mixerDeck,12.0f,1.0f);
             auto targetRail=juce::Rectangle<float>(mixerDeck.getX(),mixerDeck.getY(),5.0f,mixerDeck.getHeight());
             juce::Colour targetColour=juceui::FlowTheme::accentHot();
-            const int target=mixerTargetChoice_.getSelectedId();if(target==2)targetColour=juceui::FlowTheme::aqua();else if(target>=100)targetColour=juce::Colour(0xff8d78ff);
+            const int target=mixerTargetChoice_.getSelectedId();if(target==2)targetColour=juceui::FlowTheme::aqua();else if(target>=100)targetColour=juceui::FlowTheme::accentDeep();
             juce::ColourGradient rail(targetColour.withAlpha(0.95f),targetRail.getX(),targetRail.getY(),targetColour.withAlpha(0.30f),targetRail.getX(),targetRail.getBottom(),false);
             g.setGradientFill(rail);g.fillRoundedRectangle(targetRail,2.5f);
             g.setColour(targetColour.withAlpha(0.08f));g.fillRoundedRectangle(mixerDeck.reduced(7.0f),9.0f);
@@ -921,7 +921,7 @@ private:
     void syncMixerControls(){
         suppressMixerCallbacks_=true;const bool master=mixerTargetChoice_.getSelectedId()==2;auto*channel=selectedMixerChannel();const bool valid=master||channel!=nullptr;
         mixerSectionLabel_.setText("MIXER  /  "+activeMixerName(),juce::dontSendNotification);mixerVolume_.setEnabled(valid);mixerPan_.setEnabled(channel!=nullptr);muteTrack_.setEnabled(channel!=nullptr);soloTrack_.setEnabled(channel!=nullptr);
-        const int target=mixerTargetChoice_.getSelectedId();const auto targetColour=target==2?juceui::FlowTheme::aqua():(target>=100?juce::Colour(0xff8d78ff):juceui::FlowTheme::accentHot());mixerSectionLabel_.setColour(juce::Label::textColourId,targetColour.brighter(0.18f));trackMeterLabel_.setColour(juce::Label::textColourId,targetColour);mixerSectionLabel_.setFont(juce::Font(14.5f,juce::Font::bold));
+        const int target=mixerTargetChoice_.getSelectedId();const auto targetColour=target==2?juceui::FlowTheme::aqua():(target>=100?juceui::FlowTheme::accentDeep():juceui::FlowTheme::accentHot());mixerSectionLabel_.setColour(juce::Label::textColourId,targetColour.brighter(0.18f));trackMeterLabel_.setColour(juce::Label::textColourId,targetColour);mixerSectionLabel_.setFont(juce::Font(14.5f,juce::Font::bold));
         if(master){mixerVolume_.setValue(project_.master.volume,juce::dontSendNotification);mixerPan_.setValue(0.0,juce::dontSendNotification);muteTrack_.setButtonText("Mute");soloTrack_.setButtonText("Solo");trackMeterLabel_.setText("MASTER METER",juce::dontSendNotification);}
         else if(channel){mixerVolume_.setValue(channel->volume,juce::dontSendNotification);mixerPan_.setValue(channel->pan,juce::dontSendNotification);muteTrack_.setButtonText(channel->mute?"Muted":"Mute");soloTrack_.setButtonText(channel->solo?"Soloed":"Solo");trackMeterLabel_.setText(mixerTargetChoice_.getSelectedId()>=100?"BUS METER":"TRACK METER",juce::dontSendNotification);}
         else{mixerVolume_.setValue(1.0,juce::dontSendNotification);mixerPan_.setValue(0.0,juce::dontSendNotification);muteTrack_.setButtonText("Mute");soloTrack_.setButtonText("Solo");trackMeterLabel_.setText("CHANNEL METER",juce::dontSendNotification);trackMeter_.clear();}
