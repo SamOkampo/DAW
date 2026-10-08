@@ -1,4 +1,5 @@
 #pragma once
+#include "JuceTheme.hpp"
 #include "flowdaw/Project.hpp"
 #include "flowdaw/NativeDrums.hpp"
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -43,16 +44,16 @@ public:
     Id patternId()const{return patternId_;}
 
     void paint(juce::Graphics&g)override{
-        g.fillAll(juce::Colour(0xff0f1115));
+        g.fillAll(FlowTheme::canvasBottom());
         auto*p=pattern();
-        if(!p){g.setColour(juce::Colour(0xff9aa0ad));g.drawText("Select a drum pattern",getLocalBounds(),juce::Justification::centred);return;}
+        if(!p){g.setColour(FlowTheme::textMuted());g.drawText("Select a drum pattern",getLocalBounds(),juce::Justification::centred);return;}
 
         auto grid=gridBounds();
         // Rhythmic workspace: the sequencer keeps its own cell-first identity while
         // sharing FLOWDAW's focus/depth language with the other musical editors.
-        g.setColour(juce::Colour(0xff12151b));g.fillRoundedRectangle(grid.toFloat(),7.0f);
-        g.setColour(juce::Colour(0xff303644));g.drawRoundedRectangle(grid.toFloat(),7.0f,1.0f);
-        if(hasKeyboardFocus(true)){g.setColour(juce::Colour(0xff7868e6).withAlpha(0.72f));g.drawRoundedRectangle(grid.toFloat().expanded(1.0f),8.0f,1.4f);}
+        g.setColour(FlowTheme::surface());g.fillRoundedRectangle(grid.toFloat(),7.0f);
+        g.setColour(FlowTheme::borderSubtle());g.drawRoundedRectangle(grid.toFloat(),7.0f,1.0f);
+        if(hasKeyboardFocus(true)){g.setColour(FlowTheme::focus().withAlpha(0.72f));g.drawRoundedRectangle(grid.toFloat().expanded(1.0f),8.0f,1.4f);}
         const int first=page_*16;
         const int visible=std::max(0,std::min(16,p->stepCount-first));
         const int laneCount=static_cast<int>(p->lanes.size());
@@ -62,10 +63,10 @@ public:
             const int x2=grid.getX()+kLaneHeader+((step+1)*(grid.getWidth()-kLaneHeader))/16;
             const bool beat=((first+step)%4)==0;
             const bool bar=((first+step)%16)==0;
-            if(beat){g.setColour(bar?juce::Colour(0xff29243a):juce::Colour(0xff202632));g.fillRect(x,grid.getY(),std::max(1,x2-x),grid.getHeight());}
-            g.setColour(bar?juce::Colour(0xff8a72e8):(beat?juce::Colour(0xff566074):juce::Colour(0xff343a46)));
+            if(beat){g.setColour(bar?FlowTheme::surfaceRaised():FlowTheme::surface());g.fillRect(x,grid.getY(),std::max(1,x2-x),grid.getHeight());}
+            g.setColour(bar?FlowTheme::accentDeep():(beat?FlowTheme::borderStrong():FlowTheme::borderSubtle()));
             g.drawVerticalLine(x,static_cast<float>(grid.getY()),static_cast<float>(grid.getBottom()));
-            g.setColour(juce::Colour(0xffaeb4c0));g.setFont(10.0f);g.drawText(juce::String(first+step+1),x,grid.getY()-18,std::max(1,x2-x),16,juce::Justification::centred,false);
+            g.setColour(FlowTheme::textSecondary());g.setFont(10.0f);g.drawText(juce::String(first+step+1),x,grid.getY()-18,std::max(1,x2-x),16,juce::Justification::centred,false);
         }
 
         for(int laneIndex=0;laneIndex<laneCount;++laneIndex){
@@ -73,11 +74,11 @@ public:
             const auto&lane=p->lanes[static_cast<std::size_t>(laneIndex)];
             const auto row=juce::Rectangle<int>(grid.getX(),y,grid.getWidth(),kRowHeight-1);
             const bool laneSelected=laneIndex==selectedLane_;
-            g.setColour(laneSelected?juce::Colour(0xff24223a):((laneIndex%2)==0?juce::Colour(0xff181b20):juce::Colour(0xff1d2026)));g.fillRect(row);
-            if(laneSelected){g.setColour(juce::Colour(0xff8a72e8).withAlpha(0.72f));g.fillRect(row.withWidth(3));}
-            g.setColour(laneSelected?juce::Colour(0xfff3efff):juce::Colour(0xffdfe2e8));g.setFont(laneSelected?11.5f:11.0f);g.drawFittedText(lane.name,grid.getX()+7,y,kLaneNameWidth-10,kRowHeight,juce::Justification::centredLeft,1);
-            drawToggle(g,muteRect(laneIndex),"M",lane.mute,juce::Colour(0xffd85d5d));
-            drawToggle(g,soloRect(laneIndex),"S",lane.solo,juce::Colour(0xffffc06a));
+            g.setColour(laneSelected?FlowTheme::surfaceRaised():((laneIndex%2)==0?FlowTheme::surface():FlowTheme::surfaceRaised()));g.fillRect(row);
+            if(laneSelected){g.setColour(FlowTheme::accentDeep().withAlpha(0.72f));g.fillRect(row.withWidth(3));}
+            g.setColour(laneSelected?FlowTheme::textPrimary():FlowTheme::textSecondary());g.setFont(laneSelected?11.5f:11.0f);g.drawFittedText(lane.name,grid.getX()+7,y,kLaneNameWidth-10,kRowHeight,juce::Justification::centredLeft,1);
+            drawToggle(g,muteRect(laneIndex),"M",lane.mute,FlowTheme::danger());
+            drawToggle(g,soloRect(laneIndex),"S",lane.solo,FlowTheme::warning());
 
             for(int local=0;local<visible;++local){
                 const int stepIndex=first+local;if(stepIndex>=static_cast<int>(lane.steps.size()))continue;
@@ -85,26 +86,26 @@ public:
                 if(ev.active){
                     const float strength=std::clamp(ev.velocity/1.5f,0.15f,1.0f);
                     g.setColour(juce::Colour::fromFloatRGBA(0.40f,0.31f,0.86f,0.35f+0.65f*strength));g.fillRoundedRectangle(cell.toFloat().reduced(2.0f),4.0f);
-                    if(ev.probability<0.999f){g.setColour(juce::Colour(0xffffc06a));g.setFont(8.5f);g.drawText(juce::String(static_cast<int>(std::lround(ev.probability*100)))+"%",cell.reduced(2),juce::Justification::centred,false);}
-                }else{g.setColour(juce::Colour(0xff292d35));g.fillRoundedRectangle(cell.toFloat().reduced(3.0f),3.0f);}
+                    if(ev.probability<0.999f){g.setColour(FlowTheme::warning());g.setFont(8.5f);g.drawText(juce::String(static_cast<int>(std::lround(ev.probability*100)))+"%",cell.reduced(2),juce::Justification::centred,false);}
+                }else{g.setColour(FlowTheme::surfaceHover());g.fillRoundedRectangle(cell.toFloat().reduced(3.0f),3.0f);}
                 if(laneIndex==selectedLane_&&stepIndex==selectedStep_){
-                    g.setColour(juce::Colour(0xfff5efff));g.drawRoundedRectangle(cell.toFloat().reduced(1.0f),4.0f,2.0f);
-                    g.setColour(juce::Colour(0xff8a72e8).withAlpha(0.35f));g.drawRoundedRectangle(cell.toFloat().reduced(3.0f),3.0f,1.0f);
+                    g.setColour(FlowTheme::textPrimary());g.drawRoundedRectangle(cell.toFloat().reduced(1.0f),4.0f,2.0f);
+                    g.setColour(FlowTheme::accentDeep().withAlpha(0.35f));g.drawRoundedRectangle(cell.toFloat().reduced(3.0f),3.0f,1.0f);
                 }
             }
         }
 
-        g.setColour(juce::Colour(0xffaeb4c0));g.setFont(11.0f);
+        g.setColour(FlowTheme::textSecondary());g.setFont(11.0f);
         const int pages=std::max(1,(p->stepCount+15)/16);
         g.drawText(juce::String(p->name)+" • page "+juce::String(page_+1)+"/"+juce::String(pages)+" • "+juce::String(p->stepCount)+" steps",6,2,getWidth()-12,18,juce::Justification::centredLeft,false);
         g.drawText("Arrows select • Space toggle • Delete clear • Ctrl/Cmd+D copy →",6,20,getWidth()-12,16,juce::Justification::centredLeft,false);
         const auto inspectorY=getHeight()-96;
-        g.setColour(juce::Colour(0xff777f90));g.setFont(9.5f);
+        g.setColour(FlowTheme::textMuted());g.setFont(9.5f);
         g.drawText("SELECTED STEP",8,inspectorY,420,14,juce::Justification::centredLeft,false);
         g.drawText("PATTERN FEEL",452,inspectorY,286,14,juce::Justification::centredLeft,false);
         g.drawText("SELECTED LANE",752,inspectorY,300,14,juce::Justification::centredLeft,false);
         if(auto*ev=selectedEvent()){
-            g.setColour(juce::Colour(0xffdfe2e8));g.setFont(10.5f);
+            g.setColour(FlowTheme::textSecondary());g.setFont(10.5f);
             g.drawText("Step "+juce::String(selectedStep_+1)+" • vel "+juce::String(ev->velocity,2)+" • prob "+juce::String(ev->probability,2)+" • micro "+juce::String(ev->microTicks)+" ticks",8,getHeight()-18,getWidth()-16,16,juce::Justification::centredLeft,false);
         }
     }
@@ -161,7 +162,7 @@ private:
         return{x,r.getY()+lane*kRowHeight,std::max(1,x2-x),kRowHeight-1};
     }
     static void drawToggle(juce::Graphics&g,juce::Rectangle<int>r,const char*label,bool on,juce::Colour onColour){
-        g.setColour(on?onColour:juce::Colour(0xff30343c));g.fillRoundedRectangle(r.toFloat(),3.0f);g.setColour(juce::Colours::white);g.setFont(9.5f);g.drawText(label,r,juce::Justification::centred,false);
+        g.setColour(on?onColour:FlowTheme::borderSubtle());g.fillRoundedRectangle(r.toFloat(),3.0f);g.setColour(juce::Colours::white);g.setFont(9.5f);g.drawText(label,r,juce::Justification::centred,false);
     }
     static void layoutSlider(juce::Rectangle<int>&row,juce::Slider&slider,int width){slider.setBounds(row.removeFromLeft(width).reduced(2));row.removeFromLeft(4);}
 
