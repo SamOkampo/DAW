@@ -23,7 +23,7 @@ struct FlowTheme final {
     static juce::Colour success(){return juce::Colour(0xff76ad76);}
     static juce::Colour warning(){return juce::Colour(0xffd4a15a);}
     static juce::Colour danger(){return juce::Colour(0xffbe6660);}
-    static juce::Colour meterSafe(){return success();}
+    // Differentiate song patterns from audio clips without reverting to neon.\n    static juce::Colour clipPattern(){return juce::Colour(0xff798c73);}\n    static juce::Colour meterSafe(){return success();}
     static juce::Colour meterHot(){return juce::Colour(0xffd4a15a);}
     static juce::Colour meterClip(){return juce::Colour(0xffbe6660);}
 
