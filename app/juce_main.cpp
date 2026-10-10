@@ -126,7 +126,7 @@ public:
         if(!settings_.audio.inputDevice.empty())setup.inputDeviceName=settings_.audio.inputDevice;if(!settings_.audio.outputDevice.empty())setup.outputDeviceName=settings_.audio.outputDevice;const auto setupErr=deviceManager_.setAudioDeviceSetup(setup,true);
         selector_=std::make_unique<juce::AudioDeviceSelectorComponent>(deviceManager_,0,2,0,2,true,true,true,false);selector_->setComponentID("settings-audio-io");selector_->setTitle("Settings / Audio I/O");addAndMakeVisible(*selector_);deviceManager_.addAudioCallback(this);
         addHostFormats(formatManager_);
-        title_.setText("FLOWDAW Studio",juce::dontSendNotification);title_.setFont(juce::Font(24.0f,juce::Font::bold));title_.setColour(juce::Label::textColourId,juce::Colour(0xfff4f7fb));addAndMakeVisible(title_);
+        title_.setText("FLOWDAW Studio",juce::dontSendNotification);title_.setFont(juce::Font(24.0f,juce::Font::bold));title_.setColour(juce::Label::textColourId,juceui::FlowTheme::textPrimary());addAndMakeVisible(title_);
         auto startupStatus=juce::String(startupPresentation.statusText());if(!setupErr.isEmpty())startupStatus+=" • Audio settings unavailable: "+setupErr+(deviceManager_.getCurrentAudioDevice()!=nullptr?" • using current device":" • open Settings / Audio I/O to recover");else if(!err.isEmpty())startupStatus+=" • Audio unavailable: "+err+" • open Settings / Audio I/O to recover";status_.setText(startupStatus,juce::dontSendNotification);addAndMakeVisible(status_);
         projectLabel_.setText(juce::String(startupPresentation.projectLabel()),juce::dontSendNotification);projectLabel_.setComponentID("project-identity");projectLabel_.setFont(juce::Font(14.0f,juce::Font::bold));addAndMakeVisible(projectLabel_);
         newProject_.setButtonText("New / Template");newProject_.onClick=[this]{showNewProjectMenu();};newProject_.setTooltip("Ctrl/Cmd+N");addAndMakeVisible(newProject_);
@@ -148,7 +148,7 @@ public:
         scan_.setButtonText("Scan Plugins Now");scan_.setTooltip("Rescan VST3/AU plugins on the control thread; repeated validation failures remain quarantined");scan_.onClick=[this]{scanPlugins();};addAndMakeVisible(scan_);
         pluginMaintenanceLabel_.setText("PLUGIN MAINTENANCE • VST3 / AU",juce::dontSendNotification);pluginMaintenanceLabel_.setFont(juce::Font(13.0f,juce::Font::bold));addAndMakeVisible(pluginMaintenanceLabel_);
         pluginDiagnostics_.setJustificationType(juce::Justification::topLeft);pluginDiagnostics_.setMinimumHorizontalScale(0.85f);addAndMakeVisible(pluginDiagnostics_);
-        pluginSearch_.setTextToShowWhenEmpty("Search plugins…",juce::Colour(0xff7f8796));pluginSearch_.onTextChange=[this]{refreshPluginChoice();};addAndMakeVisible(pluginSearch_);
+        pluginSearch_.setTextToShowWhenEmpty("Search plugins…",juceui::FlowTheme::textMuted());pluginSearch_.onTextChange=[this]{refreshPluginChoice();};addAndMakeVisible(pluginSearch_);
         pluginKindChoice_.addItem("All plugins",1);pluginKindChoice_.addItem("Instruments",2);pluginKindChoice_.addItem("Effects",3);pluginKindChoice_.setSelectedId(1,juce::dontSendNotification);pluginKindChoice_.onChange=[this]{refreshPluginChoice();};addAndMakeVisible(pluginKindChoice_);
         openEditor_.setButtonText("Preview Scanned Plugin");openEditor_.onClick=[this]{openSelectedEditor();};addAndMakeVisible(openEditor_);
         addAndMakeVisible(pluginChoice_);pluginChoice_.setTextWhenNothingSelected(juce::String(flowdaw::ui::pluginEmptyState(false,false)));
@@ -185,7 +185,7 @@ public:
         redoButton_.setButtonText("Redo");redoButton_.onClick=[this]{redoEdit();};addAndMakeVisible(redoButton_);
         commandPalette_.setButtonText("Commands");commandPalette_.setTooltip("Ctrl/Cmd+K");commandPalette_.onClick=[this]{showCommandPalette();};addAndMakeVisible(commandPalette_);
         trackChoice_.onChange=[this]{refreshMixerTargets();syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();};
-        mixerSectionLabel_.setText("MIXER • ACTIVE CHANNEL",juce::dontSendNotification);mixerSectionLabel_.setFont(juce::Font(14.0f,juce::Font::bold));mixerSectionLabel_.setColour(juce::Label::textColourId,juce::Colour(0xffdfe7f3));addAndMakeVisible(mixerSectionLabel_);
+        mixerSectionLabel_.setText("MIXER • ACTIVE CHANNEL",juce::dontSendNotification);mixerSectionLabel_.setFont(juce::Font(14.0f,juce::Font::bold));mixerSectionLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textSecondary());addAndMakeVisible(mixerSectionLabel_);
         mixerTargetChoice_.setTextWhenNothingSelected("No mixer target");mixerTargetChoice_.onChange=[this]{if(!suppressMixerCallbacks_){syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();}};addAndMakeVisible(mixerTargetChoice_);
         mixerVolume_.setRange(0.0,2.0,0.01);mixerVolume_.setSliderStyle(juce::Slider::LinearHorizontal);mixerVolume_.setTextBoxStyle(juce::Slider::TextBoxRight,false,70,22);mixerVolume_.onDragStart=[this]{beginMixerGesture();};mixerVolume_.onValueChange=[this]{applyMixerSliders();};mixerVolume_.onDragEnd=[this]{endMixerGesture();};addAndMakeVisible(mixerVolume_);
         mixerPan_.setRange(-1.0,1.0,0.01);mixerPan_.setSliderStyle(juce::Slider::LinearHorizontal);mixerPan_.setTextBoxStyle(juce::Slider::TextBoxRight,false,70,22);mixerPan_.onDragStart=[this]{beginMixerGesture();};mixerPan_.onValueChange=[this]{applyMixerSliders();};mixerPan_.onDragEnd=[this]{endMixerGesture();};addAndMakeVisible(mixerPan_);
@@ -223,12 +223,12 @@ public:
         sequencerTab_.setButtonText("Sequencer");sequencerTab_.onClick=[this]{setEditorMode(EditorMode::Step);};addAndMakeVisible(sequencerTab_);
         automationTab_.setButtonText("Automation");automationTab_.onClick=[this]{setEditorMode(EditorMode::Automation);};addAndMakeVisible(automationTab_);
         samplerTab_.setButtonText("Sampler");samplerTab_.onClick=[this]{setEditorMode(EditorMode::Sampler);};addAndMakeVisible(samplerTab_);
-        for(auto*tab:{&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_})tab->setColour(juce::TextButton::buttonOnColourId,juce::Colour(0xff315d9b));
+        for(auto*tab:{&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_})tab->setColour(juce::TextButton::buttonOnColourId,juceui::FlowTheme::accentDeep());
         addAndMakeVisible(patternChoice_);patternChoice_.setTextWhenNothingSelected("No MIDI pattern");patternChoice_.onChange=[this]{syncPatternEditors();};
         addAndMakeVisible(sampleChoice_);sampleChoice_.setTextWhenNothingSelected(juce::String(flowdaw::ui::sampleEmptyState()));sampleChoice_.onChange=[this]{syncSamplerSample();};
         bankPrev_.setButtonText("Bank -");bankPrev_.onClick=[this]{if(sampler_)sampler_->previousBank();};addAndMakeVisible(bankPrev_);
         bankNext_.setButtonText("Bank +");bankNext_.onClick=[this]{if(sampler_)sampler_->nextBank();};addAndMakeVisible(bankNext_);
-        padName_.setTextToShowWhenEmpty("Selected pad name",juce::Colour(0xff8f96a3));addAndMakeVisible(padName_);
+        padName_.setTextToShowWhenEmpty("Selected pad name",juceui::FlowTheme::textMuted());addAndMakeVisible(padName_);
         renamePad_.setButtonText("Rename");renamePad_.onClick=[this]{if(!sampler_||!sampler_->renameSelectedPad(padName_.getText().toStdString()))status_.setText("Select a pad first",juce::dontSendNotification);};addAndMakeVisible(renamePad_);
         padGainMinus_.setButtonText("Gain -");padGainMinus_.onClick=[this]{if(!sampler_||!sampler_->adjustSelectedPad(-0.05f,0.0f,0))status_.setText("Select a pad first",juce::dontSendNotification);};addAndMakeVisible(padGainMinus_);
         padGainPlus_.setButtonText("Gain +");padGainPlus_.onClick=[this]{if(!sampler_||!sampler_->adjustSelectedPad(0.05f,0.0f,0))status_.setText("Select a pad first",juce::dontSendNotification);};addAndMakeVisible(padGainPlus_);
@@ -262,18 +262,18 @@ public:
     void paint(juce::Graphics&g)override{
         auto bounds=getLocalBounds().toFloat();
         juce::ColourGradient backdrop(juceui::FlowTheme::canvasTop(),bounds.getX(),bounds.getY(),juceui::FlowTheme::canvasBottom(),bounds.getRight(),bounds.getBottom(),false);
-        backdrop.addColour(0.34,juce::Colour(0xff151027));
-        backdrop.addColour(0.72,juce::Colour(0xff071319));
+        backdrop.addColour(0.34,juceui::FlowTheme::surfaceRaised());
+        backdrop.addColour(0.72,juceui::FlowTheme::canvasBottom());
         g.setGradientFill(backdrop);g.fillRect(bounds);
 
-        juce::ColourGradient roseGlow(juceui::FlowTheme::accent().withAlpha(0.18f),72.0f,20.0f,juce::Colours::transparentBlack,430.0f,300.0f,true);
+        juce::ColourGradient roseGlow(juceui::FlowTheme::accent().withAlpha(0.07f),72.0f,20.0f,juce::Colours::transparentBlack,430.0f,300.0f,true);
         g.setGradientFill(roseGlow);g.fillEllipse(-190.0f,-180.0f,720.0f,560.0f);
-        juce::ColourGradient aquaGlow(juceui::FlowTheme::aqua().withAlpha(0.10f),bounds.getRight()-90.0f,90.0f,juce::Colours::transparentBlack,bounds.getRight()-520.0f,420.0f,true);
+        juce::ColourGradient aquaGlow(juceui::FlowTheme::accentHot().withAlpha(0.035f),bounds.getRight()-90.0f,90.0f,juce::Colours::transparentBlack,bounds.getRight()-520.0f,420.0f,true);
         g.setGradientFill(aquaGlow);g.fillEllipse(bounds.getRight()-650.0f,-150.0f,760.0f,620.0f);
 
         auto shell=bounds.reduced(12.0f);shell.setHeight(std::min(170.0f,shell.getHeight()));
-        juce::ColourGradient deck(juce::Colour(0xff171425).withAlpha(0.94f),shell.getX(),shell.getY(),juce::Colour(0xff0d151c).withAlpha(0.91f),shell.getRight(),shell.getBottom(),false);
-        deck.addColour(0.52,juce::Colour(0xff1b1426).withAlpha(0.86f));
+        juce::ColourGradient deck(juceui::FlowTheme::surfaceRaised().withAlpha(0.94f),shell.getX(),shell.getY(),juceui::FlowTheme::surface().withAlpha(0.91f),shell.getRight(),shell.getBottom(),false);
+        deck.addColour(0.52,juceui::FlowTheme::surfaceHover().withAlpha(0.86f));
         g.setGradientFill(deck);g.fillRoundedRectangle(shell,juceui::FlowTheme::radiusPanel);
         g.setColour(juceui::FlowTheme::borderSubtle().withAlpha(0.74f));g.drawRoundedRectangle(shell,juceui::FlowTheme::radiusPanel,1.0f);
         g.setColour(juceui::FlowTheme::borderSubtle().withAlpha(0.52f));
@@ -286,13 +286,13 @@ public:
 
         if(mixerSectionLabel_.isShowing()){
             auto mixerDeck=mixerSectionLabel_.getBounds().getUnion(trackMeter_.getBounds()).expanded(7,5).toFloat();
-            juce::ColourGradient mixerFill(juce::Colour(0xff171323).withAlpha(0.97f),mixerDeck.getX(),mixerDeck.getY(),juce::Colour(0xff08171b).withAlpha(0.96f),mixerDeck.getRight(),mixerDeck.getBottom(),false);
-            mixerFill.addColour(0.48,juce::Colour(0xff111a27).withAlpha(0.98f));
+            juce::ColourGradient mixerFill(juceui::FlowTheme::surfaceRaised().withAlpha(0.97f),mixerDeck.getX(),mixerDeck.getY(),juceui::FlowTheme::canvasBottom().withAlpha(0.96f),mixerDeck.getRight(),mixerDeck.getBottom(),false);
+            mixerFill.addColour(0.48,juceui::FlowTheme::surface().withAlpha(0.98f));
             g.setGradientFill(mixerFill);g.fillRoundedRectangle(mixerDeck,12.0f);
             g.setColour(juceui::FlowTheme::borderSubtle().withAlpha(0.86f));g.drawRoundedRectangle(mixerDeck,12.0f,1.0f);
             auto targetRail=juce::Rectangle<float>(mixerDeck.getX(),mixerDeck.getY(),5.0f,mixerDeck.getHeight());
             juce::Colour targetColour=juceui::FlowTheme::accentHot();
-            const int target=mixerTargetChoice_.getSelectedId();if(target==2)targetColour=juceui::FlowTheme::aqua();else if(target>=100)targetColour=juce::Colour(0xff8d78ff);
+            const int target=mixerTargetChoice_.getSelectedId();if(target==2)targetColour=juceui::FlowTheme::aqua();else if(target>=100)targetColour=juceui::FlowTheme::accentHot();
             juce::ColourGradient rail(targetColour.withAlpha(0.95f),targetRail.getX(),targetRail.getY(),targetColour.withAlpha(0.30f),targetRail.getX(),targetRail.getBottom(),false);
             g.setGradientFill(rail);g.fillRoundedRectangle(targetRail,2.5f);
             g.setColour(targetColour.withAlpha(0.08f));g.fillRoundedRectangle(mixerDeck.reduced(7.0f),9.0f);
@@ -921,7 +921,7 @@ private:
     void syncMixerControls(){
         suppressMixerCallbacks_=true;const bool master=mixerTargetChoice_.getSelectedId()==2;auto*channel=selectedMixerChannel();const bool valid=master||channel!=nullptr;
         mixerSectionLabel_.setText("MIXER  /  "+activeMixerName(),juce::dontSendNotification);mixerVolume_.setEnabled(valid);mixerPan_.setEnabled(channel!=nullptr);muteTrack_.setEnabled(channel!=nullptr);soloTrack_.setEnabled(channel!=nullptr);
-        const int target=mixerTargetChoice_.getSelectedId();const auto targetColour=target==2?juceui::FlowTheme::aqua():(target>=100?juce::Colour(0xff8d78ff):juceui::FlowTheme::accentHot());mixerSectionLabel_.setColour(juce::Label::textColourId,targetColour.brighter(0.18f));trackMeterLabel_.setColour(juce::Label::textColourId,targetColour);mixerSectionLabel_.setFont(juce::Font(14.5f,juce::Font::bold));
+        const int target=mixerTargetChoice_.getSelectedId();const auto targetColour=target==2?juceui::FlowTheme::aqua():(target>=100?juceui::FlowTheme::accentHot():juceui::FlowTheme::accentHot());mixerSectionLabel_.setColour(juce::Label::textColourId,targetColour.brighter(0.18f));trackMeterLabel_.setColour(juce::Label::textColourId,targetColour);mixerSectionLabel_.setFont(juce::Font(14.5f,juce::Font::bold));
         if(master){mixerVolume_.setValue(project_.master.volume,juce::dontSendNotification);mixerPan_.setValue(0.0,juce::dontSendNotification);muteTrack_.setButtonText("Mute");soloTrack_.setButtonText("Solo");trackMeterLabel_.setText("MASTER METER",juce::dontSendNotification);}
         else if(channel){mixerVolume_.setValue(channel->volume,juce::dontSendNotification);mixerPan_.setValue(channel->pan,juce::dontSendNotification);muteTrack_.setButtonText(channel->mute?"Muted":"Mute");soloTrack_.setButtonText(channel->solo?"Soloed":"Solo");trackMeterLabel_.setText(mixerTargetChoice_.getSelectedId()>=100?"BUS METER":"TRACK METER",juce::dontSendNotification);}
         else{mixerVolume_.setValue(1.0,juce::dontSendNotification);mixerPan_.setValue(0.0,juce::dontSendNotification);muteTrack_.setButtonText("Mute");soloTrack_.setButtonText("Solo");trackMeterLabel_.setText("CHANNEL METER",juce::dontSendNotification);trackMeter_.clear();}
