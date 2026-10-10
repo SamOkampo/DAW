@@ -16,6 +16,8 @@ jobs:
         run: cmake --build build --parallel
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Phase 16.2 visual-theme source and contrast checks
+        run: python3 tests/test_phase16_2_theme.py
       - name: Doctor smoke test
         run: ./build/flowdaw-doctor status
       - name: Build stretch benchmark

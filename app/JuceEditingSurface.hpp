@@ -1,4 +1,5 @@
 #pragma once
+#include "JuceTheme.hpp"
 #include "flowdaw/ArrangementSelection.hpp"
 #include "flowdaw/AudioEngine.hpp"
 #include "flowdaw/MusicalTime.hpp"
@@ -17,7 +18,7 @@ public:
     void setReading(const AudioMeterReading&reading){reading_=reading;repaint();}
     void clear(){reading_=AudioMeterReading{};repaint();}
     void paint(juce::Graphics&g)override{
-        auto bounds=getLocalBounds().toFloat();g.setColour(juce::Colour(0xff17191e));g.fillRoundedRectangle(bounds,4.0f);
+        auto bounds=getLocalBounds().toFloat();g.setColour(FlowTheme::surface());g.fillRoundedRectangle(bounds,4.0f);
         auto inner=bounds.reduced(6.0f);auto left=inner.removeFromTop(inner.getHeight()*0.45f);inner.removeFromTop(4.0f);auto right=inner;
         drawChannel(g,left,reading_.samplePeakLeft,reading_.truePeakLeft,"L");drawChannel(g,right,reading_.samplePeakRight,reading_.truePeakRight,"R");
     }
@@ -25,8 +26,8 @@ private:
     static float db(float value){return value>0.000001f?20.0f*std::log10(value):-120.0f;}
     static float norm(float value){return std::clamp((db(value)+60.0f)/60.0f,0.0f,1.0f);}
     static void drawChannel(juce::Graphics&g,juce::Rectangle<float>r,float peak,float truePeak,const char*label){
-        g.setColour(juce::Colour(0xff292c34));g.fillRoundedRectangle(r,3.0f);auto fill=r.withWidth(r.getWidth()*norm(peak));g.setColour(juce::Colour(0xff30ca84));g.fillRoundedRectangle(fill,3.0f);
-        const float marker=r.getX()+r.getWidth()*norm(truePeak);g.setColour(juce::Colour(0xffed963c));g.drawVerticalLine(static_cast<int>(std::lround(marker)),r.getY(),r.getBottom());
+        g.setColour(FlowTheme::surfaceHover());g.fillRoundedRectangle(r,3.0f);auto fill=r.withWidth(r.getWidth()*norm(peak));g.setColour(FlowTheme::meterSafe());g.fillRoundedRectangle(fill,3.0f);
+        const float marker=r.getX()+r.getWidth()*norm(truePeak);g.setColour(FlowTheme::meterHot());g.drawVerticalLine(static_cast<int>(std::lround(marker)),r.getY(),r.getBottom());
         g.setColour(juce::Colours::white);g.setFont(11.0f);g.drawText(juce::String(label)+"  "+juce::String(db(peak),1)+" dB  TP "+juce::String(db(truePeak),1),r.reduced(5.0f),juce::Justification::centredLeft,false);
     }
     AudioMeterReading reading_;
@@ -50,54 +51,54 @@ public:
 
     void paint(juce::Graphics&g)override{
         const auto bounds=getLocalBounds();const int header=kHeaderHeight,labelWidth=kTrackHeaderWidth,rowHeight=kRowHeight;
-        juce::ColourGradient canvas(juce::Colour(0xff100d18),0.0f,0.0f,juce::Colour(0xff090d13),static_cast<float>(bounds.getWidth()),static_cast<float>(bounds.getHeight()),false);
-        canvas.addColour(0.46,juce::Colour(0xff0d1119));g.setGradientFill(canvas);g.fillAll();
-        g.setColour(juce::Colour(0xff141421));g.fillRect(0,0,bounds.getWidth(),header);
-        juce::ColourGradient rulerGlow(juce::Colour(0xff8f4cff).withAlpha(0.22f),static_cast<float>(labelWidth),0.0f,juce::Colour(0xff52d6c7).withAlpha(0.10f),static_cast<float>(bounds.getWidth()),0.0f,false);
+        juce::ColourGradient canvas(FlowTheme::canvasTop(),0.0f,0.0f,FlowTheme::canvasBottom(),static_cast<float>(bounds.getWidth()),static_cast<float>(bounds.getHeight()),false);
+        canvas.addColour(0.46,FlowTheme::surface());g.setGradientFill(canvas);g.fillAll();
+        g.setColour(FlowTheme::surfaceRaised());g.fillRect(0,0,bounds.getWidth(),header);
+        juce::ColourGradient rulerGlow(FlowTheme::accent().withAlpha(0.08f),static_cast<float>(labelWidth),0.0f,FlowTheme::accentHot().withAlpha(0.04f),static_cast<float>(bounds.getWidth()),0.0f,false);
         g.setGradientFill(rulerGlow);g.fillRect(labelWidth,0,std::max(1,bounds.getWidth()-labelWidth),header);
-        g.setColour(juce::Colour(0xff343047));g.drawVerticalLine(labelWidth,0.0f,static_cast<float>(bounds.getBottom()));
-        g.setColour(juce::Colour(0xff4a4964).withAlpha(0.55f));g.drawHorizontalLine(header-1,0.0f,static_cast<float>(bounds.getWidth()));
-        g.setColour(juce::Colour(0xffbbb7c9));g.setFont(juce::Font(10.5f,juce::Font::bold));g.drawText("TRACKS",12,0,labelWidth-20,header,juce::Justification::centredLeft,false);
+        g.setColour(FlowTheme::borderStrong());g.drawVerticalLine(labelWidth,0.0f,static_cast<float>(bounds.getBottom()));
+        g.setColour(FlowTheme::borderStrong().withAlpha(0.55f));g.drawHorizontalLine(header-1,0.0f,static_cast<float>(bounds.getWidth()));
+        g.setColour(FlowTheme::textSecondary());g.setFont(juce::Font(10.5f,juce::Font::bold));g.drawText("TRACKS",12,0,labelWidth-20,header,juce::Justification::centredLeft,false);
 
         const Tick end=visibleEndTick();const Tick grid=snapGridTicks();const Tick firstGrid=(viewStartTick_/grid)*grid;
         for(Tick tick=firstGrid;tick<=end;tick+=grid){
             const int x=xForTick(tick);const bool beat=(tick%kPPQ)==0;const bool bar=beat&&((tick/kPPQ)%4)==0;
-            g.setColour(bar?juce::Colour(0xff514b68).withAlpha(0.72f):(beat?juce::Colour(0xff353444).withAlpha(0.62f):juce::Colour(0xff292936).withAlpha(0.40f)));
+            g.setColour(bar?FlowTheme::borderStrong().withAlpha(0.72f):(beat?FlowTheme::borderSubtle().withAlpha(0.62f):FlowTheme::borderSubtle().withAlpha(0.40f)));
             g.drawVerticalLine(x,static_cast<float>(header),static_cast<float>(bounds.getBottom()));
-            if(bar){g.setColour(juce::Colour(0xffd8d2e3));g.setFont(juce::Font(10.5f,juce::Font::bold));g.drawText("BAR "+juce::String(static_cast<int>(tick/(kPPQ*4))+1),x+5,2,54,18,juce::Justification::left,false);}
+            if(bar){g.setColour(FlowTheme::textSecondary());g.setFont(juce::Font(10.5f,juce::Font::bold));g.drawText("BAR "+juce::String(static_cast<int>(tick/(kPPQ*4))+1),x+5,2,54,18,juce::Justification::left,false);}
         }
 
         for(std::size_t ti=0;ti<project_.tracks.size();++ti){
             const int y=header+static_cast<int>(ti)*rowHeight;if(y>=bounds.getBottom())break;auto const&track=project_.tracks[ti];
             const auto row=juce::Rectangle<int>(0,y,bounds.getWidth(),rowHeight-1);const auto lane=row.withTrimmedLeft(labelWidth);
-            g.setColour((ti%2)==0?juce::Colour(0xff12141d).withAlpha(0.90f):juce::Colour(0xff171822).withAlpha(0.90f));g.fillRect(lane);
-            juce::ColourGradient trackHeader(ti%2==0?juce::Colour(0xff1a1826):juce::Colour(0xff1d1b29),0.0f,static_cast<float>(y),juce::Colour(0xff11151d),static_cast<float>(labelWidth),static_cast<float>(y),false);
-            trackHeader.addColour(0.72,juce::Colour(0xff8f4cff).withAlpha(0.12f));g.setGradientFill(trackHeader);g.fillRect(0,y,labelWidth,rowHeight-1);
-            g.setColour(juce::Colour(0xffe7e2ef));g.setFont(juce::Font(12.0f,juce::Font::bold));g.drawFittedText(track.name,14,y+5,labelWidth-24,22,juce::Justification::centredLeft,1);
-            g.setColour(juce::Colour(0xff817d91));g.setFont(9.5f);g.drawText("TRACK "+juce::String(static_cast<int>(ti)+1),14,y+27,labelWidth-24,14,juce::Justification::centredLeft,false);
-            g.setColour(juce::Colour(0xff303044).withAlpha(0.62f));g.drawHorizontalLine(y+rowHeight-1,0.0f,static_cast<float>(bounds.getWidth()));
+            g.setColour((ti%2)==0?FlowTheme::surface().withAlpha(0.90f):FlowTheme::surfaceRaised().withAlpha(0.90f));g.fillRect(lane);
+            juce::ColourGradient trackHeader(ti%2==0?FlowTheme::surfaceRaised():FlowTheme::surfaceHover(),0.0f,static_cast<float>(y),FlowTheme::surface(),static_cast<float>(labelWidth),static_cast<float>(y),false);
+            trackHeader.addColour(0.72,FlowTheme::accent().withAlpha(0.04f));g.setGradientFill(trackHeader);g.fillRect(0,y,labelWidth,rowHeight-1);
+            g.setColour(FlowTheme::textPrimary());g.setFont(juce::Font(12.0f,juce::Font::bold));g.drawFittedText(track.name,14,y+5,labelWidth-24,22,juce::Justification::centredLeft,1);
+            g.setColour(FlowTheme::textMuted());g.setFont(9.5f);g.drawText("TRACK "+juce::String(static_cast<int>(ti)+1),14,y+27,labelWidth-24,14,juce::Justification::centredLeft,false);
+            g.setColour(FlowTheme::borderSubtle().withAlpha(0.62f));g.drawHorizontalLine(y+rowHeight-1,0.0f,static_cast<float>(bounds.getWidth()));
 
             for(std::size_t ci=0;ci<track.clips.size();++ci){
                 auto r=clipRect(track.clips[ci],ti);const bool selected=selection_.contains(ArrangementSelection::Kind::AudioClip,track.id,track.clips[ci].id);
-                drawClip(g,r,juce::Colour(0xff8f4cff),juce::Colour(0xff52d6c7),selected,"AUDIO");
+                drawClip(g,r,FlowTheme::accentDeep(),FlowTheme::accentHot(),selected,"AUDIO");
                 auto*s=project_.findSample(track.clips[ci].sampleId);drawClipText(g,r,s?s->name:"Audio");
             }
             for(std::size_t pi=0;pi<track.patternClips.size();++pi){
                 auto r=patternRect(track.patternClips[pi],ti);const bool selected=selection_.contains(ArrangementSelection::Kind::PatternClip,track.id,track.patternClips[pi].id);
-                drawClip(g,r,juce::Colour(0xffd94d8b),juce::Colour(0xffffbe63),selected,"PATTERN");
+                drawClip(g,r,FlowTheme::clipPattern(),FlowTheme::warning(),selected,"PATTERN");
                 auto*p=project_.findPattern(track.patternClips[pi].patternId);drawClipText(g,r,juce::String(p?p->name:std::string("Pattern"))+"  ×"+juce::String(std::max(1,track.patternClips[pi].repeats)));
             }
         }
 
-        if(playheadTick_>=viewStartTick_&&playheadTick_<=end){const int px=xForTick(playheadTick_);g.setColour(juce::Colour(0xff52d6c7).withAlpha(0.16f));g.fillRect(px-3,0,7,bounds.getHeight());g.setColour(juce::Colour(0xff85e8dc));g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));juce::Path marker;marker.addTriangle(static_cast<float>(px-5),0.0f,static_cast<float>(px+5),0.0f,static_cast<float>(px),8.0f);g.fillPath(marker);}
+        if(playheadTick_>=viewStartTick_&&playheadTick_<=end){const int px=xForTick(playheadTick_);g.setColour(FlowTheme::accentHot().withAlpha(0.16f));g.fillRect(px-3,0,7,bounds.getHeight());g.setColour(FlowTheme::focus());g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));juce::Path marker;marker.addTriangle(static_cast<float>(px-5),0.0f,static_cast<float>(px+5),0.0f,static_cast<float>(px),8.0f);g.fillPath(marker);}
         juce::String hint="SCROLL • Wheel    ZOOM • Ctrl/Cmd+Wheel    FREE MOVE • Alt-drag";
-        if(drag_.kind!=Kind::None){const Tick start=currentStart();const int guideX=xForTick(start);const Tick barTicks=kPPQ*4;g.setColour(juce::Colour(0xff85e8dc));g.drawVerticalLine(guideX,static_cast<float>(header),static_cast<float>(bounds.getBottom()));const int bar=static_cast<int>(start/barTicks)+1;const int beat=static_cast<int>((start%barTicks)/kPPQ)+1;hint="MOVE • BAR "+juce::String(bar)+" • BEAT "+juce::String(beat)+(dragFree_?" • FREE":" • SNAP 1/16");}
+        if(drag_.kind!=Kind::None){const Tick start=currentStart();const int guideX=xForTick(start);const Tick barTicks=kPPQ*4;g.setColour(FlowTheme::focus());g.drawVerticalLine(guideX,static_cast<float>(header),static_cast<float>(bounds.getBottom()));const int bar=static_cast<int>(start/barTicks)+1;const int beat=static_cast<int>((start%barTicks)/kPPQ)+1;hint="MOVE • BAR "+juce::String(bar)+" • BEAT "+juce::String(beat)+(dragFree_?" • FREE":" • SNAP 1/16");}
         if(externalDragActive_){
             auto target=juce::Rectangle<float>(static_cast<float>(labelWidth+8),static_cast<float>(header+8),static_cast<float>(std::max(1,bounds.getWidth()-labelWidth-16)),static_cast<float>(std::max(1,bounds.getHeight()-header-16)));
-            g.setColour(juce::Colour(0xff52d6c7).withAlpha(0.08f));g.fillRoundedRectangle(target,10.0f);g.setColour(juce::Colour(0xff85e8dc).withAlpha(0.95f));g.drawRoundedRectangle(target.reduced(1.0f),10.0f,2.0f);
-            auto badge=juce::Rectangle<float>(target.getCentreX()-105.0f,target.getY()+12.0f,210.0f,28.0f);juce::ColourGradient badgeFill(juce::Colour(0xff8f4cff).withAlpha(0.94f),badge.getX(),badge.getY(),juce::Colour(0xff52d6c7).withAlpha(0.90f),badge.getRight(),badge.getBottom(),false);g.setGradientFill(badgeFill);g.fillRoundedRectangle(badge,7.0f);g.setColour(juce::Colours::white);g.setFont(juce::Font(11.0f,juce::Font::bold));g.drawText("DROP WAV • IMPORT TO ARRANGEMENT",badge.toNearestInt(),juce::Justification::centred,false);hint="DROP • Existing FLOWDAW import path";
+            g.setColour(FlowTheme::accentHot().withAlpha(0.045f));g.fillRoundedRectangle(target,10.0f);g.setColour(FlowTheme::focus().withAlpha(0.95f));g.drawRoundedRectangle(target.reduced(1.0f),10.0f,2.0f);
+            auto badge=juce::Rectangle<float>(target.getCentreX()-105.0f,target.getY()+12.0f,210.0f,28.0f);juce::ColourGradient badgeFill(FlowTheme::accentDeep(),badge.getX(),badge.getY(),FlowTheme::accentDeep().brighter(0.08f),badge.getRight(),badge.getBottom(),false);g.setGradientFill(badgeFill);g.fillRoundedRectangle(badge,7.0f);g.setColour(juce::Colours::white);g.setFont(juce::Font(11.0f,juce::Font::bold));g.drawText("DROP WAV • IMPORT TO ARRANGEMENT",badge.toNearestInt(),juce::Justification::centred,false);hint="DROP • Existing FLOWDAW import path";
         }
-        g.setColour(juce::Colour(0xffbbb7c9));g.setFont(10.0f);g.drawFittedText(hint,labelWidth+8,3,std::max(1,bounds.getWidth()-labelWidth-16),18,juce::Justification::centredRight,1);
+        g.setColour(FlowTheme::textSecondary());g.setFont(10.0f);g.drawFittedText(hint,labelWidth+8,3,std::max(1,bounds.getWidth()-labelWidth-16),18,juce::Justification::centredRight,1);
     }
 
     void mouseDown(const juce::MouseEvent&e)override{grabKeyboardFocus();const auto hit=hitTest(e.position);const bool toggle=e.mods.isCommandDown()||e.mods.isCtrlDown();if(toggle){drag_=Hit{};toggleSelectionFromHit(hit);syncSelectedFromPrimarySelection();repaint();return;}drag_=hit;selected_=drag_;syncSelectionFromHit(selected_);repaint();if(drag_.kind==Kind::None)return;dragFree_=false;before_=project_;anchorX_=e.x;dragStart_=currentStart();setMouseCursor(juce::MouseCursor::DraggingHandCursor);}
