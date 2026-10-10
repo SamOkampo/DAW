@@ -49,7 +49,7 @@ public:
 
         addAndMakeVisible(commandChoice_);executeCommand_.setButtonText("Run Command");executeCommand_.onClick=[this]{runSelectedCommand();};addAndMakeVisible(executeCommand_);
 
-        report_.setMultiLine(true);report_.setReadOnly(true);report_.setScrollbarsShown(true);report_.setColour(juce::TextEditor::backgroundColourId,juce::Colour(0xff15181d));report_.setColour(juce::TextEditor::textColourId,juce::Colour(0xffdfe2e8));addAndMakeVisible(report_);
+        report_.setMultiLine(true);report_.setReadOnly(true);report_.setScrollbarsShown(true);report_.setColour(juce::TextEditor::backgroundColourId,FlowTheme::surface());report_.setColour(juce::TextEditor::textColourId,FlowTheme::textPrimary());addAndMakeVisible(report_);
         targetChoice_.setTitle("Automation target");targetChoice_.setDescription("Choose the master, track, or bus parameter to automate.");
         routeChoice_.setTitle("Automation route");routeChoice_.setDescription("Choose the track or bus for the current automation target.");
         value_.setTitle("Automation value");value_.setDescription("Value written at the current playhead position.");value_.setTooltip("Automation value at the playhead");
