@@ -5,27 +5,27 @@
 namespace flowdaw::juceui {
 
 struct FlowTheme final {
-    static juce::Colour canvasTop(){return juce::Colour(0xff0b0914);}
-    static juce::Colour canvasBottom(){return juce::Colour(0xff070b10);}
-    static juce::Colour surface(){return juce::Colour(0xff121421);}
-    static juce::Colour surfaceRaised(){return juce::Colour(0xff1a1b2a);}
-    static juce::Colour surfaceHover(){return juce::Colour(0xff242438);}
-    static juce::Colour borderSubtle(){return juce::Colour(0xff303044);}
-    static juce::Colour borderStrong(){return juce::Colour(0xff4a4964);}
-    static juce::Colour textPrimary(){return juce::Colour(0xfff5f2fb);}
-    static juce::Colour textSecondary(){return juce::Colour(0xffbbb7c9);}
-    static juce::Colour textMuted(){return juce::Colour(0xff817d91);}
-    static juce::Colour accent(){return juce::Colour(0xffe45b98);}
-    static juce::Colour accentHot(){return juce::Colour(0xffff7ab5);}
-    static juce::Colour accentDeep(){return juce::Colour(0xff8f4cff);}
-    static juce::Colour aqua(){return juce::Colour(0xff52d6c7);}
-    static juce::Colour focus(){return juce::Colour(0xff85e8dc);}
-    static juce::Colour success(){return juce::Colour(0xff59d69a);}
-    static juce::Colour warning(){return juce::Colour(0xffffbe63);}
-    static juce::Colour danger(){return juce::Colour(0xffff667d);}
-    static juce::Colour meterSafe(){return juce::Colour(0xff52d6c7);}
-    static juce::Colour meterHot(){return juce::Colour(0xffffbe63);}
-    static juce::Colour meterClip(){return juce::Colour(0xffff667d);}
+    static juce::Colour canvasTop(){return juce::Colour(0xff101113);}
+    static juce::Colour canvasBottom(){return juce::Colour(0xff0e1012);}
+    static juce::Colour surface(){return juce::Colour(0xff181a1d);}
+    static juce::Colour surfaceRaised(){return juce::Colour(0xff22252a);}
+    static juce::Colour surfaceHover(){return juce::Colour(0xff2d3137);}
+    static juce::Colour borderSubtle(){return juce::Colour(0xff363a40);}
+    static juce::Colour borderStrong(){return juce::Colour(0xff4c535b);}
+    static juce::Colour textPrimary(){return juce::Colour(0xffecece8);}
+    static juce::Colour textSecondary(){return juce::Colour(0xffb6b5ae);}
+    static juce::Colour textMuted(){return juce::Colour(0xff92918b);}
+    static juce::Colour accent(){return juce::Colour(0xffc2783d);}
+    static juce::Colour accentHot(){return juce::Colour(0xffe09755);}
+    static juce::Colour accentDeep(){return juce::Colour(0xff7d4e2c);}
+    // Legacy semantic alias: creative UI is amber, not cyan. Replace per-use\n    // with intent-specific accent(), success() or meterSafe() in later slices.\n    static juce::Colour aqua(){return accentHot();}
+    static juce::Colour focus(){return juce::Colour(0xffe9b179);}
+    static juce::Colour success(){return juce::Colour(0xff76ad76);}
+    static juce::Colour warning(){return juce::Colour(0xffd4a15a);}
+    static juce::Colour danger(){return juce::Colour(0xffbe6660);}
+    static juce::Colour meterSafe(){return success();}
+    static juce::Colour meterHot(){return juce::Colour(0xffd4a15a);}
+    static juce::Colour meterClip(){return juce::Colour(0xffbe6660);}
 
     static constexpr int space1=4;
     static constexpr int space2=8;
@@ -34,7 +34,7 @@ struct FlowTheme final {
     static constexpr int space5=24;
     static constexpr int space6=32;
     static constexpr float radiusSmall=6.0f;
-    static constexpr float radiusPanel=14.0f;
+    static constexpr float radiusPanel=9.0f;
 };
 
 inline juce::Path makeNotchedControlPath(juce::Rectangle<float> r,float notch=7.0f){
@@ -72,15 +72,15 @@ public:
         auto r=button.getLocalBounds().toFloat().reduced(0.75f);
         const bool active=button.getToggleState();
         const bool transportPlay=button.getComponentID()=="transport-play";
-        auto top=active?(transportPlay?FlowTheme::aqua().darker(0.42f):FlowTheme::accentDeep()):FlowTheme::surfaceRaised();
-        auto bottom=active?(transportPlay?FlowTheme::aqua().darker(0.72f):FlowTheme::accent().darker(0.28f)):FlowTheme::surface();
-        if(isMouseOver){top=top.interpolatedWith(FlowTheme::aqua(),active?0.14f:0.09f);bottom=bottom.brighter(0.08f);}
+        auto top=active?(transportPlay?FlowTheme::success().darker(0.42f):FlowTheme::accentDeep()):FlowTheme::surfaceRaised();
+        auto bottom=active?(transportPlay?FlowTheme::success().darker(0.72f):FlowTheme::accent().darker(0.28f)):FlowTheme::surface();
+        if(isMouseOver){top=top.interpolatedWith(FlowTheme::accentHot(),active?0.10f:0.06f);bottom=bottom.brighter(0.08f);}
         if(isButtonDown){top=top.darker(0.16f);bottom=bottom.darker(0.12f);}
         if(!button.isEnabled()){top=top.withMultipliedAlpha(0.42f);bottom=bottom.withMultipliedAlpha(0.42f);}
 
         auto shape=makeNotchedControlPath(r);
         juce::ColourGradient fill(top,r.getX(),r.getY(),bottom,r.getRight(),r.getBottom(),false);
-        fill.addColour(0.56,active?(transportPlay?FlowTheme::aqua().withAlpha(0.88f):FlowTheme::accent().withAlpha(0.94f)):FlowTheme::surfaceHover().withAlpha(0.88f));
+        fill.addColour(0.56,active?(transportPlay?FlowTheme::success().withAlpha(0.88f):FlowTheme::accent().withAlpha(0.94f)):FlowTheme::surfaceHover().withAlpha(0.88f));
         g.setGradientFill(fill);
         g.fillPath(shape);
 
