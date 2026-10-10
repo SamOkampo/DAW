@@ -18,12 +18,16 @@ struct FlowTheme final {
     static juce::Colour accent(){return juce::Colour(0xffc2783d);}
     static juce::Colour accentHot(){return juce::Colour(0xffe09755);}
     static juce::Colour accentDeep(){return juce::Colour(0xff7d4e2c);}
-    // Legacy semantic alias: creative UI is amber, not cyan. Replace per-use\n    // with intent-specific accent(), success() or meterSafe() in later slices.\n    static juce::Colour aqua(){return accentHot();}
+    // Legacy semantic alias: creative UI is amber, not cyan. Replace per-use
+    // with intent-specific accent(), success() or meterSafe() in later slices.
+    static juce::Colour aqua(){return accentHot();}
     static juce::Colour focus(){return juce::Colour(0xffe9b179);}
     static juce::Colour success(){return juce::Colour(0xff76ad76);}
     static juce::Colour warning(){return juce::Colour(0xffd4a15a);}
     static juce::Colour danger(){return juce::Colour(0xffbe6660);}
-    // Differentiate song patterns from audio clips without reverting to neon.\n    static juce::Colour clipPattern(){return juce::Colour(0xff798c73);}\n    static juce::Colour meterSafe(){return success();}
+    // Differentiate song patterns from audio clips without reverting to neon.
+    static juce::Colour clipPattern(){return juce::Colour(0xff798c73);}
+    static juce::Colour meterSafe(){return success();}
     static juce::Colour meterHot(){return juce::Colour(0xffd4a15a);}
     static juce::Colour meterClip(){return juce::Colour(0xffbe6660);}
 
