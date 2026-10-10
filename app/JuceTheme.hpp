@@ -80,7 +80,7 @@ public:
 
         auto shape=makeNotchedControlPath(r);
         juce::ColourGradient fill(top,r.getX(),r.getY(),bottom,r.getRight(),r.getBottom(),false);
-        fill.addColour(0.56,active?(transportPlay?FlowTheme::success().withAlpha(0.88f):FlowTheme::accent().withAlpha(0.94f)):FlowTheme::surfaceHover().withAlpha(0.88f));
+        fill.addColour(0.56,active?(transportPlay?FlowTheme::success().darker(0.45f):FlowTheme::accentDeep()):FlowTheme::surfaceRaised());
         g.setGradientFill(fill);
         g.fillPath(shape);
 
