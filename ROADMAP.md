@@ -177,3 +177,14 @@ Planned sequence:
 **Standards target:** ITU-R BS.1770-5 (2023), EBU R128 v5.0 (2023) and EBU Tech 3341 v4.0. FLOWDAW does not claim third-party ITU/EBU certification.
 
 **Production desktop remains JUCE 9.0.2. Project format remains v11.**
+
+
+## Phase 15 — Release Readiness / Distribution [IN PROGRESS]
+
+Release-candidate work is tracked in PR #161 and production-promotion gates in issue #162. Do not merge or promote to 1.0 until licence, signing/notarization and physical Windows/macOS/Linux packaged-app QA evidence are complete. Windows runtime packaging requires JUCE SDK pruning, third-party notices and Visual C++ x64 prerequisites.
+
+## Phase 16 — Studio Redesign [PLANNED]
+
+Authorized user-directed visual/interaction redesign, intentionally separate from the Phase 15 production release gate. Objectives: FL Studio-inspired workflow ergonomics (not a clone), reduced UI clutter, compact top transport, browser left, contextual editors center, collapsible mixer bottom, selection inspector, native workspace documents and safe plugin editor embedding/floating fallback. New theme: graphite/charcoal + muted amber/orange, replacing the prior purple/indigo/mint proposal. Includes text/glyph repairs, keyboard accessibility, 100/125/150% DPI, adaptive window QA, Release-effective geometry tests and full platform CI.
+
+Sequence and strict acceptance criteria: see PHASE16_STUDIO_REDESIGN.md (16.1 through 16.9). Status: DESIGN ONLY. No Phase 16 code functionality claimed completed. Preserve JUCE 9.0.2, portable .flow v11, realtime audio safety, undo/recovery and routing/plugin-state semantics. Reconcile pending PR #163 and #164 and do not bypass Phase 15 issue #162 gates.
