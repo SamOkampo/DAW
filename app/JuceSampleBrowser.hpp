@@ -1,6 +1,7 @@
 #pragma once
 #include "flowdaw/AppSettings.hpp"
 #include "flowdaw/ContentLibrary.hpp"
+#include "flowdaw/ShellLayout.hpp"
 #include "flowdaw/Wav.hpp"
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <algorithm>
@@ -38,7 +39,49 @@ public:
         auto glow=b.reduced(1.0f);juce::ColourGradient edge(juce::Colour(0xff8f4cff).withAlpha(0.70f),glow.getX(),glow.getY(),juce::Colour(0xff52d6c7).withAlpha(0.34f),glow.getRight(),glow.getY(),false);g.setGradientFill(edge);g.drawRoundedRectangle(glow,10.0f,1.15f);
         g.setColour(juce::Colour(0xffe45b98).withAlpha(0.72f));g.fillRoundedRectangle(10.0f,12.0f,3.0f,18.0f,1.5f);
     }
-    void resized()override{auto r=getLocalBounds().reduced(10);title_.setBounds(r.removeFromTop(26).withTrimmedLeft(9));r.removeFromTop(4);search_.setBounds(r.removeFromTop(32));r.removeFromTop(5);auto roots=r.removeFromTop(32);addRoot_.setBounds(roots.removeFromRight(78).reduced(2));root_.setBounds(roots.reduced(2));r.removeFromTop(4);auto actions=r.removeFromTop(32);import_.setBounds(actions.removeFromLeft(54).reduced(2));preview_.setBounds(actions.removeFromLeft(62).reduced(2));stopPreview_.setBounds(actions.removeFromLeft(48).reduced(2));favorite_.setBounds(actions.removeFromLeft(46).reduced(2));favoritesOnly_.setBounds(actions.removeFromLeft(72).reduced(2));recent_.setBounds(actions.removeFromLeft(58).reduced(2));autoPreview_.setBounds(actions.removeFromLeft(56).reduced(2));r.removeFromTop(5);previewStatus_.setBounds(r.removeFromBottom(20));hint_.setBounds(r.removeFromBottom(20));list_.setBounds(r.reduced(1));}
+    void resized()override{
+        auto r=getLocalBounds().reduced(10);
+        title_.setBounds(r.removeFromTop(26).withTrimmedLeft(9));
+        r.removeFromTop(4);
+        search_.setBounds(r.removeFromTop(32));
+        r.removeFromTop(5);
+        auto roots=r.removeFromTop(32);
+        addRoot_.setBounds(roots.removeFromRight(78).reduced(2));
+        root_.setBounds(roots.reduced(2));
+        r.removeFromTop(4);
+
+        const bool twoRows=flowdaw::ui::BrowserToolbarMetrics::useTwoRows(r.getWidth());
+        auto actions=r.removeFromTop(flowdaw::ui::BrowserToolbarMetrics::height(r.getWidth()));
+        if(!twoRows){
+            import_.setBounds(actions.removeFromLeft(54).reduced(2));
+            preview_.setBounds(actions.removeFromLeft(62).reduced(2));
+            stopPreview_.setBounds(actions.removeFromLeft(48).reduced(2));
+            favorite_.setBounds(actions.removeFromLeft(46).reduced(2));
+            favoritesOnly_.setBounds(actions.removeFromLeft(72).reduced(2));
+            recent_.setBounds(actions.removeFromLeft(58).reduced(2));
+            autoPreview_.setBounds(actions.removeFromLeft(56).reduced(2));
+            favoritesOnly_.setButtonText("Favorites");
+        }else{
+            // Keep all seven actions reachable at the normal 220px Browser width.
+            auto primary=actions.removeFromTop(32);
+            actions.removeFromTop(flowdaw::ui::BrowserToolbarMetrics::rowGap);
+            import_.setBounds(primary.removeFromLeft(54).reduced(2));
+            preview_.setBounds(primary.removeFromLeft(62).reduced(2));
+            stopPreview_.setBounds(primary.removeFromLeft(48).reduced(2));
+
+            const int available=actions.getWidth();
+            favorite_.setBounds(actions.removeFromLeft(available*21/100).reduced(2));
+            favoritesOnly_.setBounds(actions.removeFromLeft(available*31/100).reduced(2));
+            recent_.setBounds(actions.removeFromLeft(available*25/100).reduced(2));
+            autoPreview_.setBounds(actions.reduced(2));
+            favoritesOnly_.setButtonText("Favs");
+            favoritesOnly_.setTooltip("Show only favorite samples");
+        }
+        r.removeFromTop(5);
+        previewStatus_.setBounds(r.removeFromBottom(20));
+        hint_.setBounds(r.removeFromBottom(20));
+        list_.setBounds(r.reduced(1));
+    }
 private:
     int getNumRows()override{return static_cast<int>(visible_.size());}
     void paintListBoxItem(int row,juce::Graphics&g,int width,int height,bool selected)override{

@@ -122,6 +122,88 @@ jobs:
           if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.flowpreset").Count -ne 10) { throw "FLOW Core preset count mismatch in Windows ZIP" }
           Pop-Location
 
+      - name: Prepare Windows physical QA bundle
+        shell: pwsh
+        env:
+          QA_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $packages = @(Get-ChildItem build-win -Filter "FLOWDAW-*.zip" -File)
+          if ($packages.Count -ne 1) { throw "Expected exactly one Windows package" }
+          $pkg = $packages[0]
+          $builtCommit = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $builtCommit -ne $env:GITHUB_SHA) { throw "Checked-out commit does not match workflow commit" }
+          $qaDir = Join-Path $env:RUNNER_TEMP "flowdaw-windows-qa"
+          New-Item -ItemType Directory -Path $qaDir -Force | Out-Null
+          Copy-Item $pkg.FullName $qaDir
+          $hash = (Get-FileHash $pkg.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($pkg.Name)" | Set-Content (Join-Path $qaDir "SHA256SUMS") -Encoding utf8
+          $metadata = [ordered]@{
+            product = "FLOWDAW"
+            purpose = "Windows physical QA; unsigned; not a production release"
+            head_commit = $env:QA_HEAD_SHA
+            built_commit = $builtCommit
+            run_url = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            run_attempt = $env:GITHUB_RUN_ATTEMPT
+            package = $pkg.Name
+            bytes = $pkg.Length
+            sha256 = $hash
+            physical_qa = "PENDING"
+          }
+          $metadata | ConvertTo-Json | Set-Content (Join-Path $qaDir "qa-build.json") -Encoding utf8
+          @'
+          # FLOWDAW - prueba fisica en Windows
+          
+          Estado: PENDIENTE. Este paquete no constituye una aprobacion de QA ni un release 1.0.
+          Identidad: consultar qa-build.json. Registrar built_commit y sha256 en los resultados.
+          La version visible puede seguir siendo 0.8.0: este PR no incorpora el versionado del #161.
+          
+          ## Abrir
+          1. Extraer el ZIP descargado de GitHub Actions.
+          2. En PowerShell, comprobar el ZIP FLOWDAW interior:
+             $m = Get-Content .\qa-build.json -Raw | ConvertFrom-Json
+             if ((Get-FileHash -LiteralPath $m.package -Algorithm SHA256).Hash.ToLowerInvariant() -ne $m.sha256) { throw "Checksum incorrecto" }
+          3. Extraer completo ese ZIP FLOWDAW en una carpeta nueva.
+          4. Abrir bin/FLOWDAW.exe, conservando la carpeta share junto a bin.
+             No sustituir una instalacion anterior ni usar proyectos originales sin copia.
+          5. Anotar cualquier aviso de firma/SmartScreen. El paquete no esta firmado para produccion.
+          
+          ## Probar en 100%, 125% y 150% de escala de Windows
+          - [ ] El inicio cabe dentro del area util de la pantalla.
+          - [ ] Maximizar y restaurar funciona; no desaparecen controles.
+          - [ ] Reducir la ventana hasta su minimo (objetivo 720x520).
+          - [ ] Desplazar en ambos ejes hasta alcanzar los controles inferiores y derechos.
+          - [ ] En Browser estrecho, funcionan Import, Preview, Stop, Fav, Favs, Recent y Auto.
+          - [ ] Arrangement, Piano Roll, Sampler, Step Sequencer y Mixer son accesibles.
+          - [ ] Play/Stop, atajos y arrastrar muestras siguen funcionando tras desplazar.
+          - [ ] FLOW Core reproduce audio; guardar y reabrir una copia .flow conserva el proyecto.
+          - [ ] Exportar un WAV y escucharlo fuera de FLOWDAW.
+          - [ ] Volver a maximizar no deja zonas inaccesibles ni barras de scroll sobrantes.
+          
+          ## Registro (no marcar PASS sin probar)
+          Fecha / persona:
+          Windows / resolucion / escala:
+          Dispositivo de audio:
+          built_commit / sha256 (qa-build.json):
+          Resultado por escala (PASS, FAIL o NO PROBADO):
+          Capturas: maximizada, minima y controles inferiores/derechos en cada escala.
+          Fallos: pasos, resultado esperado y real.
+          
+          Aprobar solo con CI completo verde y evidencia fisica del paquete identificado.
+          Este paquete valida el canvas del #163; no incluye la paleta del #164 ni el release del #161.
+          '@ | Set-Content (Join-Path $qaDir "QA-WINDOWS.md") -Encoding utf8
+          "Windows QA package: $($pkg.Name)" | Add-Content $env:GITHUB_STEP_SUMMARY
+          "Built commit: $builtCommit" | Add-Content $env:GITHUB_STEP_SUMMARY
+          "SHA256: $hash" | Add-Content $env:GITHUB_STEP_SUMMARY
+          "Physical QA: PENDING" | Add-Content $env:GITHUB_STEP_SUMMARY
+      - name: Upload Windows physical QA bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowdaw-windows-qa-${{ github.sha }}
+          path: ${{ runner.temp }}/flowdaw-windows-qa/
+          if-no-files-found: error
+          retention-days: 14
+
   macos-juce:
     runs-on: macos-latest
     steps:
