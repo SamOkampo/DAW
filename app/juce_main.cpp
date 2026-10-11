@@ -408,6 +408,7 @@ private:
         bpmLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::textPrimary());
         pluginMaintenanceLabel_.setColour(juce::Label::textColourId,juceui::FlowTheme::aqua());pluginDiagnostics_.setColour(juce::Label::textColourId,juceui::FlowTheme::textSecondary());
         for(auto*button:{&newProject_,&loadProject_,&importWav_,&saveProject_,&play_,&stop_,&bpmMinus_,&bpmPlus_,&undoButton_,&redoButton_,&commandPalette_,&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_,&mixerPanelToggle_,&utilityPanelToggle_,&pluginMaintenanceToggle_,&scan_})button->setLookAndFeel(&shellLookAndFeel_);
+        for(auto&button:menuButtons_)button.setLookAndFeel(&shellLookAndFeel_);
         for(auto*button:{&bankPrev_,&bankNext_,&analyzeSample_,&chop8_,&autoChop_,&chopBeat_,&chopBar_,&matchBpm_,&stopPreview_,&recChops_,&chopReset_,&renamePad_,&padGainMinus_,&padGainPlus_,&padPanMinus_,&padPanPlus_,&padChokeMinus_,&padChokePlus_})button->setLookAndFeel(&shellLookAndFeel_);
         for(auto*choice:{&patternChoice_,&sampleChoice_,&chopGridChoice_})choice->setLookAndFeel(&shellLookAndFeel_);
         for(auto*slider:{&chopQuantizeStrength_,&chopHumanizeStrength_}){
@@ -426,6 +427,7 @@ private:
     }
     void clearShellTheme(){
         for(auto*button:{&newProject_,&loadProject_,&importWav_,&saveProject_,&play_,&stop_,&bpmMinus_,&bpmPlus_,&undoButton_,&redoButton_,&commandPalette_,&arrangementTab_,&pianoTab_,&sequencerTab_,&automationTab_,&samplerTab_,&mixerPanelToggle_,&utilityPanelToggle_,&pluginMaintenanceToggle_,&scan_})button->setLookAndFeel(nullptr);
+        for(auto&button:menuButtons_)button.setLookAndFeel(nullptr);
         for(auto*button:{&bankPrev_,&bankNext_,&analyzeSample_,&chop8_,&autoChop_,&chopBeat_,&chopBar_,&matchBpm_,&stopPreview_,&recChops_,&chopReset_,&renamePad_,&padGainMinus_,&padGainPlus_,&padPanMinus_,&padPanPlus_,&padChokeMinus_,&padChokePlus_})button->setLookAndFeel(nullptr);
         for(auto*choice:{&patternChoice_,&sampleChoice_,&chopGridChoice_})choice->setLookAndFeel(nullptr);
         chopQuantizeStrength_.setLookAndFeel(nullptr);chopHumanizeStrength_.setLookAndFeel(nullptr);
