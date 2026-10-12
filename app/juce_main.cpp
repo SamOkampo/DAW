@@ -511,20 +511,22 @@ private:
     }
     void showNewProjectMenu(){
         juce::PopupMenu menu;menu.addItem(1,"Blank Project — 120 BPM");menu.addItem(2,"Boom Bap • FLOW Core — 90 BPM");menu.addItem(3,"Trap • FLOW Core — 140 BPM");menu.addItem(4,"Lo-Fi • FLOW Core — 82 BPM");
-        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&menuButtons_[0]),[this](int result){
+        juce::Component::SafePointer<MainComponent> safeThis(this);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&menuButtons_[0]),[safeThis](int result){
+            auto*self=safeThis.getComponent();if(!self)return;
             if(result==0)return;
             try{
-                const auto root=flowCoreRoot_;
-                if(result==1)applyNewProject(makeProjectTemplate(ProjectTemplateKind::Blank,root),"Blank Project • 120 BPM","New blank project");
-                else if(result==2)applyNewProject(makeProjectTemplate(ProjectTemplateKind::BoomBap,root),"Boom Bap • FLOW Core • 90 BPM","Boom Bap FLOW Core template ready");
-                else if(result==3)applyNewProject(makeProjectTemplate(ProjectTemplateKind::Trap,root),"Trap • FLOW Core • 140 BPM","Trap FLOW Core template ready");
-                else if(result==4)applyNewProject(makeProjectTemplate(ProjectTemplateKind::LoFi,root),"Lo-Fi • FLOW Core • 82 BPM","Lo-Fi FLOW Core template ready");
+                const auto root=self->flowCoreRoot_;
+                if(result==1)self->applyNewProject(makeProjectTemplate(ProjectTemplateKind::Blank,root),"Blank Project • 120 BPM","New blank project");
+                else if(result==2)self->applyNewProject(makeProjectTemplate(ProjectTemplateKind::BoomBap,root),"Boom Bap • FLOW Core • 90 BPM","Boom Bap FLOW Core template ready");
+                else if(result==3)self->applyNewProject(makeProjectTemplate(ProjectTemplateKind::Trap,root),"Trap • FLOW Core • 140 BPM","Trap FLOW Core template ready");
+                else if(result==4)self->applyNewProject(makeProjectTemplate(ProjectTemplateKind::LoFi,root),"Lo-Fi • FLOW Core • 82 BPM","Lo-Fi FLOW Core template ready");
             }catch(const std::exception&e){
-                if(result==1)applyNewProject(makeBlankProject(),"Blank Project • 120 BPM","New blank project");
-                else if(result==2)applyNewProject(makeBeatTemplate("Boom Bap Starter",90.0,0.12f),"Boom Bap Starter • 90 BPM","FLOW Core unavailable • legacy Boom Bap starter loaded");
-                else if(result==3)applyNewProject(makeBeatTemplate("Trap Starter",140.0,0.02f),"Trap Starter • 140 BPM","FLOW Core unavailable • legacy Trap starter loaded");
-                else if(result==4)applyNewProject(makeBeatTemplate("Lo-Fi Starter",82.0,0.18f),"Lo-Fi Starter • 82 BPM","FLOW Core unavailable • legacy Lo-Fi starter loaded");
-                status_.setText(status_.getText()+" • "+juce::String(e.what()),juce::dontSendNotification);
+                if(result==1)self->applyNewProject(makeBlankProject(),"Blank Project • 120 BPM","New blank project");
+                else if(result==2)self->applyNewProject(makeBeatTemplate("Boom Bap Starter",90.0,0.12f),"Boom Bap Starter • 90 BPM","FLOW Core unavailable • legacy Boom Bap starter loaded");
+                else if(result==3)self->applyNewProject(makeBeatTemplate("Trap Starter",140.0,0.02f),"Trap Starter • 140 BPM","FLOW Core unavailable • legacy Trap starter loaded");
+                else if(result==4)self->applyNewProject(makeBeatTemplate("Lo-Fi Starter",82.0,0.18f),"Lo-Fi Starter • 82 BPM","FLOW Core unavailable • legacy Lo-Fi starter loaded");
+                self->status_.setText(self->status_.getText()+" • "+juce::String(e.what()),juce::dontSendNotification);
             }
         });
     }
@@ -552,7 +554,13 @@ private:
     }
     void showCommandPalette(){
         juce::PopupMenu menu;menu.addSectionHeader("FLOWDAW Commands");menu.addItem(1,"New / Template    Ctrl/Cmd+N");menu.addItem(2,"Open Project    Ctrl/Cmd+O");menu.addItem(3,"Save Project    Ctrl/Cmd+S");menu.addItem(4,"Import WAV    Ctrl/Cmd+I");menu.addSeparator();menu.addItem(5,"Play / Pause    Ctrl/Cmd+Space");menu.addItem(6,"Undo    Ctrl/Cmd+Z");menu.addItem(7,"Redo    Ctrl/Cmd+Shift+Z");menu.addSeparator();menu.addItem(11,"Arrangement    Ctrl/Cmd+1");menu.addItem(12,"Piano Roll    Ctrl/Cmd+2");menu.addItem(13,"Sequencer    Ctrl/Cmd+3");menu.addItem(14,"Automation    Ctrl/Cmd+4");menu.addItem(15,"Sampler    Ctrl/Cmd+5");
-        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&commandPalette_),[this](int result){runWorkflowCommand(result);if(result<11||result>15)commandPalette_.grabKeyboardFocus();});
+        juce::Component::SafePointer<MainComponent> safeThis(this);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&commandPalette_),[safeThis](int result){
+            if(auto*self=safeThis.getComponent()){
+                if(result!=0)self->runWorkflowCommand(result);
+                if(result<11||result>15)self->commandPalette_.grabKeyboardFocus();
+            }
+        });
     }
     bool keyPressed(const juce::KeyPress&key,juce::Component*origin)override{
         for(auto*component=origin;component!=nullptr;component=component->getParentComponent())if(dynamic_cast<juce::TextEditor*>(component)!=nullptr)return false;
@@ -836,12 +844,14 @@ private:
         menu.addSeparator();
         menu.addItem(3,"Analyze Master • LUFS / LRA / dBTP");
         menu.addItem(4,"EBU R128 Master • PCM24 + TPDF • -23 LUFS / -1 dBTP");
-        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&exportMix_),[this](int result){
-            if(result==1){exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::masterMix);updateExportStatus();chooseMixExport();}
-            else if(result==2){exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::stems);updateExportStatus();chooseStemExport();}
-            else if(result==3){analyzeMaster();}
-            else if(result==4){exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::masterMix);updateExportStatus();chooseEbuMasterExport();}
-            else{exportWorkflow_.cancel();updateExportStatus();exportMix_.grabKeyboardFocus();}
+        juce::Component::SafePointer<MainComponent> safeThis(this);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&exportMix_),[safeThis](int result){
+            auto*self=safeThis.getComponent();if(!self)return;
+            if(result==1){self->exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::masterMix);self->updateExportStatus();self->chooseMixExport();}
+            else if(result==2){self->exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::stems);self->updateExportStatus();self->chooseStemExport();}
+            else if(result==3){self->analyzeMaster();}
+            else if(result==4){self->exportWorkflow_.begin(flowdaw::ui::ExportDeliveryMode::masterMix);self->updateExportStatus();self->chooseEbuMasterExport();}
+            else{self->exportWorkflow_.cancel();self->updateExportStatus();self->exportMix_.grabKeyboardFocus();}
         });
     }
     void chooseMixExport(){
