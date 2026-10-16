@@ -18,6 +18,8 @@ jobs:
         run: ctest --test-dir build --output-on-failure
       - name: Phase 16.2 visual-theme source and contrast checks
         run: python3 tests/test_phase16_2_theme.py
+      - name: Phase 16.3 compact-menu integration guardrails
+        run: python3 tests/test_phase16_3_menus.py
       - name: Doctor smoke test
         run: ./build/flowdaw-doctor status
       - name: Build stretch benchmark
@@ -123,6 +125,14 @@ jobs:
           if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.wav").Count -ne 12) { throw "FLOW Core WAV count mismatch in Windows ZIP" }
           if ((Get-ChildItem -Path $unpack -Recurse -Filter "*.flowpreset").Count -ne 10) { throw "FLOW Core preset count mismatch in Windows ZIP" }
           Pop-Location
+      - name: Publish unsigned Windows QA portable ZIP
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'phase16-3-compact-action-menus'
+        uses: actions/upload-artifact@v4
+        with:
+          name: FLOWDAW-Windows-QA-${{ github.event.pull_request.head.sha }}
+          path: build-win/FLOWDAW-*.zip
+          if-no-files-found: error
+          retention-days: 7
 
   macos-juce:
     runs-on: macos-latest
