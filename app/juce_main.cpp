@@ -606,7 +606,9 @@ private:
     }
     bool keyPressed(const juce::KeyPress&key,juce::Component*origin)override{
         for(auto*component=origin;component!=nullptr;component=component->getParentComponent())if(dynamic_cast<juce::TextEditor*>(component)!=nullptr)return false;
-        const auto mods=key.getModifiers();if(!mods.isCommandDown())return false;const int code=key.getKeyCode();
+        const auto mods=key.getModifiers();const int code=key.getKeyCode();
+        if(code==juce::KeyPress::spaceKey&&!mods.isAnyModifierKeyDown()){togglePlayback();return true;}
+        if(!mods.isCommandDown())return false;
         if(code=='K'){showCommandPalette();return true;}if(code=='N'){showNewProjectMenu();return true;}if(code=='O'){chooseProject();return true;}if(code=='S'){saveProject();return true;}if(code=='I'){chooseWav();return true;}
         if(code=='Z'){mods.isShiftDown()?redoEdit():undoEdit();return true;}if(code==juce::KeyPress::spaceKey){togglePlayback();return true;}
         if(code>='1'&&code<='5'){runWorkflowCommand(11+(code-'1'));return true;}return false;
