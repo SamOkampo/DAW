@@ -1,6 +1,7 @@
 #pragma once
 #include "JuceTheme.hpp"
 #include "flowdaw/ArrangementSelection.hpp"
+#include "flowdaw/ClipEditing.hpp"
 #include "flowdaw/AudioEngine.hpp"
 #include "flowdaw/MusicalTime.hpp"
 #include "flowdaw/Project.hpp"
@@ -129,7 +130,7 @@ public:
         repaint();
     }
     void mouseUp(const juce::MouseEvent&)override{if(drag_.kind==Kind::None)return;const bool changed=currentStart()!=dragStart_;setMouseCursor(juce::MouseCursor::NormalCursor);auto before=std::move(before_);const auto kind=drag_.kind;drag_=Hit{};dragFree_=false;if(changed&&commit_)commit_(std::move(before),kind==Kind::Audio?"Move audio clip":"Move pattern clip");}
-    bool keyPressed(const juce::KeyPress&key)override{if(selection_.empty())return false;if(key==juce::KeyPress::deleteKey||key==juce::KeyPress::backspaceKey){deleteSelected();return true;}if((key.getModifiers().isCommandDown()||key.getModifiers().isCtrlDown())&&(key.getTextCharacter()=='d'||key.getTextCharacter()=='D')){duplicateSelected();return true;}if(key.getTextCharacter()=='+'||key.getTextCharacter()=='='){adjustRepeats(1);return true;}if(key.getTextCharacter()=='-'){adjustRepeats(-1);return true;}return false;}
+    bool keyPressed(const juce::KeyPress&key)override{if(selection_.empty())return false;if(key==juce::KeyPress::deleteKey||key==juce::KeyPress::backspaceKey){deleteSelected();return true;}if((key.getModifiers().isCommandDown()||key.getModifiers().isCtrlDown())&&(key.getTextCharacter()=='d'||key.getTextCharacter()=='D')){duplicateSelected();return true;}if((key.getModifiers().isCommandDown()||key.getModifiers().isCtrlDown())&&(key.getKeyCode()=='E'||key.getKeyCode()=='e')){splitSelectedAtPlayhead();return true;}if(key.getTextCharacter()=='+'||key.getTextCharacter()=='='){adjustRepeats(1);return true;}if(key.getTextCharacter()=='-'){adjustRepeats(-1);return true;}return false;}
 
 private:
     enum class Kind{None,Audio,Pattern};struct Hit{Kind kind=Kind::None;std::size_t track=0,index=0;};
@@ -194,6 +195,26 @@ private:
         else if(drag_.kind==Kind::Pattern&&drag_.index<t.patternClips.size())t.patternClips[drag_.index].startTick=tick;
     }
     void deleteSelected(){if(selection_.empty())return;Project before=project_;const auto selectedCount=selection_.size();bool changed=false;for(auto&t:project_.tracks){const auto clipsBefore=t.clips.size();std::erase_if(t.clips,[&](const Clip&clip){return selection_.contains(ArrangementSelection::Kind::AudioClip,t.id,clip.id);});const auto patternsBefore=t.patternClips.size();std::erase_if(t.patternClips,[&](const PatternPlacement&placement){return selection_.contains(ArrangementSelection::Kind::PatternClip,t.id,placement.id);});changed=changed||clipsBefore!=t.clips.size()||patternsBefore!=t.patternClips.size();}if(!changed)return;drag_=Hit{};selected_=Hit{};selection_.clear();if(commit_)commit_(std::move(before),selectedCount>1?"Delete arrangement blocks":"Delete arrangement block");repaint();}
+    void splitSelectedAtPlayhead(){
+        if(selection_.empty())return;
+        Project before=project_;
+        ArrangementSelection rightHalves;
+        for(auto&track:project_.tracks){
+            const auto originalCount=track.clips.size();
+            for(std::size_t i=0;i<originalCount;++i){
+                if(!selection_.contains(ArrangementSelection::Kind::AudioClip,track.id,track.clips[i].id))continue;
+                auto pieces=flowdaw::splitAudioClip(track.clips[i],playheadTick_);
+                if(!pieces)continue;
+                track.clips[i]=pieces->first;
+                track.clips.push_back(pieces->second);
+                rightHalves.add(ArrangementSelection::Kind::AudioClip,track.id,pieces->second.id);
+            }
+        }
+        if(rightHalves.empty())return;
+        selection_=rightHalves;syncSelectedFromPrimarySelection();
+        if(commit_)commit_(std::move(before),rightHalves.size()>1?"Split audio clips":"Split audio clip");
+        repaint();
+    }
     void duplicateSelected(){
         if(selection_.empty())return;
         Project before=project_;
