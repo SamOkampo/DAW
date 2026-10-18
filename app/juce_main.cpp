@@ -218,7 +218,7 @@ public:
         mixerSetSend_.onClick=[this]{setMixerSend();};addAndMakeVisible(mixerSetSend_);
         mixerRemoveSend_.onClick=[this]{removeMixerSend();};addAndMakeVisible(mixerRemoveSend_);
         juceui::MixerRoutingPresentation::style(mixerRoutingLabel_,mixerOutputChoice_,mixerSendBusChoice_,mixerSendGain_,mixerSendPre_,mixerSetSend_,mixerRemoveSend_,shellLookAndFeel_);
-        auto commitEdit=[this](Project before,std::string name){undo_.commit(std::move(before),project_,name);publishEdit(juce::String(name));};
+        auto commitEdit=[this](Project before,std::string name){projectDirty_=true;undo_.commit(std::move(before),project_,name);publishEdit(juce::String(name));};
         arrangement_=std::make_unique<juceui::ArrangementComponent>(project_,commitEdit);addAndMakeVisible(*arrangement_);
         piano_=std::make_unique<juceui::PianoRollComponent>(project_,engine_,commitEdit);addChildComponent(*piano_);
         sampler_=std::make_unique<juceui::SamplerComponent>(project_,engine_,commitEdit,[this](Id sampleId,Id sliceId){recordChopTrigger(sampleId,sliceId);});addChildComponent(*sampler_);
@@ -466,7 +466,7 @@ private:
         chopRecordBefore_=project_;Pattern take;take.name="Chop Take";take.stepCount=64;take.stepsPerBeat=4;chopRecordPatternId_=take.id;project_.patterns.push_back(std::move(take));auto*t=chopTrack();chopRecordStartTick_=playheadTick();PatternPlacement pp;pp.patternId=chopRecordPatternId_;pp.startTick=chopRecordStartTick_;pp.repeats=1;t->patternClips.push_back(pp);recordingChops_=true;syncChopControls();if(!engine_.isPlaying())engine_.play();engine_.publish(project_);if(arrangement_)arrangement_->repaint();status_.setText("REC CHOPS - play 1-4/QWER/ASDF/ZXCV",juce::dontSendNotification);
     }
     void finishChopRecording(){
-        if(!recordingChops_)return;recordingChops_=false;auto*p=project_.findPattern(chopRecordPatternId_);if(!p||p->chopEvents.empty()){project_=std::move(chopRecordBefore_);chopRecordPatternId_=0;publishEdit("Empty chop take discarded");return;}const auto hits=p->chopEvents.size();undo_.commit(std::move(chopRecordBefore_),project_,"Record chops");chopRecordPatternId_=0;publishEdit("Recorded "+juce::String(static_cast<int>(hits))+" chop hits");
+        if(!recordingChops_)return;recordingChops_=false;auto*p=project_.findPattern(chopRecordPatternId_);if(!p||p->chopEvents.empty()){project_=std::move(chopRecordBefore_);chopRecordPatternId_=0;publishEdit("Empty chop take discarded");return;}const auto hits=p->chopEvents.size();projectDirty_=true;undo_.commit(std::move(chopRecordBefore_),project_,"Record chops");chopRecordPatternId_=0;publishEdit("Recorded "+juce::String(static_cast<int>(hits))+" chop hits");
     }
     void toggleChopRecording(){recordingChops_?finishChopRecording():startChopRecording();}
     void recordChopTrigger(Id sampleId,Id sliceId){
@@ -479,11 +479,11 @@ private:
     void applyChopControls(){
         if(suppressChopCallbacks_||recordingChops_)return;auto*p=latestChopPattern();if(!p||p->chopEvents.empty())return;if(!chopGestureActive_)beginChopGesture();if(!chopGestureActive_)return;quantizeChopEvents(*p,p->chopQuantizeGridTicks,static_cast<float>(chopQuantizeStrength_.getValue()/100.0));humanizeChopEvents(*p,static_cast<float>(chopHumanizeStrength_.getValue()/100.0));engine_.publish(project_);if(arrangement_)arrangement_->repaint();
     }
-    void endChopGesture(){if(!chopGestureActive_)return;chopGestureActive_=false;undo_.commit(std::move(chopBefore_),project_,"Edit chop feel");syncChopControls();status_.setText("Chop feel committed",juce::dontSendNotification);}
+    void endChopGesture(){if(!chopGestureActive_)return;chopGestureActive_=false;projectDirty_=true;undo_.commit(std::move(chopBefore_),project_,"Edit chop feel");syncChopControls();status_.setText("Chop feel committed",juce::dontSendNotification);}
     void changeChopGrid(){
-        if(suppressChopCallbacks_||recordingChops_)return;auto*p=latestChopPattern();if(!p||p->chopEvents.empty())return;const int id=chopGridChoice_.getSelectedId();const Tick grid=id==1?kPPQ/2:(id==3?kPPQ/8:kPPQ/4);if(grid==p->chopQuantizeGridTicks)return;Project before=project_;quantizeChopEvents(*p,grid,p->chopQuantizeStrength);undo_.commit(std::move(before),project_,"Change chop quantize grid");publishEdit(id==1?"Chop grid 1/8":(id==3?"Chop grid 1/32":"Chop grid 1/16"));
+        if(suppressChopCallbacks_||recordingChops_)return;auto*p=latestChopPattern();if(!p||p->chopEvents.empty())return;const int id=chopGridChoice_.getSelectedId();const Tick grid=id==1?kPPQ/2:(id==3?kPPQ/8:kPPQ/4);if(grid==p->chopQuantizeGridTicks)return;Project before=project_;quantizeChopEvents(*p,grid,p->chopQuantizeStrength);projectDirty_=true;undo_.commit(std::move(before),project_,"Change chop quantize grid");publishEdit(id==1?"Chop grid 1/8":(id==3?"Chop grid 1/32":"Chop grid 1/16"));
     }
-    void resetLatestChops(){if(recordingChops_){status_.setText("Stop REC CHOPS before resetting feel",juce::dontSendNotification);return;}auto*p=latestChopPattern();if(!p){status_.setText("Record a chop take first",juce::dontSendNotification);return;}Project before=project_;resetChopEditing(*p);undo_.commit(std::move(before),project_,"Reset chop feel");publishEdit("Chop feel reset");syncChopControls();}
+    void resetLatestChops(){if(recordingChops_){status_.setText("Stop REC CHOPS before resetting feel",juce::dontSendNotification);return;}auto*p=latestChopPattern();if(!p){status_.setText("Record a chop take first",juce::dontSendNotification);return;}Project before=project_;resetChopEditing(*p);projectDirty_=true;undo_.commit(std::move(before),project_,"Reset chop feel");publishEdit("Chop feel reset");syncChopControls();}
     Track*recordingTrack(){
         const int selected=selectedTrackIndex();if(selected>=0)return&project_.tracks[static_cast<std::size_t>(selected)];for(auto&t:project_.tracks)if(t.armed)return&t;for(auto&t:project_.tracks)if(t.name=="VOCAL")return&t;Track t;t.name="VOCAL";t.armed=true;project_.tracks.push_back(std::move(t));return&project_.tracks.back();
     }
@@ -493,13 +493,13 @@ private:
     }
     void finishAudioRecording(){
         if(!audioRecording_)return;auto captured=engine_.finishRecording();audioRecording_=false;if(captured.frames()<32){project_=std::move(audioRecordBefore_);publishEdit("Empty audio take discarded");return;}auto*t=project_.findTrack(audioRecordTrackId_);if(!t){project_=std::move(audioRecordBefore_);publishEdit("Recording track disappeared; take discarded");return;}
-        SampleAsset asset;asset.name="Audio Take "+std::to_string(t->takes.size()+1);asset.audio=std::make_shared<AudioBuffer>(captured);std::filesystem::path base;if(projectPath_.has_parent_path())base=projectPath_.parent_path();else base=std::filesystem::path(juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getFullPathName().toStdString())/"FLOWDAW";auto dir=base/"recordings";std::filesystem::create_directories(dir);asset.path=std::filesystem::absolute(dir/("take_"+std::to_string(asset.id)+".wav"));WavFile::writeFloat32(asset.path,captured);const Id sampleId=asset.id;project_.samples.push_back(std::move(asset));t=project_.findTrack(audioRecordTrackId_);RecordingTake take;take.name="Take "+std::to_string(t->takes.size()+1);take.sampleId=sampleId;take.startTick=audioRecordStartTick_;take.lengthTicks=MusicalTime::samplesToTicks(captured.frames(),project_.transport.bpm,captured.sampleRate);t->takes.push_back(take);t->activeTakeId=take.id;undo_.commit(std::move(audioRecordBefore_),project_,"Record audio take");publishEdit("Recorded "+juce::String(take.name)+" ("+juce::String(static_cast<juce::int64>(captured.frames()))+" frames)");
+        SampleAsset asset;asset.name="Audio Take "+std::to_string(t->takes.size()+1);asset.audio=std::make_shared<AudioBuffer>(captured);std::filesystem::path base;if(projectPath_.has_parent_path())base=projectPath_.parent_path();else base=std::filesystem::path(juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getFullPathName().toStdString())/"FLOWDAW";auto dir=base/"recordings";std::filesystem::create_directories(dir);asset.path=std::filesystem::absolute(dir/("take_"+std::to_string(asset.id)+".wav"));WavFile::writeFloat32(asset.path,captured);const Id sampleId=asset.id;project_.samples.push_back(std::move(asset));t=project_.findTrack(audioRecordTrackId_);RecordingTake take;take.name="Take "+std::to_string(t->takes.size()+1);take.sampleId=sampleId;take.startTick=audioRecordStartTick_;take.lengthTicks=MusicalTime::samplesToTicks(captured.frames(),project_.transport.bpm,captured.sampleRate);t->takes.push_back(take);t->activeTakeId=take.id;projectDirty_=true;undo_.commit(std::move(audioRecordBefore_),project_,"Record audio take");publishEdit("Recorded "+juce::String(take.name)+" ("+juce::String(static_cast<juce::int64>(captured.frames()))+" frames)");
     }
     void toggleInputMonitor(){
-        auto*t=recordingTrack();if(!t)return;Project before=project_;t->inputMonitor=!t->inputMonitor;engine_.setInputMonitoring(t->inputMonitor);undo_.commit(std::move(before),project_,"Toggle input monitoring");publishEdit(t->inputMonitor?"Input monitoring ON":"Input monitoring OFF");
+        auto*t=recordingTrack();if(!t)return;Project before=project_;t->inputMonitor=!t->inputMonitor;engine_.setInputMonitoring(t->inputMonitor);projectDirty_=true;undo_.commit(std::move(before),project_,"Toggle input monitoring");publishEdit(t->inputMonitor?"Input monitoring ON":"Input monitoring OFF");
     }
     void cycleTake(int delta){
-        const int index=selectedTrackIndex();if(index<0)return;auto&t=project_.tracks[static_cast<std::size_t>(index)];if(t.takes.empty()){status_.setText("Selected track has no recorded takes",juce::dontSendNotification);return;}int current=0;for(int i=0;i<static_cast<int>(t.takes.size());++i)if(t.takes[static_cast<std::size_t>(i)].id==t.activeTakeId)current=i;current=(current+delta+static_cast<int>(t.takes.size()))%static_cast<int>(t.takes.size());Project before=project_;t.activeTakeId=t.takes[static_cast<std::size_t>(current)].id;const auto name=t.takes[static_cast<std::size_t>(current)].name;undo_.commit(std::move(before),project_,"Select recording take");publishEdit("Active comp: "+juce::String(name));
+        const int index=selectedTrackIndex();if(index<0)return;auto&t=project_.tracks[static_cast<std::size_t>(index)];if(t.takes.empty()){status_.setText("Selected track has no recorded takes",juce::dontSendNotification);return;}int current=0;for(int i=0;i<static_cast<int>(t.takes.size());++i)if(t.takes[static_cast<std::size_t>(i)].id==t.activeTakeId)current=i;current=(current+delta+static_cast<int>(t.takes.size()))%static_cast<int>(t.takes.size());Project before=project_;t.activeTakeId=t.takes[static_cast<std::size_t>(current)].id;const auto name=t.takes[static_cast<std::size_t>(current)].name;projectDirty_=true;undo_.commit(std::move(before),project_,"Select recording take");publishEdit("Active comp: "+juce::String(name));
     }
     void syncTransportVisualState(){const bool playing=engine_.isPlaying();if(play_.getToggleState()!=playing)play_.setToggleState(playing,juce::dontSendNotification);play_.setButtonText(playing?"Pause":"Play");}
     void togglePlayback(){if(engine_.isPlaying()){engine_.pause();status_.setText("Paused",juce::dontSendNotification);}else{engine_.play();status_.setText("Playing through JUCE device",juce::dontSendNotification);}syncTransportVisualState();}
@@ -731,7 +731,7 @@ private:
         for(auto&p:project_.master.plugins)if(p.id==id)return&p;for(auto&t:project_.tracks){for(auto&p:t.mixer.plugins)if(p.id==id)return&p;if(t.externalInstrumentEnabled&&t.externalInstrument.id==id)return&t.externalInstrument;}for(auto&b:project_.buses)for(auto&p:b.mixer.plugins)if(p.id==id)return&p;return nullptr;
     }
     void finishRackEditorSession(){
-        if(rackEditorPluginId_!=0){const bool dirty=rackEditorDirty_;rackEditorPluginId_=0;rackEditorDirty_=false;if(dirty){undo_.commit(std::move(rackEditorBefore_),project_,"Edit external plugin state");publishEdit("External plugin state committed");}}
+        if(rackEditorPluginId_!=0){const bool dirty=rackEditorDirty_;rackEditorPluginId_=0;rackEditorDirty_=false;if(dirty){projectDirty_=true;undo_.commit(std::move(rackEditorBefore_),project_,"Edit external plugin state");publishEdit("External plugin state committed");}}
         if(isShowing())openRackEditor_.grabKeyboardFocus();
     }
     void openRackEditor(){
@@ -743,7 +743,7 @@ private:
         });
     }
     void addBuiltinToRack(const std::string&id){
-        auto*rack=rackPlugins();if(!rack){status_.setText("Select a valid Track or Bus rack",juce::dontSendNotification);return;}Project before=project_;rack->push_back(makeBuiltinPlugin(id));const int selected=static_cast<int>(rack->size());const auto name=rack->back().name;undo_.commit(std::move(before),project_,"Add rack plugin");publishEdit("Added "+juce::String(name));rackPluginChoice_.setSelectedId(selected,juce::dontSendNotification);syncRackControls();
+        auto*rack=rackPlugins();if(!rack){status_.setText("Select a valid Track or Bus rack",juce::dontSendNotification);return;}Project before=project_;rack->push_back(makeBuiltinPlugin(id));const int selected=static_cast<int>(rack->size());const auto name=rack->back().name;projectDirty_=true;undo_.commit(std::move(before),project_,"Add rack plugin");publishEdit("Added "+juce::String(name));rackPluginChoice_.setSelectedId(selected,juce::dontSendNotification);syncRackControls();
     }
     void addSelectedBuiltinToRack(){
         const auto descriptors=builtinPluginDescriptors();const int index=nativePluginChoice_.getSelectedId()-1;
@@ -759,23 +759,23 @@ private:
         if(index<0||index>=static_cast<int>(presets.size())){status_.setText("Choose a compatible native preset first",juce::dontSendNotification);return;}
         Project before=project_;const auto id=p->id;const bool enabled=p->enabled,bypass=p->bypass;auto configured=instantiateNativeEffectPreset(presets[static_cast<std::size_t>(index)]);
         configured.id=id;configured.enabled=enabled;configured.bypass=bypass;*p=std::move(configured);
-        undo_.commit(std::move(before),project_,"Apply native effect preset");publishEdit("Applied "+juce::String(presets[static_cast<std::size_t>(index)].name));rackNativeParameterIndex_=0;refreshRackControls();
+        projectDirty_=true;undo_.commit(std::move(before),project_,"Apply native effect preset");publishEdit("Applied "+juce::String(presets[static_cast<std::size_t>(index)].name));rackNativeParameterIndex_=0;refreshRackControls();
     }
     void addSelectedEffectToRack(){
         const int pluginIndex=selectedPluginIndex();if(pluginIndex<0||pluginIndex>=static_cast<int>(plugins_.size())){status_.setText("Scan and select an effect first",juce::dontSendNotification);return;}const auto&descriptor=plugins_[static_cast<std::size_t>(pluginIndex)];if(descriptor.instrument){status_.setText("Selected plugin is an instrument, not an effect insert",juce::dontSendNotification);return;}auto*rack=rackPlugins();if(!rack){status_.setText("Select a valid Track or Bus rack",juce::dontSendNotification);return;}
-        PluginInstance instance;instance.format=descriptor.format;instance.identifier=descriptor.identifier;instance.name=descriptor.name;instance.enabled=true;instance.bypass=false;instance.wet=1.0f;Project before=project_;rack->push_back(std::move(instance));const int selected=static_cast<int>(rack->size());undo_.commit(std::move(before),project_,"Add rack plugin");publishEdit("Added "+juce::String(descriptor.name));rackPluginChoice_.setSelectedId(selected,juce::dontSendNotification);syncRackControls();
+        PluginInstance instance;instance.format=descriptor.format;instance.identifier=descriptor.identifier;instance.name=descriptor.name;instance.enabled=true;instance.bypass=false;instance.wet=1.0f;Project before=project_;rack->push_back(std::move(instance));const int selected=static_cast<int>(rack->size());projectDirty_=true;undo_.commit(std::move(before),project_,"Add rack plugin");publishEdit("Added "+juce::String(descriptor.name));rackPluginChoice_.setSelectedId(selected,juce::dontSendNotification);syncRackControls();
     }
     void moveRackPlugin(int delta){
-        auto*rack=rackPlugins();const int index=rackPluginChoice_.getSelectedId()-1;if(!rack||index<0||index>=static_cast<int>(rack->size())){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}const int target=index+delta;if(target<0||target>=static_cast<int>(rack->size()))return;Project before=project_;std::swap((*rack)[static_cast<std::size_t>(index)],(*rack)[static_cast<std::size_t>(target)]);undo_.commit(std::move(before),project_,"Reorder rack plugin");publishEdit("Reordered rack insert");rackPluginChoice_.setSelectedId(target+1,juce::dontSendNotification);syncRackControls();
+        auto*rack=rackPlugins();const int index=rackPluginChoice_.getSelectedId()-1;if(!rack||index<0||index>=static_cast<int>(rack->size())){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}const int target=index+delta;if(target<0||target>=static_cast<int>(rack->size()))return;Project before=project_;std::swap((*rack)[static_cast<std::size_t>(index)],(*rack)[static_cast<std::size_t>(target)]);projectDirty_=true;undo_.commit(std::move(before),project_,"Reorder rack plugin");publishEdit("Reordered rack insert");rackPluginChoice_.setSelectedId(target+1,juce::dontSendNotification);syncRackControls();
     }
     void toggleRackEnabled(){
-        auto*p=selectedRackPlugin();if(!p){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}Project before=project_;p->enabled=!p->enabled;const auto name=p->name;const bool enabled=p->enabled;undo_.commit(std::move(before),project_,"Toggle plugin enabled");publishEdit(juce::String(name)+(enabled?" enabled":" disabled"));
+        auto*p=selectedRackPlugin();if(!p){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}Project before=project_;p->enabled=!p->enabled;const auto name=p->name;const bool enabled=p->enabled;projectDirty_=true;undo_.commit(std::move(before),project_,"Toggle plugin enabled");publishEdit(juce::String(name)+(enabled?" enabled":" disabled"));
     }
     void toggleRackBypass(){
-        auto*p=selectedRackPlugin();if(!p){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}Project before=project_;p->bypass=!p->bypass;const auto name=p->name;const bool bypass=p->bypass;undo_.commit(std::move(before),project_,"Toggle plugin bypass");publishEdit(juce::String(name)+(bypass?" bypassed":" active"));
+        auto*p=selectedRackPlugin();if(!p){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}Project before=project_;p->bypass=!p->bypass;const auto name=p->name;const bool bypass=p->bypass;projectDirty_=true;undo_.commit(std::move(before),project_,"Toggle plugin bypass");publishEdit(juce::String(name)+(bypass?" bypassed":" active"));
     }
     void removeRackPlugin(){
-        auto*rack=rackPlugins();int index=rackPluginChoice_.getSelectedId()-1;if(!rack||index<0||index>=static_cast<int>(rack->size())){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}const Id removingId=(*rack)[static_cast<std::size_t>(index)].id;if(removingId==rackEditorPluginId_)pluginWindow_.reset();rack=rackPlugins();index=rackPluginChoice_.getSelectedId()-1;if(!rack||index<0||index>=static_cast<int>(rack->size()))return;Project before=project_;const auto name=(*rack)[static_cast<std::size_t>(index)].name;rack->erase(rack->begin()+index);undo_.commit(std::move(before),project_,"Remove rack plugin");publishEdit("Removed "+juce::String(name));
+        auto*rack=rackPlugins();int index=rackPluginChoice_.getSelectedId()-1;if(!rack||index<0||index>=static_cast<int>(rack->size())){status_.setText("Select a rack insert first",juce::dontSendNotification);return;}const Id removingId=(*rack)[static_cast<std::size_t>(index)].id;if(removingId==rackEditorPluginId_)pluginWindow_.reset();rack=rackPlugins();index=rackPluginChoice_.getSelectedId()-1;if(!rack||index<0||index>=static_cast<int>(rack->size()))return;Project before=project_;const auto name=(*rack)[static_cast<std::size_t>(index)].name;rack->erase(rack->begin()+index);projectDirty_=true;undo_.commit(std::move(before),project_,"Remove rack plugin");publishEdit("Removed "+juce::String(name));
     }
     void beginRackGesture(){if(suppressRackCallbacks_||rackGestureActive_||!selectedRackPlugin())return;rackBefore_=project_;rackGestureActive_=true;}
     void applyRackSliders(){
@@ -791,7 +791,7 @@ private:
         }
         engine_.publish(project_);
     }
-    void endRackGesture(){if(!rackGestureActive_)return;rackGestureActive_=false;undo_.commit(std::move(rackBefore_),project_,"Edit rack plugin");refreshRackControls();status_.setText("Rack edit committed",juce::dontSendNotification);}
+    void endRackGesture(){if(!rackGestureActive_)return;rackGestureActive_=false;projectDirty_=true;undo_.commit(std::move(rackBefore_),project_,"Edit rack plugin");refreshRackControls();status_.setText("Rack edit committed",juce::dontSendNotification);}
     void chooseWav(){
         chooser_=std::make_unique<juce::FileChooser>("Import WAV",juce::File::getSpecialLocation(juce::File::userMusicDirectory),"*.wav");
         chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[this](const juce::FileChooser&fc){auto f=fc.getResult();if(f.existsAsFile())importWavFile(std::filesystem::path(f.getFullPathName().toStdString()));else status_.setText("Import cancelled • current project unchanged",juce::dontSendNotification);chooser_.reset();});
@@ -815,13 +815,13 @@ private:
             auto audio=std::make_shared<AudioBuffer>(WavFile::read(path));Project before=project_;SampleAsset sample;sample.path=std::filesystem::absolute(path);sample.name=path.filename().string();sample.audio=audio;const Id sampleId=sample.id;project_.samples.push_back(std::move(sample));
             int trackIndex=selectedTrackIndex();if(trackIndex<0){Track t;t.name="Sample";project_.tracks.push_back(std::move(t));trackIndex=static_cast<int>(project_.tracks.size())-1;}
             auto&track=project_.tracks[static_cast<std::size_t>(trackIndex)];Clip clip;clip.sampleId=sampleId;clip.sourceLength=audio->frames();clip.lengthTicks=MusicalTime::samplesToTicks(audio->frames(),project_.transport.bpm,audio->sampleRate);track.clips.push_back(clip);
-            undo_.commit(std::move(before),project_,"Import WAV");publishEdit("Imported "+juce::String(path.filename().string()));selectSampleId(sampleId);setEditorMode(EditorMode::Sampler);
+            projectDirty_=true;undo_.commit(std::move(before),project_,"Import WAV");publishEdit("Imported "+juce::String(path.filename().string()));selectSampleId(sampleId);setEditorMode(EditorMode::Sampler);
         }catch(const std::exception&e){status_.setText("Import failed for "+juce::String(path.filename().string())+": "+juce::String(e.what())+" • choose another WAV or verify file access",juce::dontSendNotification);}
     }
     void analyzeSelectedSample(){
         auto*smp=selectedSample();if(!smp||!smp->audio){status_.setText("Select an audio sample first",juce::dontSendNotification);return;}
         Project before=project_;const auto grid=estimateBeatGrid(*smp->audio,55,210);if(grid.valid()){smp->detectedBpm=grid.bpm;smp->bpmConfidence=static_cast<float>(grid.confidence);}else{const auto est=detectBpm(*smp->audio,55,210);smp->detectedBpm=est.bpm;smp->bpmConfidence=static_cast<float>(est.confidence);}
-        undo_.commit(std::move(before),project_,"Analyze sample");publishEdit(smp->detectedBpm>0?"Detected "+juce::String(smp->detectedBpm,1)+" BPM":"BPM not confidently detected");
+        projectDirty_=true;undo_.commit(std::move(before),project_,"Analyze sample");publishEdit(smp->detectedBpm>0?"Detected "+juce::String(smp->detectedBpm,1)+" BPM":"BPM not confidently detected");
     }
     bool canReplaceSelectedSlices(SampleAsset*smp){
         if(!smp||!smp->audio){status_.setText("Select an audio sample first",juce::dontSendNotification);return false;}
@@ -829,7 +829,7 @@ private:
     }
     void applySliceRanges(SampleAsset&smp,const std::vector<SliceRange>&ranges,const std::string&prefix,const std::string&undoName){
         Project before=project_;smp.slices.clear();for(std::size_t i=0;i<ranges.size();++i){SampleSlice sl;sl.name=prefix+" "+std::to_string(i+1);sl.startFrame=ranges[i].startFrame;sl.endFrame=ranges[i].endFrame;smp.slices.push_back(std::move(sl));}
-        undo_.commit(std::move(before),project_,undoName);publishEdit(juce::String(undoName)+": "+juce::String(static_cast<int>(smp.slices.size()))+" slices");
+        projectDirty_=true;undo_.commit(std::move(before),project_,undoName);publishEdit(juce::String(undoName)+": "+juce::String(static_cast<int>(smp.slices.size()))+" slices");
     }
     void equalChopSelected(int count){auto*smp=selectedSample();if(!canReplaceSelectedSlices(smp))return;applySliceRanges(*smp,makeEqualSlices(*smp->audio,count),"Slice","Equal chop");}
     void autoChopSelected(){
@@ -844,7 +844,7 @@ private:
         const double ratio=source/project_.transport.bpm;if(ratio<.5||ratio>2.0){status_.setText("Match ratio outside 0.5x-2x",juce::dontSendNotification);return;}if(std::abs(ratio-1.0)<.003){status_.setText("Sample already matches project BPM",juce::dontSendNotification);return;}
         Project before=project_;const Id sourceId=smp->id;const std::string sourceName=smp->name;const float confidence=smp->bpmConfidence;const auto sourceSlices=smp->slices;auto stretched=std::make_shared<AudioBuffer>(matchBpmWsola(*smp->audio,source,project_.transport.bpm));SampleAsset derived;derived.name=sourceName+" @ "+std::to_string(static_cast<int>(std::llround(project_.transport.bpm)))+" BPM";derived.sourceSampleId=sourceId;derived.timeRatio=ratio;derived.detectedBpm=project_.transport.bpm;derived.bpmConfidence=confidence;derived.audio=stretched;
         for(auto const&old:sourceSlices){SampleSlice sl=old;sl.id=nextId();sl.startFrame=static_cast<SampleIndex>(std::llround(old.startFrame*ratio));sl.endFrame=std::min<SampleIndex>(stretched->frames(),static_cast<SampleIndex>(std::llround(old.endFrame*ratio)));derived.slices.push_back(std::move(sl));}
-        const Id derivedId=derived.id;project_.samples.push_back(std::move(derived));clip=firstClipForSample(sourceId);clip->sampleId=derivedId;clip->sourceStart=0;clip->sourceLength=stretched->frames();clip->lengthTicks=MusicalTime::samplesToTicks(stretched->frames(),project_.transport.bpm,stretched->sampleRate);undo_.commit(std::move(before),project_,"Match sample BPM");publishEdit("Matched "+juce::String(source,1)+" -> "+juce::String(project_.transport.bpm,1)+" BPM");selectSampleId(derivedId);
+        const Id derivedId=derived.id;project_.samples.push_back(std::move(derived));clip=firstClipForSample(sourceId);clip->sampleId=derivedId;clip->sourceStart=0;clip->sourceLength=stretched->frames();clip->lengthTicks=MusicalTime::samplesToTicks(stretched->frames(),project_.transport.bpm,stretched->sampleRate);projectDirty_=true;undo_.commit(std::move(before),project_,"Match sample BPM");publishEdit("Matched "+juce::String(source,1)+" -> "+juce::String(project_.transport.bpm,1)+" BPM");selectSampleId(derivedId);
     }
     void updateExportStatus(){status_.setText(juce::String(exportWorkflow_.statusText()),juce::dontSendNotification);}
     juce::String masteringValue(double value,int decimals,const juce::String& suffix)const{
@@ -996,7 +996,7 @@ private:
     void syncPatternEditors(){const int index=patternChoice_.getSelectedId()-1;const Id id=index>=0&&index<static_cast<int>(project_.patterns.size())?project_.patterns[static_cast<std::size_t>(index)].id:0;if(piano_)piano_->setPatternId(id);if(sequencer_)sequencer_->setPatternId(id);}
     void syncSamplerSample(){const int index=sampleChoice_.getSelectedId()-1;if(sampler_)sampler_->setSampleId(index>=0&&index<static_cast<int>(project_.samples.size())?project_.samples[static_cast<std::size_t>(index)].id:0);}
     void updateBpmLabel(){bpmLabel_.setText(juce::String(project_.transport.bpm,1)+" BPM",juce::dontSendNotification);}
-    void changeBpm(double delta){Project before=project_;project_.transport.bpm=std::clamp(project_.transport.bpm+delta,20.0,300.0);undo_.commit(std::move(before),project_,"Change BPM");publishEdit("BPM "+juce::String(project_.transport.bpm,1));}
+    void changeBpm(double delta){Project before=project_;project_.transport.bpm=std::clamp(project_.transport.bpm+delta,20.0,300.0);projectDirty_=true;undo_.commit(std::move(before),project_,"Change BPM");publishEdit("BPM "+juce::String(project_.transport.bpm,1));}
     void refreshMixerTargets(){
         suppressMixerCallbacks_=true;const int previous=mixerTargetChoice_.getSelectedId();mixerTargetChoice_.clear(juce::dontSendNotification);
         const int trackIndex=selectedTrackIndex();mixerTargetChoice_.addItem(trackIndex>=0?"TRACK • "+juce::String(project_.tracks[static_cast<std::size_t>(trackIndex)].name):"TRACK • none",1);
@@ -1029,9 +1029,9 @@ private:
         if(master)project_.master.volume=static_cast<float>(mixerVolume_.getValue());else{channel->volume=static_cast<float>(mixerVolume_.getValue());channel->pan=static_cast<float>(mixerPan_.getValue());}
         engine_.publish(project_);if(arrangement_)arrangement_->repaint();
     }
-    void endMixerGesture(){if(!mixerGestureActive_)return;mixerGestureActive_=false;undo_.commit(std::move(mixerBefore_),project_,"Edit "+activeMixerName().toStdString()+" mixer channel");status_.setText(activeMixerName()+" mixer edit committed",juce::dontSendNotification);}
+    void endMixerGesture(){if(!mixerGestureActive_)return;mixerGestureActive_=false;projectDirty_=true;undo_.commit(std::move(mixerBefore_),project_,"Edit "+activeMixerName().toStdString()+" mixer channel");status_.setText(activeMixerName()+" mixer edit committed",juce::dontSendNotification);}
     void toggleMixerFlag(bool solo){
-        auto*channel=selectedMixerChannel();if(!channel)return;Project before=project_;if(solo)channel->solo=!channel->solo;else channel->mute=!channel->mute;undo_.commit(std::move(before),project_,solo?"Toggle mixer solo":"Toggle mixer mute");publishEdit(activeMixerName()+(solo?" solo changed":" mute changed"));
+        auto*channel=selectedMixerChannel();if(!channel)return;Project before=project_;if(solo)channel->solo=!channel->solo;else channel->mute=!channel->mute;projectDirty_=true;undo_.commit(std::move(before),project_,solo?"Toggle mixer solo":"Toggle mixer mute");publishEdit(activeMixerName()+(solo?" solo changed":" mute changed"));
     }
     Track* selectedMixerTrack(){
         if(mixerTargetChoice_.getSelectedId()!=1)return nullptr;const int index=selectedTrackIndex();return index>=0?&project_.tracks[static_cast<std::size_t>(index)]:nullptr;
@@ -1060,16 +1060,16 @@ private:
     }
     void setMixerOutputRoute(){
         auto*track=selectedMixerTrack();if(!track)return;const int selected=mixerOutputChoice_.getSelectedId();Id busId=0;if(selected>=100){const int index=selected-100;if(index<0||index>=static_cast<int>(project_.buses.size()))return;busId=project_.buses[static_cast<std::size_t>(index)].id;}if(track->outputBusId==busId)return;
-        Project before=project_;track->outputBusId=busId;undo_.commit(std::move(before),project_,"Change track output route");publishEdit("Track output routed to "+(busId==0?juce::String("Master"):juce::String(project_.findBus(busId)?project_.findBus(busId)->name:"Bus")));
+        Project before=project_;track->outputBusId=busId;projectDirty_=true;undo_.commit(std::move(before),project_,"Change track output route");publishEdit("Track output routed to "+(busId==0?juce::String("Master"):juce::String(project_.findBus(busId)?project_.findBus(busId)->name:"Bus")));
     }
     void setMixerSend(){
         auto*track=selectedMixerTrack();const int busIndex=selectedMixerSendBusIndex();if(!track||busIndex<0)return;const Id busId=project_.buses[static_cast<std::size_t>(busIndex)].id;Project before=project_;
         auto it=std::find_if(track->sends.begin(),track->sends.end(),[&](auto const&send){return send.busId==busId;});if(it==track->sends.end()){MixerSend send;send.busId=busId;send.gain=static_cast<float>(mixerSendGain_.getValue());send.preFader=mixerSendPre_.getToggleState();track->sends.push_back(send);}else{it->gain=static_cast<float>(mixerSendGain_.getValue());it->preFader=mixerSendPre_.getToggleState();it->enabled=true;}
-        undo_.commit(std::move(before),project_,"Set track send");publishEdit("Send to "+juce::String(project_.buses[static_cast<std::size_t>(busIndex)].name)+" updated");
+        projectDirty_=true;undo_.commit(std::move(before),project_,"Set track send");publishEdit("Send to "+juce::String(project_.buses[static_cast<std::size_t>(busIndex)].name)+" updated");
     }
     void removeMixerSend(){
         auto*track=selectedMixerTrack();const int busIndex=selectedMixerSendBusIndex();if(!track||busIndex<0)return;const Id busId=project_.buses[static_cast<std::size_t>(busIndex)].id;auto it=std::find_if(track->sends.begin(),track->sends.end(),[&](auto const&send){return send.busId==busId;});if(it==track->sends.end())return;
-        Project before=project_;track->sends.erase(it);undo_.commit(std::move(before),project_,"Remove track send");publishEdit("Send removed");
+        Project before=project_;track->sends.erase(it);projectDirty_=true;undo_.commit(std::move(before),project_,"Remove track send");publishEdit("Send removed");
     }
     void assignSelectedInstrument(){
         const int trackIndex=selectedTrackIndex(),pluginIndex=selectedPluginIndex();
@@ -1077,12 +1077,12 @@ private:
         if(pluginIndex<0||pluginIndex>=static_cast<int>(plugins_.size())){status_.setText("Scan and select an instrument first",juce::dontSendNotification);return;}
         const auto&descriptor=plugins_[static_cast<std::size_t>(pluginIndex)];
         if(!descriptor.instrument){status_.setText("Selected plugin is an effect, not an instrument",juce::dontSendNotification);return;}
-        Project before=project_;auto&track=project_.tracks[static_cast<std::size_t>(trackIndex)];PluginInstance instance;instance.format=descriptor.format;instance.identifier=descriptor.identifier;instance.name=descriptor.name;instance.enabled=true;instance.bypass=false;instance.wet=1.0f;track.externalInstrument=std::move(instance);track.externalInstrumentEnabled=true;undo_.commit(std::move(before),project_,"Set external instrument");publishEdit("Instrument assigned to "+juce::String(track.name));
+        Project before=project_;auto&track=project_.tracks[static_cast<std::size_t>(trackIndex)];PluginInstance instance;instance.format=descriptor.format;instance.identifier=descriptor.identifier;instance.name=descriptor.name;instance.enabled=true;instance.bypass=false;instance.wet=1.0f;track.externalInstrument=std::move(instance);track.externalInstrumentEnabled=true;projectDirty_=true;undo_.commit(std::move(before),project_,"Set external instrument");publishEdit("Instrument assigned to "+juce::String(track.name));
     }
     void clearSelectedInstrument(){
         const int trackIndex=selectedTrackIndex();if(trackIndex<0){status_.setText("Select a track first",juce::dontSendNotification);return;}
         auto&track=project_.tracks[static_cast<std::size_t>(trackIndex)];if(!track.externalInstrumentEnabled){status_.setText("Selected track has no external instrument",juce::dontSendNotification);return;}
-        Project before=project_;const auto name=track.externalInstrument.name;track.externalInstrumentEnabled=false;track.externalInstrument=PluginInstance{};undo_.commit(std::move(before),project_,"Clear external instrument");publishEdit("Cleared instrument "+juce::String(name));
+        Project before=project_;const auto name=track.externalInstrument.name;track.externalInstrumentEnabled=false;track.externalInstrument=PluginInstance{};projectDirty_=true;undo_.commit(std::move(before),project_,"Clear external instrument");publishEdit("Cleared instrument "+juce::String(name));
     }
     void addSelectedEffect(bool master){
         const int pluginIndex=selectedPluginIndex();if(pluginIndex<0||pluginIndex>=static_cast<int>(plugins_.size())){status_.setText("Scan and select an effect first",juce::dontSendNotification);return;}
@@ -1090,7 +1090,7 @@ private:
         if(!master&&selectedTrackIndex()<0){status_.setText("Select a track first",juce::dontSendNotification);return;}
         PluginInstance instance;instance.format=descriptor.format;instance.identifier=descriptor.identifier;instance.name=descriptor.name;instance.enabled=true;instance.bypass=false;instance.wet=1.0f;
         Project before=project_;if(master)project_.master.plugins.push_back(instance);else project_.tracks[static_cast<std::size_t>(selectedTrackIndex())].mixer.plugins.push_back(instance);
-        undo_.commit(std::move(before),project_,master?"Add master insert":"Add track insert");publishEdit((master?"Master FX: ":"Track FX: ")+juce::String(descriptor.name));
+        projectDirty_=true;undo_.commit(std::move(before),project_,master?"Add master insert":"Add track insert");publishEdit((master?"Master FX: ":"Track FX: ")+juce::String(descriptor.name));
     }
     void undoEdit(){if(!undo_.undo(project_)){status_.setText("Nothing to undo",juce::dontSendNotification);return;}publishEdit("Undo");}
     void redoEdit(){if(!undo_.redo(project_)){status_.setText("Nothing to redo",juce::dontSendNotification);return;}publishEdit("Redo");}
