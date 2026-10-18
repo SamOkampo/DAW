@@ -38,7 +38,8 @@ public:
     using CommitFn=std::function<void(Project,std::string)>;
     ArrangementComponent(Project&project,CommitFn commit):project_(project),commit_(std::move(commit)){setMouseCursor(juce::MouseCursor::NormalCursor);setWantsKeyboardFocus(true);}
     void setPlayheadTick(Tick tick){playheadTick_=std::max<Tick>(0,tick);repaint();}
-    void projectChanged(){drag_=Hit{};dragFree_=false;externalDragActive_=false;setMouseCursor(juce::MouseCursor::NormalCursor);syncSelectedFromPrimarySelection();if(!selection_.empty()&&selected_.kind==Kind::None)selection_.clear();clampView();repaint();}
+    void projectChanged(){drag_=Hit{};dragFree_=false;externalDragActive_=false;setMouseCursor(juce::MouseCursor::NormalCursor);syncSelectedFromPrimarySelection();if(!selection_.empty()&&selected_.kind==Kind::None)selection_.clear();clampView();clampTrackScroll();repaint();}
+    void resized()override{clampTrackScroll();clampView();repaint();}
 
     bool isInterestedInDragSource(const SourceDetails&details)override{const auto d=details.description.toString();return d.startsWith("flowdaw-sample:")&&d.substring(15).endsWithIgnoreCase(".wav");}
     void itemDragEnter(const SourceDetails&details)override{externalDragActive_=isInterestedInDragSource(details);repaint();}
@@ -69,7 +70,7 @@ public:
         }
 
         for(std::size_t ti=0;ti<project_.tracks.size();++ti){
-            const int y=header+static_cast<int>(ti)*rowHeight;if(y>=bounds.getBottom())break;auto const&track=project_.tracks[ti];
+            const int y=header+(static_cast<int>(ti)-verticalRowOffset_)*rowHeight;if(y+rowHeight<=header)continue;if(y>=bounds.getBottom())break;auto const&track=project_.tracks[ti];
             const auto row=juce::Rectangle<int>(0,y,bounds.getWidth(),rowHeight-1);const auto lane=row.withTrimmedLeft(labelWidth);
             g.setColour((ti%2)==0?FlowTheme::surface().withAlpha(0.90f):FlowTheme::surfaceRaised().withAlpha(0.90f));g.fillRect(lane);
             juce::ColourGradient trackHeader(ti%2==0?FlowTheme::surfaceRaised():FlowTheme::surfaceHover(),0.0f,static_cast<float>(y),FlowTheme::surface(),static_cast<float>(labelWidth),static_cast<float>(y),false);
@@ -94,7 +95,7 @@ public:
         }
 
         if(playheadTick_>=viewStartTick_&&playheadTick_<=end){const int px=xForTick(playheadTick_);g.setColour(FlowTheme::accentHot().withAlpha(0.16f));g.fillRect(px-3,0,7,bounds.getHeight());g.setColour(FlowTheme::focus());g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));juce::Path marker;marker.addTriangle(static_cast<float>(px-5),0.0f,static_cast<float>(px+5),0.0f,static_cast<float>(px),8.0f);g.fillPath(marker);}
-        juce::String hint="SCROLL • Wheel    ZOOM • Ctrl/Cmd+Wheel    FREE MOVE • Alt-drag";
+        juce::String hint="TRACKS • Wheel    TIME • Shift+Wheel    ZOOM • Ctrl/Cmd+Wheel    FREE • Alt-drag";
         if(drag_.kind!=Kind::None){const Tick start=currentStart();const int guideX=xForTick(start);const Tick barTicks=kPPQ*4;g.setColour(FlowTheme::focus());g.drawVerticalLine(guideX,static_cast<float>(header),static_cast<float>(bounds.getBottom()));const int bar=static_cast<int>(start/barTicks)+1;const int beat=static_cast<int>((start%barTicks)/kPPQ)+1;hint="MOVE • BAR "+juce::String(bar)+" • BEAT "+juce::String(beat)+(dragFree_?" • FREE":" • SNAP 1/16");}
         if(externalDragActive_){
             auto target=juce::Rectangle<float>(static_cast<float>(labelWidth+8),static_cast<float>(header+8),static_cast<float>(std::max(1,bounds.getWidth()-labelWidth-16)),static_cast<float>(std::max(1,bounds.getHeight()-header-16)));
@@ -106,7 +107,27 @@ public:
 
     void mouseDown(const juce::MouseEvent&e)override{grabKeyboardFocus();const auto hit=hitTest(e.position);const bool toggle=e.mods.isCommandDown()||e.mods.isCtrlDown();if(toggle){drag_=Hit{};toggleSelectionFromHit(hit);syncSelectedFromPrimarySelection();repaint();return;}drag_=hit;selected_=drag_;if(!hitIsSelected(hit))syncSelectionFromHit(selected_);repaint();if(drag_.kind==Kind::None)return;dragFree_=false;before_=project_;anchorX_=e.x;dragStart_=currentStart();setMouseCursor(juce::MouseCursor::DraggingHandCursor);}
     void mouseDrag(const juce::MouseEvent&e)override{if(drag_.kind==Kind::None)return;const int content=std::max(1,getWidth()-kTrackHeaderWidth);const double ticksPerPixel=static_cast<double>(viewSpanTicks_)/static_cast<double>(content);const Tick rawDelta=static_cast<Tick>(std::llround(static_cast<double>(e.x-anchorX_)*ticksPerPixel));const Tick desired=std::max<Tick>(0,dragStart_+rawDelta);dragFree_=e.mods.isAltDown();setCurrentStart(dragFree_?desired:snapTick(desired));repaint();}
-    void mouseWheelMove(const juce::MouseEvent&e,const juce::MouseWheelDetails&wheel)override{if(e.mods.isCommandDown()||e.mods.isCtrlDown()){const Tick oldSpan=viewSpanTicks_;const Tick anchor=tickForX(e.position.x);const double factor=std::pow(1.8,-static_cast<double>(wheel.deltaY));const Tick minSpan=kPPQ*4;const Tick maxSpan=std::max<Tick>(minSpan,contentEndTick());viewSpanTicks_=std::clamp<Tick>(static_cast<Tick>(std::llround(static_cast<double>(oldSpan)*factor)),minSpan,maxSpan);const double anchorFraction=static_cast<double>(anchor-viewStartTick_)/static_cast<double>(std::max<Tick>(1,oldSpan));viewStartTick_=anchor-static_cast<Tick>(std::llround(anchorFraction*static_cast<double>(viewSpanTicks_)));}else{const float delta=std::abs(wheel.deltaX)>0.0001f?wheel.deltaX:wheel.deltaY;viewStartTick_-=static_cast<Tick>(std::llround(static_cast<double>(delta)*static_cast<double>(viewSpanTicks_)*0.12));}clampView();repaint();}
+    void mouseWheelMove(const juce::MouseEvent&e,const juce::MouseWheelDetails&wheel)override{
+        if(e.mods.isCommandDown()||e.mods.isCtrlDown()){
+            const Tick oldSpan=viewSpanTicks_;
+            const Tick anchor=tickForX(e.position.x);
+            const double factor=std::pow(1.8,-static_cast<double>(wheel.deltaY));
+            const Tick minSpan=kPPQ*4;
+            const Tick maxSpan=std::max<Tick>(minSpan,contentEndTick());
+            viewSpanTicks_=std::clamp<Tick>(static_cast<Tick>(std::llround(static_cast<double>(oldSpan)*factor)),minSpan,maxSpan);
+            const double frac=static_cast<double>(anchor-viewStartTick_)/static_cast<double>(std::max<Tick>(1,oldSpan));
+            viewStartTick_=anchor-static_cast<Tick>(std::llround(frac*static_cast<double>(viewSpanTicks_)));
+            clampView();
+        }else if(e.mods.isShiftDown()||std::abs(wheel.deltaX)>0.0001f){
+            const float amount=std::abs(wheel.deltaX)>0.0001f?wheel.deltaX:wheel.deltaY;
+            viewStartTick_-=static_cast<Tick>(std::llround(static_cast<double>(amount)*static_cast<double>(viewSpanTicks_)*0.12));
+            clampView();
+        }else{
+            verticalRowOffset_-=static_cast<int>(std::lround(wheel.deltaY*3.0f));
+            clampTrackScroll();
+        }
+        repaint();
+    }
     void mouseUp(const juce::MouseEvent&)override{if(drag_.kind==Kind::None)return;const bool changed=currentStart()!=dragStart_;setMouseCursor(juce::MouseCursor::NormalCursor);auto before=std::move(before_);const auto kind=drag_.kind;drag_=Hit{};dragFree_=false;if(changed&&commit_)commit_(std::move(before),kind==Kind::Audio?"Move audio clip":"Move pattern clip");}
     bool keyPressed(const juce::KeyPress&key)override{if(selection_.empty())return false;if(key==juce::KeyPress::deleteKey||key==juce::KeyPress::backspaceKey){deleteSelected();return true;}if((key.getModifiers().isCommandDown()||key.getModifiers().isCtrlDown())&&(key.getTextCharacter()=='d'||key.getTextCharacter()=='D')){duplicateSelected();return true;}if(key.getTextCharacter()=='+'||key.getTextCharacter()=='='){adjustRepeats(1);return true;}if(key.getTextCharacter()=='-'){adjustRepeats(-1);return true;}return false;}
 
@@ -134,11 +155,15 @@ private:
     void syncSelectedFromPrimarySelection(){selected_=Hit{};const auto item=selection_.item();if(!item.valid())return;for(std::size_t ti=0;ti<project_.tracks.size();++ti){auto const&t=project_.tracks[ti];if(t.id!=item.trackId)continue;if(item.kind==ArrangementSelection::Kind::AudioClip){for(std::size_t i=0;i<t.clips.size();++i)if(t.clips[i].id==item.id){selected_={Kind::Audio,ti,i};return;}}else if(item.kind==ArrangementSelection::Kind::PatternClip){for(std::size_t i=0;i<t.patternClips.size();++i)if(t.patternClips[i].id==item.id){selected_={Kind::Pattern,ti,i};return;}}return;}}
     static constexpr Tick snapGridTicks(){return kPPQ/4;}static Tick snapTick(Tick tick){const Tick grid=snapGridTicks();return static_cast<Tick>(std::llround(static_cast<double>(tick)/static_cast<double>(grid)))*grid;}
     Tick contentEndTick()const{Tick end=kPPQ*32;for(auto const&t:project_.tracks){for(auto const&c:t.clips)end=std::max(end,c.startTick+std::max<Tick>(c.lengthTicks,kPPQ));for(auto const&pp:t.patternClips)if(auto*p=project_.findPattern(pp.patternId))end=std::max(end,pp.startTick+p->lengthTicks()*std::max(1,pp.repeats));}const Tick bar=kPPQ*4;return ((end+bar-1)/bar)*bar;}
+    void clampTrackScroll(){
+        const int rows=std::max(1,(getHeight()-kHeaderHeight)/kRowHeight);
+        verticalRowOffset_=std::clamp(verticalRowOffset_,0,std::max(0,static_cast<int>(project_.tracks.size())-rows));
+    }
     Tick visibleEndTick()const{return viewStartTick_+viewSpanTicks_;}void clampView(){const Tick maxStart=std::max<Tick>(0,contentEndTick()-viewSpanTicks_);viewStartTick_=std::clamp<Tick>(viewStartTick_,0,maxStart);}
     int xForTick(Tick tick)const{const int w=std::max(1,getWidth()-kTrackHeaderWidth);return kTrackHeaderWidth+static_cast<int>(std::llround(static_cast<double>(tick-viewStartTick_)/static_cast<double>(std::max<Tick>(1,viewSpanTicks_))*w));}
     Tick tickForX(float x)const{const int w=std::max(1,getWidth()-kTrackHeaderWidth);const double ratio=std::clamp((static_cast<double>(x)-kTrackHeaderWidth)/static_cast<double>(w),0.0,1.0);return viewStartTick_+static_cast<Tick>(std::llround(ratio*static_cast<double>(viewSpanTicks_)));}
-    juce::Rectangle<float> clipRect(const Clip&c,std::size_t track)const{const int y=kHeaderHeight+static_cast<int>(track)*kRowHeight;const int x=xForTick(c.startTick);const int x2=xForTick(c.startTick+std::max<Tick>(c.lengthTicks,kPPQ/2));return{static_cast<float>(x+3),static_cast<float>(y+7),static_cast<float>(std::max(18,x2-x-6)),38.0f};}
-    juce::Rectangle<float> patternRect(const PatternPlacement&pp,std::size_t track)const{Tick length=kPPQ;if(auto*p=project_.findPattern(pp.patternId))length=p->lengthTicks()*std::max(1,pp.repeats);const int y=kHeaderHeight+static_cast<int>(track)*kRowHeight;const int x=xForTick(pp.startTick);const int x2=xForTick(pp.startTick+length);return{static_cast<float>(x+3),static_cast<float>(y+7),static_cast<float>(std::max(18,x2-x-6)),38.0f};}
+    juce::Rectangle<float> clipRect(const Clip&c,std::size_t track)const{const int y=kHeaderHeight+(static_cast<int>(track)-verticalRowOffset_)*kRowHeight;const int x=xForTick(c.startTick);const int x2=xForTick(c.startTick+std::max<Tick>(c.lengthTicks,kPPQ/2));return{static_cast<float>(x+3),static_cast<float>(y+7),static_cast<float>(std::max(18,x2-x-6)),38.0f};}
+    juce::Rectangle<float> patternRect(const PatternPlacement&pp,std::size_t track)const{Tick length=kPPQ;if(auto*p=project_.findPattern(pp.patternId))length=p->lengthTicks()*std::max(1,pp.repeats);const int y=kHeaderHeight+(static_cast<int>(track)-verticalRowOffset_)*kRowHeight;const int x=xForTick(pp.startTick);const int x2=xForTick(pp.startTick+length);return{static_cast<float>(x+3),static_cast<float>(y+7),static_cast<float>(std::max(18,x2-x-6)),38.0f};}
     Hit hitTest(juce::Point<float>point)const{if(point.x<kTrackHeaderWidth||point.y<kHeaderHeight)return{};for(std::size_t ti=0;ti<project_.tracks.size();++ti){auto const&t=project_.tracks[ti];for(std::size_t i=t.patternClips.size();i>0;--i)if(patternRect(t.patternClips[i-1],ti).contains(point))return{Kind::Pattern,ti,i-1};for(std::size_t i=t.clips.size();i>0;--i)if(clipRect(t.clips[i-1],ti).contains(point))return{Kind::Audio,ti,i-1};}return{};}
     Tick currentStart()const{if(drag_.track>=project_.tracks.size())return 0;auto const&t=project_.tracks[drag_.track];if(drag_.kind==Kind::Audio&&drag_.index<t.clips.size())return t.clips[drag_.index].startTick;if(drag_.kind==Kind::Pattern&&drag_.index<t.patternClips.size())return t.patternClips[drag_.index].startTick;return 0;}
     void setCurrentStart(Tick tick){
@@ -199,7 +224,7 @@ private:
         repaint();
     }
     void adjustRepeats(int delta){if(selected_.kind!=Kind::Pattern||selected_.track>=project_.tracks.size())return;auto&t=project_.tracks[selected_.track];if(selected_.index>=t.patternClips.size())return;const int next=std::clamp(t.patternClips[selected_.index].repeats+delta,1,64);if(next==t.patternClips[selected_.index].repeats)return;Project before=project_;t.patternClips[selected_.index].repeats=next;if(commit_)commit_(std::move(before),"Change pattern repeats");repaint();}
-    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0,viewStartTick_=0,viewSpanTicks_=kPPQ*32;int anchorX_=0;bool dragFree_=false,externalDragActive_=false;Hit drag_,selected_;ArrangementSelection selection_;Project before_;
+    Project&project_;CommitFn commit_;Tick playheadTick_=0,dragStart_=0,viewStartTick_=0,viewSpanTicks_=kPPQ*32;int anchorX_=0,verticalRowOffset_=0;bool dragFree_=false,externalDragActive_=false;Hit drag_,selected_;ArrangementSelection selection_;Project before_;
 };
 
 } // namespace flowdaw::juceui
