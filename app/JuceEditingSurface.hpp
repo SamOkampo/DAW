@@ -78,6 +78,8 @@ public:
             g.setColour(FlowTheme::textMuted());g.setFont(9.5f);g.drawText("TRACK "+juce::String(static_cast<int>(ti)+1),14,y+27,labelWidth-24,14,juce::Justification::centredLeft,false);
             g.setColour(FlowTheme::borderSubtle().withAlpha(0.62f));g.drawHorizontalLine(y+rowHeight-1,0.0f,static_cast<float>(bounds.getWidth()));
 
+            g.saveState();
+            g.reduceClipRegion(lane); // Keep all clips inside the timeline, never over track labels.
             for(std::size_t ci=0;ci<track.clips.size();++ci){
                 auto r=clipRect(track.clips[ci],ti);const bool selected=selection_.contains(ArrangementSelection::Kind::AudioClip,track.id,track.clips[ci].id);
                 drawClip(g,r,FlowTheme::accentDeep(),FlowTheme::accentHot(),selected,"AUDIO");
@@ -88,6 +90,7 @@ public:
                 drawClip(g,r,FlowTheme::clipPattern(),FlowTheme::warning(),selected,"PATTERN");
                 auto*p=project_.findPattern(track.patternClips[pi].patternId);drawClipText(g,r,juce::String(p?p->name:std::string("Pattern"))+"  ×"+juce::String(std::max(1,track.patternClips[pi].repeats)));
             }
+            g.restoreState();
         }
 
         if(playheadTick_>=viewStartTick_&&playheadTick_<=end){const int px=xForTick(playheadTick_);g.setColour(FlowTheme::accentHot().withAlpha(0.16f));g.fillRect(px-3,0,7,bounds.getHeight());g.setColour(FlowTheme::focus());g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));juce::Path marker;marker.addTriangle(static_cast<float>(px-5),0.0f,static_cast<float>(px+5),0.0f,static_cast<float>(px),8.0f);g.fillPath(marker);}
@@ -127,7 +130,7 @@ private:
     Tick tickForX(float x)const{const int w=std::max(1,getWidth()-kTrackHeaderWidth);const double ratio=std::clamp((static_cast<double>(x)-kTrackHeaderWidth)/static_cast<double>(w),0.0,1.0);return viewStartTick_+static_cast<Tick>(std::llround(ratio*static_cast<double>(viewSpanTicks_)));}
     juce::Rectangle<float> clipRect(const Clip&c,std::size_t track)const{const int y=kHeaderHeight+static_cast<int>(track)*kRowHeight;const int x=xForTick(c.startTick);const int x2=xForTick(c.startTick+std::max<Tick>(c.lengthTicks,kPPQ/2));return{static_cast<float>(x+3),static_cast<float>(y+7),static_cast<float>(std::max(18,x2-x-6)),38.0f};}
     juce::Rectangle<float> patternRect(const PatternPlacement&pp,std::size_t track)const{Tick length=kPPQ;if(auto*p=project_.findPattern(pp.patternId))length=p->lengthTicks()*std::max(1,pp.repeats);const int y=kHeaderHeight+static_cast<int>(track)*kRowHeight;const int x=xForTick(pp.startTick);const int x2=xForTick(pp.startTick+length);return{static_cast<float>(x+3),static_cast<float>(y+7),static_cast<float>(std::max(18,x2-x-6)),38.0f};}
-    Hit hitTest(juce::Point<float>point)const{for(std::size_t ti=0;ti<project_.tracks.size();++ti){auto const&t=project_.tracks[ti];for(std::size_t i=t.clips.size();i>0;--i)if(clipRect(t.clips[i-1],ti).contains(point))return{Kind::Audio,ti,i-1};for(std::size_t i=t.patternClips.size();i>0;--i)if(patternRect(t.patternClips[i-1],ti).contains(point))return{Kind::Pattern,ti,i-1};}return{};}
+    Hit hitTest(juce::Point<float>point)const{if(point.x<kTrackHeaderWidth||point.y<kHeaderHeight)return{};for(std::size_t ti=0;ti<project_.tracks.size();++ti){auto const&t=project_.tracks[ti];for(std::size_t i=t.patternClips.size();i>0;--i)if(patternRect(t.patternClips[i-1],ti).contains(point))return{Kind::Pattern,ti,i-1};for(std::size_t i=t.clips.size();i>0;--i)if(clipRect(t.clips[i-1],ti).contains(point))return{Kind::Audio,ti,i-1};}return{};}
     Tick currentStart()const{if(drag_.track>=project_.tracks.size())return 0;auto const&t=project_.tracks[drag_.track];if(drag_.kind==Kind::Audio&&drag_.index<t.clips.size())return t.clips[drag_.index].startTick;if(drag_.kind==Kind::Pattern&&drag_.index<t.patternClips.size())return t.patternClips[drag_.index].startTick;return 0;}
     void setCurrentStart(Tick tick){if(drag_.track>=project_.tracks.size())return;auto&t=project_.tracks[drag_.track];if(drag_.kind==Kind::Audio&&drag_.index<t.clips.size())t.clips[drag_.index].startTick=tick;else if(drag_.kind==Kind::Pattern&&drag_.index<t.patternClips.size())t.patternClips[drag_.index].startTick=tick;}
     void deleteSelected(){if(selection_.empty())return;Project before=project_;const auto selectedCount=selection_.size();bool changed=false;for(auto&t:project_.tracks){const auto clipsBefore=t.clips.size();std::erase_if(t.clips,[&](const Clip&clip){return selection_.contains(ArrangementSelection::Kind::AudioClip,t.id,clip.id);});const auto patternsBefore=t.patternClips.size();std::erase_if(t.patternClips,[&](const PatternPlacement&placement){return selection_.contains(ArrangementSelection::Kind::PatternClip,t.id,placement.id);});changed=changed||clipsBefore!=t.clips.size()||patternsBefore!=t.patternClips.size();}if(!changed)return;drag_=Hit{};selected_=Hit{};selection_.clear();if(commit_)commit_(std::move(before),selectedCount>1?"Delete arrangement blocks":"Delete arrangement block");repaint();}
