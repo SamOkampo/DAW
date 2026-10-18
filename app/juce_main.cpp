@@ -504,6 +504,15 @@ private:
     void syncTransportVisualState(){const bool playing=engine_.isPlaying();if(play_.getToggleState()!=playing)play_.setToggleState(playing,juce::dontSendNotification);play_.setButtonText(playing?"Pause":"Play");}
     void togglePlayback(){if(engine_.isPlaying()){engine_.pause();status_.setText("Paused",juce::dontSendNotification);}else{engine_.play();status_.setText("Playing through JUCE device",juce::dontSendNotification);}syncTransportVisualState();}
     void confirmDiscardChanges(std::function<void()> proceed){
+        // Finish active takes *before* checking dirty state. Otherwise New/Open
+        // or window close could record a take then discard it without a prompt.
+        try{
+            if(audioRecording_)finishAudioRecording();
+            if(recordingChops_)finishChopRecording();
+        }catch(const std::exception&e){
+            status_.setText("Could not finish recording; project change cancelled: "+juce::String(e.what()),juce::dontSendNotification);
+            return;
+        }
         if(!projectDirty_){if(proceed)proceed();return;}
         juce::PopupMenu menu;
         menu.addSectionHeader("This project has unsaved edits");
