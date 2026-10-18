@@ -96,7 +96,7 @@ public:
         }
 
         if(playheadTick_>=viewStartTick_&&playheadTick_<=end){const int px=xForTick(playheadTick_);g.setColour(FlowTheme::accentHot().withAlpha(0.16f));g.fillRect(px-3,0,7,bounds.getHeight());g.setColour(FlowTheme::focus());g.drawVerticalLine(px,0.0f,static_cast<float>(bounds.getBottom()));juce::Path marker;marker.addTriangle(static_cast<float>(px-5),0.0f,static_cast<float>(px+5),0.0f,static_cast<float>(px),8.0f);g.fillPath(marker);}
-        juce::String hint="TRACKS • Wheel    TIME • Shift+Wheel    ZOOM • Ctrl/Cmd+Wheel    FREE • Alt-drag";
+        juce::String hint="TRACKS • Wheel  TIME • Shift+Wheel  SPLIT • Ctrl+E  TRIM • Alt+[ / Alt+]";
         if(drag_.kind!=Kind::None){const Tick start=currentStart();const int guideX=xForTick(start);const Tick barTicks=kPPQ*4;g.setColour(FlowTheme::focus());g.drawVerticalLine(guideX,static_cast<float>(header),static_cast<float>(bounds.getBottom()));const int bar=static_cast<int>(start/barTicks)+1;const int beat=static_cast<int>((start%barTicks)/kPPQ)+1;hint="MOVE • BAR "+juce::String(bar)+" • BEAT "+juce::String(beat)+(dragFree_?" • FREE":" • SNAP 1/16");}
         if(externalDragActive_){
             auto target=juce::Rectangle<float>(static_cast<float>(labelWidth+8),static_cast<float>(header+8),static_cast<float>(std::max(1,bounds.getWidth()-labelWidth-16)),static_cast<float>(std::max(1,bounds.getHeight()-header-16)));
@@ -130,7 +130,7 @@ public:
         repaint();
     }
     void mouseUp(const juce::MouseEvent&)override{if(drag_.kind==Kind::None)return;const bool changed=currentStart()!=dragStart_;setMouseCursor(juce::MouseCursor::NormalCursor);auto before=std::move(before_);const auto kind=drag_.kind;drag_=Hit{};dragFree_=false;if(changed&&commit_)commit_(std::move(before),kind==Kind::Audio?"Move audio clip":"Move pattern clip");}
-    bool keyPressed(const juce::KeyPress&key)override{if(selection_.empty())return false;if(key==juce::KeyPress::deleteKey||key==juce::KeyPress::backspaceKey){deleteSelected();return true;}if((key.getModifiers().isCommandDown()||key.getModifiers().isCtrlDown())&&(key.getTextCharacter()=='d'||key.getTextCharacter()=='D')){duplicateSelected();return true;}if((key.getModifiers().isCommandDown()||key.getModifiers().isCtrlDown())&&(key.getKeyCode()=='E'||key.getKeyCode()=='e')){splitSelectedAtPlayhead();return true;}if(key.getTextCharacter()=='+'||key.getTextCharacter()=='='){adjustRepeats(1);return true;}if(key.getTextCharacter()=='-'){adjustRepeats(-1);return true;}return false;}
+    bool keyPressed(const juce::KeyPress&key)override{if(selection_.empty())return false;if(key==juce::KeyPress::deleteKey||key==juce::KeyPress::backspaceKey){deleteSelected();return true;}if((key.getModifiers().isCommandDown()||key.getModifiers().isCtrlDown())&&(key.getTextCharacter()=='d'||key.getTextCharacter()=='D')){duplicateSelected();return true;}if((key.getModifiers().isCommandDown()||key.getModifiers().isCtrlDown())&&(key.getKeyCode()=='E'||key.getKeyCode()=='e')){splitSelectedAtPlayhead();return true;}if(key.getModifiers().isAltDown()&&key.getKeyCode()=='['){trimSelectedAtPlayhead(true);return true;}if(key.getModifiers().isAltDown()&&key.getKeyCode()==']'){trimSelectedAtPlayhead(false);return true;}if(key.getTextCharacter()=='+'||key.getTextCharacter()=='='){adjustRepeats(1);return true;}if(key.getTextCharacter()=='-'){adjustRepeats(-1);return true;}return false;}
 
 private:
     enum class Kind{None,Audio,Pattern};struct Hit{Kind kind=Kind::None;std::size_t track=0,index=0;};
@@ -195,6 +195,21 @@ private:
         else if(drag_.kind==Kind::Pattern&&drag_.index<t.patternClips.size())t.patternClips[drag_.index].startTick=tick;
     }
     void deleteSelected(){if(selection_.empty())return;Project before=project_;const auto selectedCount=selection_.size();bool changed=false;for(auto&t:project_.tracks){const auto clipsBefore=t.clips.size();std::erase_if(t.clips,[&](const Clip&clip){return selection_.contains(ArrangementSelection::Kind::AudioClip,t.id,clip.id);});const auto patternsBefore=t.patternClips.size();std::erase_if(t.patternClips,[&](const PatternPlacement&placement){return selection_.contains(ArrangementSelection::Kind::PatternClip,t.id,placement.id);});changed=changed||clipsBefore!=t.clips.size()||patternsBefore!=t.patternClips.size();}if(!changed)return;drag_=Hit{};selected_=Hit{};selection_.clear();if(commit_)commit_(std::move(before),selectedCount>1?"Delete arrangement blocks":"Delete arrangement block");repaint();}
+    void trimSelectedAtPlayhead(bool leftEdge){
+        if(selection_.empty())return;
+        Project before=project_;
+        bool changed=false;
+        for(auto&track:project_.tracks){
+            for(auto&clip:track.clips){
+                if(!selection_.contains(ArrangementSelection::Kind::AudioClip,track.id,clip.id))continue;
+                changed=(leftEdge?flowdaw::trimAudioClipLeft(clip,playheadTick_):
+                                  flowdaw::trimAudioClipRight(clip,playheadTick_))||changed;
+            }
+        }
+        if(!changed)return;
+        if(commit_)commit_(std::move(before),leftEdge?"Trim audio clip left":"Trim audio clip right");
+        repaint();
+    }
     void splitSelectedAtPlayhead(){
         if(selection_.empty())return;
         Project before=project_;
