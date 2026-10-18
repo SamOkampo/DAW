@@ -243,6 +243,10 @@ if(FLOWDAW_BUILD_TESTS)
     target_link_libraries(flowdaw_project_data_safety_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_project_data_safety_tests COMMAND flowdaw_project_data_safety_tests)
 
+    add_executable(flowdaw_clip_editing_tests tests/test_clip_editing.cpp)
+    target_link_libraries(flowdaw_clip_editing_tests PRIVATE flowdaw_core)
+    add_test(NAME flowdaw_clip_editing_tests COMMAND flowdaw_clip_editing_tests)
+
     add_executable(flowdaw_chop_editing_tests tests/test_chop_editing.cpp)
     target_link_libraries(flowdaw_chop_editing_tests PRIVATE flowdaw_core)
     add_test(NAME flowdaw_chop_editing_tests COMMAND flowdaw_chop_editing_tests)
