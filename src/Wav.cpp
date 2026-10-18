@@ -28,6 +28,12 @@ double tpdf(std::uint32_t& state) noexcept {
 void validateWriteBuffer(const AudioBuffer& audio){
     if(audio.channels<1||audio.channels>2||audio.sampleRate<=0)throw std::invalid_argument("Invalid audio buffer");
 }
+void finishWavWrite(std::ofstream& f){
+    f.flush();
+    if(!f)throw std::runtime_error("WAV write or flush failed");
+    f.close();
+    if(!f)throw std::runtime_error("WAV close failed");
+}
 }
 AudioBuffer WavFile::read(const std::filesystem::path& path) {
     std::ifstream f(path, std::ios::binary);
@@ -71,6 +77,7 @@ void WavFile::writeFloat32(const std::filesystem::path& path, const AudioBuffer&
     f.write("RIFF",4); writeU32(f,36+dataBytes); f.write("WAVEfmt ",8); writeU32(f,16); writeU16(f,3); writeU16(f,static_cast<std::uint16_t>(audio.channels));
     writeU32(f,static_cast<std::uint32_t>(audio.sampleRate)); writeU32(f,static_cast<std::uint32_t>(audio.sampleRate*audio.channels*4)); writeU16(f,static_cast<std::uint16_t>(audio.channels*4)); writeU16(f,32);
     f.write("data",4); writeU32(f,dataBytes); f.write(reinterpret_cast<const char*>(audio.interleaved.data()),dataBytes);
+    finishWavWrite(f);
 }
 
 void WavFile::writePcm24(const std::filesystem::path& path,const AudioBuffer& audio,bool tpdfDither){
@@ -90,6 +97,7 @@ void WavFile::writePcm24(const std::filesystem::path& path,const AudioBuffer& au
         const std::array<char,3> bytes{static_cast<char>(u&0xffu),static_cast<char>((u>>8)&0xffu),static_cast<char>((u>>16)&0xffu)};
         f.write(bytes.data(),3);
     }
+    finishWavWrite(f);
 }
 
 void WavFile::writePcm16(const std::filesystem::path& path,const AudioBuffer& audio,bool tpdfDither){
@@ -107,5 +115,6 @@ void WavFile::writePcm16(const std::filesystem::path& path,const AudioBuffer& au
         const auto value=static_cast<std::int16_t>(std::clamp<long long>(std::llround(q),-32768LL,32767LL));
         writeU16(f,static_cast<std::uint16_t>(value));
     }
+    finishWavWrite(f);
 }
 }

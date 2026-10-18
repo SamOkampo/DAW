@@ -69,12 +69,39 @@ void ProjectSerializer::save(const Project&p,const std::filesystem::path&path){
     for(auto const&b:p.buses){f<<"BUS "<<b.id<<" "<<q(b.name)<<" "<<b.mixer.volume<<" "<<b.mixer.pan<<" "<<b.mixer.mute<<" "<<b.mixer.solo<<" "<<b.mixer.effects.size()<<" "<<b.mixer.plugins.size()<<"\n";for(auto const&e:b.mixer.effects)saveEffect(f,"BUS_EFFECT",e);for(auto const&pl:b.mixer.plugins)savePlugin(f,"BUS_PLUGIN",pl);}
     f<<"AUTOMATION "<<p.automation.size()<<"\n";
     for(auto lane:p.automation){normalizeAutomationLane(lane);f<<"AUTO "<<lane.id<<" "<<q(lane.target)<<" "<<lane.targetId<<" "<<lane.subTargetId<<" "<<lane.points.size()<<"\n";for(auto const&pt:lane.points)f<<"POINT "<<pt.tick<<" "<<pt.value<<"\n";}
-    f<<"END\n";f.flush();if(!f)throw std::runtime_error("Project write failed");f.close();
-    std::error_code ec;auto bak=path;bak+= ".bak";if(std::filesystem::exists(path,ec)){ec.clear();std::filesystem::copy_file(path,bak,std::filesystem::copy_options::overwrite_existing,ec);}ec.clear();std::filesystem::rename(tmp,path,ec);if(ec){std::error_code removeEc;std::filesystem::remove(path,removeEc);ec.clear();std::filesystem::rename(tmp,path,ec);if(ec)throw std::runtime_error("Cannot atomically replace project file: "+ec.message());}
+    f<<"END\n";f.flush();if(!f)throw std::runtime_error("Project write failed");f.close();if(!f)throw std::runtime_error("Project close failed");
+    std::error_code ec;
+    const bool originalExists=std::filesystem::exists(path,ec);
+    if(ec)throw std::runtime_error("Cannot inspect existing project: "+ec.message());
+    if(originalExists){
+        auto bak=path;bak+=".bak";
+        std::filesystem::copy_file(path,bak,std::filesystem::copy_options::overwrite_existing,ec);
+        if(ec)throw std::runtime_error("Cannot back up existing project: "+ec.message());
+    }
+    std::filesystem::rename(tmp,path,ec);
+    if(!ec)return; // POSIX atomic replacement, or new target on Windows.
+    if(!originalExists)throw std::runtime_error("Cannot install new project: "+ec.message());
+    // Windows does not permit rename over an open/existing destination. Never
+    // delete the last good project merely because promotion of the temp failed.
+    auto rollback=path;rollback+=".rollback";
+    ec.clear();
+    const bool rollbackExists=std::filesystem::exists(rollback,ec);
+    if(ec||rollbackExists)throw std::runtime_error("Existing rollback file must be preserved");
+    std::filesystem::rename(path,rollback,ec);
+    if(ec)throw std::runtime_error("Cannot stage existing project for replacement: "+ec.message());
+    ec.clear();std::filesystem::rename(tmp,path,ec);
+    if(ec){
+        const auto promotionError=ec.message();
+        ec.clear();std::filesystem::rename(rollback,path,ec);
+        if(ec)throw std::runtime_error("Promotion failed ("+promotionError+"); original retained at "+rollback.string()+"; restore failed: "+ec.message());
+        throw std::runtime_error("Cannot replace project; original restored: "+promotionError);
+    }
+    ec.clear();std::filesystem::remove(rollback,ec); // .bak also contains the previous valid project.
 }
 
 Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio){
     std::ifstream f(path);if(!f)throw std::runtime_error("Cannot open project");Project p;std::string tag;f>>tag;if(tag!="FLOWDAW_PROJECT")throw std::runtime_error("Not a FLOWDAW project");int version=0;f>>version;if(version<1||version>11)throw std::runtime_error("Unsupported project version");
+    bool foundEnd=false;
     while(f>>tag){
         if(tag=="NAME")f>>std::quoted(p.name);
         else if(tag=="SAMPLE_RATE")f>>p.sampleRate;
@@ -120,8 +147,10 @@ Project ProjectSerializer::load(const std::filesystem::path&path,bool loadAudio)
         else if(tag=="AUTOMATION"){
             if(version<9)throw std::runtime_error("AUTOMATION token in legacy project");std::size_t n{};f>>n;for(std::size_t i=0;i<n;++i){AutomationLane lane;std::size_t np=0;f>>tag;if(tag!="AUTO")throw std::runtime_error("Expected AUTO");f>>lane.id>>std::quoted(lane.target)>>lane.targetId>>lane.subTargetId>>np;for(std::size_t j=0;j<np;++j){AutomationPoint pt;f>>tag;if(tag!="POINT")throw std::runtime_error("Expected POINT");f>>pt.tick>>pt.value;lane.points.push_back(pt);}normalizeAutomationLane(lane);p.automation.push_back(std::move(lane));}
         }
-        else if(tag=="END")break;else throw std::runtime_error("Unknown project token: "+tag);
+        else if(tag=="END"){foundEnd=true;break;}else throw std::runtime_error("Unknown project token: "+tag);
+        if(!f)throw std::runtime_error("Incomplete or corrupt FLOWDAW project");
     }
+    if(!foundEnd)throw std::runtime_error("Incomplete FLOWDAW project: missing END marker");
     p.formatVersion=11;return p;
 }
 }
