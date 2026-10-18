@@ -119,6 +119,7 @@ public:
         if(settings_.restoreLastSession&&recoveryInfo.available)try{project_=recovery_->loadRecovered(true);try{hydrateFirstPartyContent(project_,flowCoreRoot_);}catch(...){}projectPath_=recoveryInfo.originalProject;loadedRecovery=true;recoveredAtStartup_=true;preserveRecoveryOnExit_=true;}catch(...){}
         if(!loadedRecovery&&!settings_.lastProjectPath.empty()&&std::filesystem::exists(settings_.lastProjectPath))try{project_=ProjectSerializer::load(settings_.lastProjectPath,true);try{hydrateFirstPartyContent(project_,flowCoreRoot_);}catch(...){}projectPath_=settings_.lastProjectPath;loadedLast=true;}catch(...){}
         if(!loadedRecovery&&!loadedLast){try{project_=makeProjectTemplate(ProjectTemplateKind::BoomBap,flowCoreRoot_);}catch(...){project_=makeStarterProject();}}
+        projectDirty_=loadedRecovery||projectPath_.empty();
         const auto startupSource=loadedRecovery?flowdaw::ui::StartupProjectSource::recoveredAutosave:(loadedLast?flowdaw::ui::StartupProjectSource::lastSession:flowdaw::ui::StartupProjectSource::freshProject);
         const auto startupIdentity=projectPath_.empty()?project_.name:projectPath_.filename().string();
         const flowdaw::ui::StartupPresentation startupPresentation{startupSource,startupIdentity};
@@ -270,6 +271,15 @@ public:
         applyShellTheme();
         configureAccessibilityMetadata();
         setWantsKeyboardFocus(true);configureFocusTraversal();installShortcutListeners(*this);setSize(1440,1040);startTimer(100);if(firstRun){saveDeviceSettings();auto safe=juce::Component::SafePointer<MainComponent>(this);juce::MessageManager::callAsync([safe]()mutable{if(auto*self=safe.getComponent())self->showFirstRunOnboarding();});}
+    }
+    void requestQuit(){
+        juce::Component::SafePointer<MainComponent> safeThis(this);
+        confirmDiscardChanges([safeThis]{
+            if(auto*self=safeThis.getComponent()){
+                self->preserveRecoveryOnExit_=false;
+                juce::JUCEApplication::getInstance()->quit();
+            }
+        });
     }
     ~MainComponent()override{clearShellTheme();if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();pluginWindow_.reset();deviceManager_.removeAudioCallback(this);engine_.stop();engine_.collectRetiredGraphs();saveDeviceSettings();saveSafety();if(recovery_&&!preserveRecoveryOnExit_)try{recovery_->markCleanExit();}catch(...){}}
     void paint(juce::Graphics&g)override{
@@ -493,10 +503,33 @@ private:
     }
     void syncTransportVisualState(){const bool playing=engine_.isPlaying();if(play_.getToggleState()!=playing)play_.setToggleState(playing,juce::dontSendNotification);play_.setButtonText(playing?"Pause":"Play");}
     void togglePlayback(){if(engine_.isPlaying()){engine_.pause();status_.setText("Paused",juce::dontSendNotification);}else{engine_.play();status_.setText("Playing through JUCE device",juce::dontSendNotification);}syncTransportVisualState();}
-    void applyNewProject(Project next,const juce::String&label,const juce::String&message){
+    void confirmDiscardChanges(std::function<void()> proceed){
+        if(!projectDirty_){if(proceed)proceed();return;}
+        juce::PopupMenu menu;
+        menu.addSectionHeader("This project has unsaved edits");
+        menu.addItem(1,"Save first (then repeat the action)");
+        menu.addItem(2,"Discard edits and continue");
+        menu.addItem(3,"Cancel and keep working");
+        juce::Component::SafePointer<MainComponent> safeThis(this);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&saveProject_),
+            [safeThis,proceed=std::move(proceed)](int choice) mutable {
+                if(auto*self=safeThis.getComponent()){
+                    if(choice==1)self->saveProject();
+                    else if(choice==2&&proceed)proceed();
+                }
+            });
+    }
+    void applyNewProject(Project next,const juce::String&label,const juce::String&message,bool confirmed=false){
+        if(projectDirty_&&!confirmed){
+            juce::Component::SafePointer<MainComponent> safeThis(this);
+            confirmDiscardChanges([safeThis,next=std::move(next),label,message]() mutable {
+                if(auto*self=safeThis.getComponent())self->applyNewProject(std::move(next),label,message,true);
+            });
+            return;
+        }
         if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();pluginWindow_.reset();engine_.stop();project_=std::move(next);projectPath_.clear();settings_.lastProjectPath.clear();undo_=UndoStack{};engine_.publish(project_);
         refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshRackControls();syncChopControls();updateBpmLabel();if(arrangement_)arrangement_->projectChanged();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();
-        recoveredAtStartup_=false;preserveRecoveryOnExit_=false;resetRecoverySnapshot();projectLabel_.setText(label,juce::dontSendNotification);status_.setText(message,juce::dontSendNotification);saveDeviceSettings();
+        recoveredAtStartup_=false;preserveRecoveryOnExit_=false;projectDirty_=true;resetRecoverySnapshot();projectLabel_.setText(label,juce::dontSendNotification);status_.setText(message,juce::dontSendNotification);saveDeviceSettings();
     }
     void showCompactMenu(int index){
         if(index<0||index>=static_cast<int>(menuButtons_.size()))return;
@@ -896,8 +929,21 @@ private:
             updateExportStatus();chooser_.reset();exportMix_.grabKeyboardFocus();
         });
     }
-    void chooseProject(){chooser_=std::make_unique<juce::FileChooser>("Open FLOWDAW project",juce::File(projectPath_.string()),"*.flow");chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[this](const juce::FileChooser&fc){auto f=fc.getResult();if(f.existsAsFile())loadProjectFile(std::filesystem::path(f.getFullPathName().toStdString()));else status_.setText("Open cancelled • current project and recovery snapshot unchanged",juce::dontSendNotification);chooser_.reset();});}
-    void loadProjectFile(const std::filesystem::path&p){try{if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();pluginWindow_.reset();engine_.stop();project_=ProjectSerializer::load(p,true);try{hydrateFirstPartyContent(project_,flowCoreRoot_);}catch(...){}projectPath_=p;settings_.lastProjectPath=p;undo_=UndoStack{};engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshRackControls();syncChopControls();updateBpmLabel();if(arrangement_)arrangement_->projectChanged();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();projectLabel_.setText("Project: "+juce::String(p.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);recoveredAtStartup_=false;preserveRecoveryOnExit_=false;resetRecoverySnapshot();status_.setText("Project loaded; recovery snapshot armed",juce::dontSendNotification);}catch(const std::exception&e){status_.setText("Open failed for "+juce::String(p.filename().string())+": "+juce::String(e.what())+" • current project kept; choose another .flow file",juce::dontSendNotification);}}
+    void chooseProject(){
+        chooser_=std::make_unique<juce::FileChooser>("Open FLOWDAW project",juce::File(projectPath_.string()),"*.flow");
+        juce::Component::SafePointer<MainComponent> safeThis(this);
+        chooser_->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[safeThis](const juce::FileChooser&fc){
+            if(auto*self=safeThis.getComponent()){
+                auto file=fc.getResult();
+                self->chooser_.reset();
+                if(file.existsAsFile()){
+                    const auto path=std::filesystem::path(file.getFullPathName().toStdString());
+                    self->confirmDiscardChanges([safeThis,path]{if(auto*owner=safeThis.getComponent())owner->loadProjectFile(path);});
+                }else self->status_.setText("Open cancelled • current project unchanged",juce::dontSendNotification);
+            }
+        });
+    }
+    void loadProjectFile(const std::filesystem::path&p){try{if(audioRecording_)finishAudioRecording();if(recordingChops_)finishChopRecording();pluginWindow_.reset();engine_.stop();project_=ProjectSerializer::load(p,true);try{hydrateFirstPartyContent(project_,flowCoreRoot_);}catch(...){}projectPath_=p;settings_.lastProjectPath=p;undo_=UndoStack{};engine_.publish(project_);refreshTrackChoice();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshRackControls();syncChopControls();updateBpmLabel();if(arrangement_)arrangement_->projectChanged();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();projectLabel_.setText("Project: "+juce::String(p.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);recoveredAtStartup_=false;preserveRecoveryOnExit_=false;projectDirty_=false;resetRecoverySnapshot();status_.setText("Project loaded; recovery snapshot armed",juce::dontSendNotification);}catch(const std::exception&e){status_.setText("Open failed for "+juce::String(p.filename().string())+": "+juce::String(e.what())+" • current project kept; choose another .flow file",juce::dontSendNotification);}}
     std::vector<std::filesystem::path> pluginRoots()const{
         if(!settings_.pluginRoots.empty())return settings_.pluginRoots;std::vector<std::filesystem::path> roots;auto home=std::filesystem::path(juce::File::getSpecialLocation(juce::File::userHomeDirectory).getFullPathName().toStdString());roots.push_back(home/".vst3");roots.push_back("/usr/lib/vst3");roots.push_back("/usr/local/lib/vst3");
 #if JUCE_MAC
@@ -923,7 +969,7 @@ private:
         for(auto const&t:project_.tracks){std::string label=t.name;if(t.externalInstrumentEnabled&&!t.externalInstrument.name.empty())label+="  •  "+t.externalInstrument.name;trackChoice_.addItem(juce::String(label),id++);}
         if(!project_.tracks.empty())trackChoice_.setSelectedId(previous>0&&previous<=static_cast<int>(project_.tracks.size())?previous:1,juce::dontSendNotification);
     }
-    void publishEdit(const juce::String&message){engine_.publish(project_);refreshTrackChoice();refreshMixerTargets();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();syncChopControls();updateBpmLabel();if(arrangement_)arrangement_->projectChanged();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();status_.setText(message,juce::dontSendNotification);}
+    void publishEdit(const juce::String&message){projectDirty_=true;engine_.publish(project_);refreshTrackChoice();refreshMixerTargets();refreshPatternChoice();refreshSampleChoice();syncMixerControls();refreshMixerRoutingControls();syncRackTargetToMixer();refreshRackControls();syncChopControls();updateBpmLabel();if(arrangement_)arrangement_->projectChanged();if(piano_)piano_->repaint();if(sampler_)sampler_->repaint();if(sequencer_)sequencer_->repaint();if(automationAssist_)automationAssist_->refresh();status_.setText(message,juce::dontSendNotification);}
     enum class EditorMode{Arrangement,Piano,Step,Automation,Sampler};
     void setEditorMode(EditorMode mode){
         editorMode_=mode;const bool arrangement=mode==EditorMode::Arrangement,piano=mode==EditorMode::Piano,step=mode==EditorMode::Step,automation=mode==EditorMode::Automation,sampler=mode==EditorMode::Sampler;
@@ -1049,7 +1095,7 @@ private:
     void undoEdit(){if(!undo_.undo(project_)){status_.setText("Nothing to undo",juce::dontSendNotification);return;}publishEdit("Undo");}
     void redoEdit(){if(!undo_.redo(project_)){status_.setText("Nothing to redo",juce::dontSendNotification);return;}publishEdit("Redo");}
     void writeProject(std::filesystem::path path){
-        try{if(path.extension()!=".flow")path+=".flow";ProjectSerializer::save(project_,path);projectPath_=path;settings_.lastProjectPath=path;recoveredAtStartup_=false;preserveRecoveryOnExit_=false;resetRecoverySnapshot();projectLabel_.setText("Project: "+juce::String(path.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);status_.setText("Project saved (v11)",juce::dontSendNotification);}
+        try{if(path.extension()!=".flow")path+=".flow";ProjectSerializer::save(project_,path);projectPath_=path;settings_.lastProjectPath=path;recoveredAtStartup_=false;preserveRecoveryOnExit_=false;projectDirty_=false;resetRecoverySnapshot();projectLabel_.setText("Project: "+juce::String(path.filename().string())+" | "+juce::String(static_cast<int>(project_.tracks.size()))+" tracks",juce::dontSendNotification);status_.setText("Project saved (v11)",juce::dontSendNotification);}
         catch(const std::exception&e){status_.setText("Save failed for "+juce::String(path.filename().string())+": "+juce::String(e.what())+" • project remains open and recovery stays armed",juce::dontSendNotification);}
     }
     void saveProject(){
@@ -1083,14 +1129,14 @@ private:
     void resetRecoverySnapshot(){autosaveTicks_=0;autosaveRecovery();}
     void saveSafety(){try{safety_.save(safetyPath_);}catch(...){} }
     void saveDeviceSettings(){auto s=deviceManager_.getAudioDeviceSetup();settings_.audio.preferredSampleRate=s.sampleRate>0?static_cast<int>(s.sampleRate):48000;settings_.audio.bufferSize=sanitizeBufferSize(static_cast<unsigned long>(std::max(1,s.bufferSize)));settings_.audio.inputDevice=s.inputDeviceName.toStdString();settings_.audio.outputDevice=s.outputDeviceName.toStdString();try{saveAppSettings(settings_,settingsPath_);}catch(...){} }
-    AppSettings settings_;flowdaw::ui::ExportWorkflowState exportWorkflow_;PluginSafetyRegistry safety_;std::unique_ptr<SessionRecovery> recovery_;std::filesystem::path settingsPath_,safetyPath_,projectPath_,flowCoreRoot_=runtimeFlowCoreRoot();Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::vector<int> visiblePluginIndices_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::unique_ptr<juceui::ArrangementComponent> arrangement_;std::unique_ptr<juceui::PianoRollComponent> piano_;std::unique_ptr<juceui::SamplerComponent> sampler_;std::unique_ptr<juceui::StepSequencerComponent> sequencer_;std::unique_ptr<juceui::AutomationAssistComponent> automationAssist_;std::unique_ptr<juceui::SampleBrowserComponent> sampleBrowser_;EditorMode editorMode_=EditorMode::Arrangement;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juceui::ShellLookAndFeel shellLookAndFeel_;juce::Label title_,status_,projectLabel_,note_,meterLabel_,masteringLabel_,bpmLabel_,mixerSectionLabel_,mixerRoutingLabel_,mixerVolumeLabel_,mixerPanLabel_,trackMeterLabel_,rackParamLabel_,pluginMaintenanceLabel_,pluginDiagnostics_;MasteringMetrics masteringMetrics_{};bool hasMasteringAnalysis_=false;int settingsSaveTicks_=0,autosaveTicks_=0;bool recoveredAtStartup_=false,preserveRecoveryOnExit_=false,suppressMixerCallbacks_=false,mixerGestureActive_=false,suppressRackCallbacks_=false,rackGestureActive_=false,rackEditorDirty_=false,suppressChopCallbacks_=false,chopGestureActive_=false,recordingChops_=false,audioRecording_=false,mixerPanelRequested_=true,utilityPanelRequested_=false,pluginMaintenanceRequested_=false,pluginScanCompleted_=false;Id chopRecordPatternId_=0,audioRecordTrackId_=0,rackEditorPluginId_=0;Tick chopRecordStartTick_=0,audioRecordStartTick_=0;Project mixerBefore_,rackBefore_,rackEditorBefore_,chopBefore_,chopRecordBefore_,audioRecordBefore_;std::array<juce::TextButton,5> menuButtons_;juce::TextButton newProject_,loadProject_,importWav_,saveProject_,play_,stop_,bpmMinus_,bpmPlus_,undoButton_,redoButton_,commandPalette_,scan_,pluginMaintenanceToggle_,openEditor_,setInstrument_,clearInstrument_,addTrackFx_,addMasterFx_,muteTrack_,soloTrack_,mixerSetSend_,mixerRemoveSend_,arrangementTab_,pianoTab_,sequencerTab_,automationTab_,samplerTab_,mixerPanelToggle_,utilityPanelToggle_,bankPrev_,bankNext_,analyzeSample_,chop8_,autoChop_,chopBeat_,chopBar_,matchBpm_,exportMix_,exportStems_,stopPreview_,recChops_,chopReset_,recAudio_,monitorInput_,prevTake_,nextTake_,renamePad_,padGainMinus_,padGainPlus_,padPanMinus_,padPanPlus_,padChokeMinus_,padChokePlus_,addRackGain_,addRackClip_,addRackWidth_,addRackExternal_,addRackNative_,applyNativePreset_,rackMoveUp_,rackMoveDown_,rackEnabled_,rackBypass_,rackRemove_,openRackEditor_;juce::ComboBox pluginChoice_,pluginKindChoice_,trackChoice_,mixerTargetChoice_,mixerOutputChoice_,mixerSendBusChoice_,patternChoice_,sampleChoice_,rackTargetChoice_,rackPluginChoice_,rackParamChoice_,nativePluginChoice_,nativePresetChoice_,chopGridChoice_;juce::TextEditor pluginSearch_,padName_;juce::Slider mixerVolume_,mixerPan_,mixerSendGain_,rackWet_,rackParam_,chopQuantizeStrength_,chopHumanizeStrength_;juce::ToggleButton mixerSendPre_;juceui::StereoMeterComponent trackMeter_;int rackNativeParameterIndex_=0;
+    AppSettings settings_;flowdaw::ui::ExportWorkflowState exportWorkflow_;PluginSafetyRegistry safety_;std::unique_ptr<SessionRecovery> recovery_;std::filesystem::path settingsPath_,safetyPath_,projectPath_,flowCoreRoot_=runtimeFlowCoreRoot();Project project_;UndoStack undo_;AudioEngine engine_;std::shared_ptr<PluginHost>pluginHost_;juce::AudioDeviceManager deviceManager_;juce::AudioPluginFormatManager formatManager_;std::unique_ptr<juce::AudioDeviceSelectorComponent> selector_;std::unique_ptr<juce::FileChooser> chooser_;std::vector<PluginDescriptor> plugins_;std::vector<int> visiblePluginIndices_;std::unique_ptr<PluginEditorWindow> pluginWindow_;std::unique_ptr<juceui::ArrangementComponent> arrangement_;std::unique_ptr<juceui::PianoRollComponent> piano_;std::unique_ptr<juceui::SamplerComponent> sampler_;std::unique_ptr<juceui::StepSequencerComponent> sequencer_;std::unique_ptr<juceui::AutomationAssistComponent> automationAssist_;std::unique_ptr<juceui::SampleBrowserComponent> sampleBrowser_;EditorMode editorMode_=EditorMode::Arrangement;std::array<float,kMaxDeviceBlock>monoInput_{};std::array<float,kMaxDeviceBlock*2>stereoOutput_{};juceui::ShellLookAndFeel shellLookAndFeel_;juce::Label title_,status_,projectLabel_,note_,meterLabel_,masteringLabel_,bpmLabel_,mixerSectionLabel_,mixerRoutingLabel_,mixerVolumeLabel_,mixerPanLabel_,trackMeterLabel_,rackParamLabel_,pluginMaintenanceLabel_,pluginDiagnostics_;MasteringMetrics masteringMetrics_{};bool hasMasteringAnalysis_=false;int settingsSaveTicks_=0,autosaveTicks_=0;bool recoveredAtStartup_=false,preserveRecoveryOnExit_=false,suppressMixerCallbacks_=false,mixerGestureActive_=false,suppressRackCallbacks_=false,rackGestureActive_=false,rackEditorDirty_=false,suppressChopCallbacks_=false,chopGestureActive_=false,recordingChops_=false,audioRecording_=false,mixerPanelRequested_=true,utilityPanelRequested_=false,pluginMaintenanceRequested_=false,pluginScanCompleted_=false,projectDirty_=false;Id chopRecordPatternId_=0,audioRecordTrackId_=0,rackEditorPluginId_=0;Tick chopRecordStartTick_=0,audioRecordStartTick_=0;Project mixerBefore_,rackBefore_,rackEditorBefore_,chopBefore_,chopRecordBefore_,audioRecordBefore_;std::array<juce::TextButton,5> menuButtons_;juce::TextButton newProject_,loadProject_,importWav_,saveProject_,play_,stop_,bpmMinus_,bpmPlus_,undoButton_,redoButton_,commandPalette_,scan_,pluginMaintenanceToggle_,openEditor_,setInstrument_,clearInstrument_,addTrackFx_,addMasterFx_,muteTrack_,soloTrack_,mixerSetSend_,mixerRemoveSend_,arrangementTab_,pianoTab_,sequencerTab_,automationTab_,samplerTab_,mixerPanelToggle_,utilityPanelToggle_,bankPrev_,bankNext_,analyzeSample_,chop8_,autoChop_,chopBeat_,chopBar_,matchBpm_,exportMix_,exportStems_,stopPreview_,recChops_,chopReset_,recAudio_,monitorInput_,prevTake_,nextTake_,renamePad_,padGainMinus_,padGainPlus_,padPanMinus_,padPanPlus_,padChokeMinus_,padChokePlus_,addRackGain_,addRackClip_,addRackWidth_,addRackExternal_,addRackNative_,applyNativePreset_,rackMoveUp_,rackMoveDown_,rackEnabled_,rackBypass_,rackRemove_,openRackEditor_;juce::ComboBox pluginChoice_,pluginKindChoice_,trackChoice_,mixerTargetChoice_,mixerOutputChoice_,mixerSendBusChoice_,patternChoice_,sampleChoice_,rackTargetChoice_,rackPluginChoice_,rackParamChoice_,nativePluginChoice_,nativePresetChoice_,chopGridChoice_;juce::TextEditor pluginSearch_,padName_;juce::Slider mixerVolume_,mixerPan_,mixerSendGain_,rackWet_,rackParam_,chopQuantizeStrength_,chopHumanizeStrength_;juce::ToggleButton mixerSendPre_;juceui::StereoMeterComponent trackMeter_;int rackNativeParameterIndex_=0;
 };
 
 class MainWindow final:public juce::DocumentWindow{
 public:MainWindow():DocumentWindow("FLOWDAW",juce::Colours::black,DocumentWindow::allButtons){setUsingNativeTitleBar(true);setResizable(true,false);setResizeLimits(flowdaw::ui::ShellLayoutMetrics::minimumWidth,flowdaw::ui::ShellLayoutMetrics::minimumHeight,32768,32768);setContentOwned(new MainComponent(),true);centreWithSize(getWidth(),getHeight());setVisible(true);}void closeButtonPressed()override{juce::JUCEApplication::getInstance()->systemRequestedQuit();}
 };
 class FlowdawApplication final:public juce::JUCEApplication{
-public:const juce::String getApplicationName()override{return"FLOWDAW";}const juce::String getApplicationVersion()override{return"0.8.0";}bool moreThanOneInstanceAllowed()override{return false;}void initialise(const juce::String&)override{window_=std::make_unique<MainWindow>();}void shutdown()override{window_.reset();}void systemRequestedQuit()override{quit();}void anotherInstanceStarted(const juce::String&)override{}
+public:const juce::String getApplicationName()override{return"FLOWDAW";}const juce::String getApplicationVersion()override{return"0.8.0";}bool moreThanOneInstanceAllowed()override{return false;}void initialise(const juce::String&)override{window_=std::make_unique<MainWindow>();}void shutdown()override{window_.reset();}void systemRequestedQuit()override{if(window_)if(auto*main=dynamic_cast<MainComponent*>(window_->getContentComponent())){main->requestQuit();return;}quit();}void anotherInstanceStarted(const juce::String&)override{}
 private:std::unique_ptr<MainWindow>window_;
 };
 }
