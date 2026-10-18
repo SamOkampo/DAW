@@ -14,7 +14,25 @@ RecoveryInfo SessionRecovery::inspect() const{
 
 void SessionRecovery::writeMarker(const std::filesystem::path& originalProject){
     std::filesystem::create_directories(root_);auto tmp=marker_;tmp+=".tmp";{std::ofstream f(tmp,std::ios::trunc);if(!f)throw std::runtime_error("Could not write recovery marker");f<<"FLOWDAW_SESSION 1\nORIGINAL "<<std::quoted(originalProject.string())<<"\nGENERATION "<<generation_<<"\nDIRTY 1\nEND\n";}
-    std::error_code ec;std::filesystem::rename(tmp,marker_,ec);if(ec){std::filesystem::remove(marker_,ec);ec.clear();std::filesystem::rename(tmp,marker_,ec);if(ec)throw std::runtime_error("Could not replace recovery marker");}
+    std::error_code ec;
+    std::filesystem::rename(tmp,marker_,ec);
+    if(!ec)return;
+    // On Windows rename-over-existing may fail; retain the old marker unless
+    // the new marker can be promoted, rather than deleting recovery metadata.
+    auto rollback=marker_;rollback+=".rollback";
+    ec.clear();
+    if(std::filesystem::exists(rollback,ec)||ec)
+        throw std::runtime_error("Recovery rollback marker already exists");
+    ec.clear();std::filesystem::rename(marker_,rollback,ec);
+    if(ec)throw std::runtime_error("Could not stage recovery marker: "+ec.message());
+    ec.clear();std::filesystem::rename(tmp,marker_,ec);
+    if(ec){
+        const auto reason=ec.message();
+        ec.clear();std::filesystem::rename(rollback,marker_,ec);
+        if(ec)throw std::runtime_error("Recovery marker promotion failed; previous marker remains at "+rollback.string());
+        throw std::runtime_error("Could not replace recovery marker; prior marker restored: "+reason);
+    }
+    ec.clear();std::filesystem::remove(rollback,ec);
 }
 
 void SessionRecovery::beginSession(const std::filesystem::path& originalProject){auto previous=inspect();generation_=previous.generation;writeMarker(originalProject);}
